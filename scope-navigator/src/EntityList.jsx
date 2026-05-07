@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, ArrowUpDown, Filter, X, Users, Plus, Receipt } from 'lucide-react';
-import { typeConfig, statusConfig, StatusBadge, entityTypeOrder, sortOptions, applySorting, isEntityUnmanaged } from './config';
+import { typeConfig, statusConfig, StatusBadge, entityTypeOrder, sortOptions, applySorting, isEntityUnmanaged, managementModeConfig } from './config';
 import useClickOutside from './useClickOutside';
 import { flattenFrom } from './data';
 
@@ -133,11 +133,6 @@ function EntityRow({ entity, onDrillDown, onSelect, isSelected, isEven, ancestor
           </span>
         )}
       </div>
-      <span className="flex-shrink-0 ml-1">
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-[10px] font-medium text-zinc-500 dark:text-zinc-400 leading-none">
-          {typeConfig[entity.type].label}
-        </span>
-      </span>
       {isEntityUnmanaged(entity) && (
         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-700 text-white text-[10px] font-medium leading-none flex-shrink-0">
           <Receipt className="w-2.5 h-2.5" />
@@ -199,6 +194,7 @@ export default function EntityList({ entities, onDrillDown, onSelect, selectedEn
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState(null);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [managementFilter, setManagementFilter] = useState(null);
   const [activeMenu, setActiveMenu] = useState(null);
   const [includeDescendants, setIncludeDescendants] = useState(true);
 
@@ -209,6 +205,7 @@ export default function EntityList({ entities, onDrillDown, onSelect, selectedEn
     setSearch('');
     setSortBy(null);
     setStatusFilter(null);
+    setManagementFilter(null);
     setIncludeDescendants(true);
   }
 
@@ -263,6 +260,8 @@ export default function EntityList({ entities, onDrillDown, onSelect, selectedEn
       };
     });
     if (statusFilter) displayItems = displayItems.filter(d => d.entity.status === statusFilter);
+    if (managementFilter === 'unmanaged') displayItems = displayItems.filter(d => isEntityUnmanaged(d.entity));
+    if (managementFilter === 'managed') displayItems = displayItems.filter(d => !isEntityUnmanaged(d.entity));
     displayItems = applySorting(displayItems.map(d => d.entity), sortBy).map(e =>
       displayItems.find(d => d.entity.id === e.id)
     );
@@ -270,6 +269,8 @@ export default function EntityList({ entities, onDrillDown, onSelect, selectedEn
     let filtered = entities;
     if (search) filtered = filtered.filter(e => e.name.toLowerCase().includes(search.toLowerCase()));
     if (statusFilter) filtered = filtered.filter(e => e.status === statusFilter);
+    if (managementFilter === 'unmanaged') filtered = filtered.filter(e => isEntityUnmanaged(e));
+    if (managementFilter === 'managed') filtered = filtered.filter(e => !isEntityUnmanaged(e));
     filtered = applySorting(filtered, sortBy);
     displayItems = filtered.map(entity => ({ entity, ancestorPath: null, fullPath: null }));
   }
@@ -383,31 +384,43 @@ export default function EntityList({ entities, onDrillDown, onSelect, selectedEn
             <button
               onClick={() => setActiveMenu(activeMenu === 'filter' ? null : 'filter')}
               className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${
-                statusFilter ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-700'
+                (statusFilter || managementFilter) ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-700'
               }`}
             >
               <Filter className="w-3.5 h-3.5" />
-              <span>{statusFilter ? statusConfig[statusFilter].label : 'Filter'}</span>
+              <span>{
+                statusFilter && managementFilter ? 'Filters · 2' :
+                statusFilter ? statusConfig[statusFilter].label :
+                managementFilter ? managementModeConfig[managementFilter].label :
+                'Filter'
+              }</span>
             </button>
             {activeMenu === 'filter' && (
               <DropdownMenu onClose={() => setActiveMenu(null)}>
-                {statusFilter && (
-                  <MenuButton onClick={() => { setStatusFilter(null); setActiveMenu(null); }}>
-                    <X className="w-3 h-3 inline mr-1" />Clear filter
+                {(statusFilter || managementFilter) && (
+                  <MenuButton onClick={() => { setStatusFilter(null); setManagementFilter(null); setActiveMenu(null); }}>
+                    <X className="w-3 h-3 inline mr-1" />Clear filters
                   </MenuButton>
                 )}
+                <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</div>
                 {['active', 'trial', 'suspended'].map(s => (
-                  <MenuButton key={s} active={statusFilter === s} onClick={() => { setStatusFilter(s); setActiveMenu(null); }}>
+                  <MenuButton key={s} active={statusFilter === s} onClick={() => { setStatusFilter(statusFilter === s ? null : s); setActiveMenu(null); }}>
                     <StatusBadge status={s} />
+                  </MenuButton>
+                ))}
+                <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 border-t border-zinc-100 dark:border-zinc-700 mt-1">Management</div>
+                {['managed', 'unmanaged'].map(m => (
+                  <MenuButton key={m} active={managementFilter === m} onClick={() => { setManagementFilter(managementFilter === m ? null : m); setActiveMenu(null); }}>
+                    {managementModeConfig[m].label}
                   </MenuButton>
                 ))}
               </DropdownMenu>
             )}
           </div>
 
-          {(search || sortBy || statusFilter) && (
+          {(search || sortBy || statusFilter || managementFilter) && (
             <button
-              onClick={() => { setSearch(''); setSortBy(null); setStatusFilter(null); }}
+              onClick={() => { setSearch(''); setSortBy(null); setStatusFilter(null); setManagementFilter(null); }}
               className="flex items-center gap-1 px-2 py-1.5 rounded-md text-xs text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-300 dark:hover:bg-zinc-700 transition-colors cursor-pointer flex-shrink-0"
             >
               <X className="w-3.5 h-3.5" />Clear
