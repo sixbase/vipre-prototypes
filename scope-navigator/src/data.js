@@ -34,8 +34,21 @@ function pickStatus() {
 }
 
 const distributorNames = [
-  'Apex Networks', 'Continental Distribution',
-  'CyberShield Partners', 'Fortify Networks', 'TrustPoint Solutions',
+  'Apex Networks', 'Continental Distribution', 'CyberShield Partners',
+  'Fortify Networks', 'TrustPoint Solutions', 'IronGate Holdings',
+  'Northbridge Networks', 'Summit Distributors', 'Pinnacle Channel Group',
+  'Halcyon Networks',
+];
+
+// Sub-distributors live laterally under a top-level distributor — keep
+// their names visually distinct (regional / channel-flavored) so they
+// don't collide with the top-level pool above when rendered in the same
+// list.
+const subDistributorNames = [
+  'Pacific Regional', 'Atlantic Channel', 'Midwest Channel',
+  'Northeast Regional', 'Southwest Group', 'Mountain West Group',
+  'Heartland Channel', 'Coastal Distribution', 'Sunbelt Regional',
+  'Great Lakes Channel', 'Cascade Distribution', 'Gulf Coast Regional',
 ];
 
 const partnerNames = {
@@ -87,6 +100,7 @@ function generateCustomerName(index) {
 
 // ── name pool cursors ──────────────────────────────────────────────
 const dCur = { val: 0 };
+const subDCur = { val: 0 };
 const partnerCursors = { msp: { val: 0 }, reseller: { val: 0 }, hybrid: { val: 0 } };
 let customerIndex = 0;
 
@@ -495,10 +509,16 @@ function validateHierarchy(roots) {
 // exercise grouping, filtering, and capability variants without the
 // render cost of a full production-scale tree. Bump these up if you
 // need to test list/search performance at scale.
-const PARTNERS_PER_DISTRIBUTOR = 9;           // 3 msp / 3 reseller / 3 hybrid
-const CUSTOMERS_PER_PARTNER_RANGE = [12, 20];
-const DIRECT_CUSTOMERS_PER_DISTRIBUTOR = 5;   // mixed managed/unmanaged
-const SMALL_BOOK_RANGE = [3, 6];              // sub-distributors / sub-partners
+const TOP_DISTRIBUTORS = 10;                  // top-level distributors at root
+// Per-distributor variance — wide ranges so the entity list exercises
+// both tiny and large distributors at scale. Each top-level distributor
+// draws values deterministically from these ranges so the tree shape
+// varies but stays stable across reloads.
+const PARTNERS_PER_DISTRIBUTOR_RANGE = [1, 12];
+const DIRECT_CUSTOMERS_PER_DISTRIBUTOR_RANGE = [0, 10];
+const SUB_DISTRIBUTORS_PER_DISTRIBUTOR_RANGE = [0, 3];
+const CUSTOMERS_PER_PARTNER_RANGE = [3, 30];  // wider — small books to large
+const SMALL_BOOK_RANGE = [2, 10];             // sub-distributors / sub-partners
 
 function pickCustomerCount(seed) {
   const r = seededRand(seed);
@@ -540,16 +560,41 @@ function buildSubDistributor(managementMode, parentDistIndex, subIndex) {
   return makeEntity({
     type: 'distributor',
     managementMode,
-    name: nextName(distributorNames, dCur),
+    name: nextName(subDistributorNames, subDCur),
     children: [partner, ...directs],
   });
 }
 
+// FNV-1a + mulberry32 — proper avalanche so short, similar seeds like
+// "dist-0-pc" / "dist-1-pc" produce well-distributed values. The old
+// seededRand collapses on small string deltas.
+function hashedRand(seed) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  h = (h + 0x6d2b79f5) | 0;
+  let t = Math.imul(h ^ (h >>> 15), 1 | h);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+function pickFromRange(seed, [min, max]) {
+  const r = hashedRand(seed);
+  return min + Math.floor(r * (max - min + 1));
+}
+
 function buildDistributor(name, distIndex) {
+  const seedBase = `dist-${distIndex}`;
+  const partnerCount = pickFromRange(`${seedBase}-pc`, PARTNERS_PER_DISTRIBUTOR_RANGE);
+  const directCount = pickFromRange(`${seedBase}-dc`, DIRECT_CUSTOMERS_PER_DISTRIBUTOR_RANGE);
+  const subCount = pickFromRange(`${seedBase}-sc`, SUB_DISTRIBUTORS_PER_DISTRIBUTOR_RANGE);
+
   const partners = [];
   // Round-robin capability so the rollup stays balanced no matter the count.
   const caps = ['msp', 'hybrid', 'reseller'];
-  for (let pi = 0; pi < PARTNERS_PER_DISTRIBUTOR; pi++) {
+  for (let pi = 0; pi < partnerCount; pi++) {
     const cap = caps[pi % caps.length];
     const partner = buildPartnerForCapability(cap, `d${distIndex}-p${pi}-${cap}`);
     // Demonstrate partner-under-partner on every hybrid: attach one managed
@@ -563,19 +608,23 @@ function buildDistributor(name, distIndex) {
     }
     partners.push(partner);
   }
+
   const directs = [];
-  for (let ci = 0; ci < DIRECT_CUSTOMERS_PER_DISTRIBUTOR; ci++) {
+  for (let ci = 0; ci < directCount; ci++) {
     // ~70% managed direct customers under a distributor
     const mode = (ci % 10) < 7 ? 'managed' : 'unmanaged';
     directs.push(makeEntity({ type: 'customer', managementMode: mode, name: nextCustomerName() }));
   }
-  // Demonstrate distributor-under-distributor: a 1-managed / 2-unmanaged mix
-  // so the lateral hierarchy is impossible to miss while browsing the tree.
-  const subDistributors = [
-    buildSubDistributor('managed', distIndex, 0),
-    buildSubDistributor('unmanaged', distIndex, 1),
-    buildSubDistributor('unmanaged', distIndex, 2),
-  ];
+
+  // Demonstrate distributor-under-distributor with a varied count per
+  // top-level distributor (some have none, some have one, some have two).
+  // Alternate managed/unmanaged across the set so both flavors surface.
+  const subDistributors = [];
+  for (let si = 0; si < subCount; si++) {
+    const mode = (distIndex + si) % 2 === 0 ? 'managed' : 'unmanaged';
+    subDistributors.push(buildSubDistributor(mode, distIndex, si));
+  }
+
   return makeEntity({
     type: 'distributor',
     managementMode: 'managed',
@@ -586,10 +635,33 @@ function buildDistributor(name, distIndex) {
 
 function generateData() {
   dCur.val = 0;
-  const dist1 = buildDistributor(nextName(distributorNames, dCur), 0);
-  const dist2 = buildDistributor(nextName(distributorNames, dCur), 1);
+  subDCur.val = 0;
+  const roots = [];
+  for (let i = 0; i < TOP_DISTRIBUTORS; i++) {
+    roots.push(buildDistributor(nextName(distributorNames, dCur), i));
+  }
 
-  const roots = [dist1, dist2];
+  // Direct top-level partners — partners that contract directly with
+  // Vipre and don't sit under any distributor. Mix of capabilities and
+  // book sizes (some small, some full-range) so root partners scale
+  // realistically when listed in the entity list.
+  const directPartnerSpecs = [
+    ['msp', 0, true],     ['msp', 1, false],
+    ['hybrid', 0, true],  ['hybrid', 1, false],
+    ['reseller', 0, true], ['reseller', 1, false],
+  ];
+  for (const [cap, idx, smallBook] of directPartnerSpecs) {
+    roots.push(buildPartnerForCapability(cap, `root-direct-${cap}-${idx}`, { smallBook }));
+  }
+
+  // Direct top-level customers — enterprise accounts that work with
+  // Vipre directly without a distributor or partner in the middle.
+  const DIRECT_ROOT_CUSTOMERS = 20;
+  for (let i = 0; i < DIRECT_ROOT_CUSTOMERS; i++) {
+    const mode = (i % 4) < 3 ? 'managed' : 'unmanaged'; // ~75% managed
+    roots.push(makeEntity({ type: 'customer', managementMode: mode, name: nextCustomerName() }));
+  }
+
   validateHierarchy(roots);
   return roots;
 }

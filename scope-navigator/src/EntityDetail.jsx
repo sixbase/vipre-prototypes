@@ -4,7 +4,7 @@ import {
   Shield, Mail, Send, Bug, ScanSearch, CheckCircle, AlertTriangle,
   Trash2, Paperclip, UserCheck, Plus, Copy, Search, X, Cloud,
   Fingerprint, Check, TrendingUp, TrendingDown, AlertCircle, Settings,
-  Activity, Target, Zap, BarChart3, Info, MapPin, Phone, User, Languages, ArrowLeft, Receipt
+  Activity, Target, Zap, BarChart3, Info, MapPin, Phone, User, Languages, ArrowLeft, EyeOff
 } from 'lucide-react';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, ResponsiveContainer,
@@ -626,7 +626,9 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, deep = f
                       <div className={`relative w-7 h-7 rounded-lg ${childBg} flex items-center justify-center flex-shrink-0`}>
                         <ChildIcon className={`w-3.5 h-3.5 ${childColor}`} />
                         {isEntityUnmanaged(child) && (
-                          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-zinc-700 ring-2 ring-white dark:ring-zinc-900" title="Unmanaged" />
+                          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-zinc-700 ring-2 ring-white dark:ring-zinc-900 flex items-center justify-center" title="Unmanaged">
+                            <EyeOff className="w-2 h-2 text-white" strokeWidth={2.5} />
+                          </span>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1134,7 +1136,9 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
           <div className={`relative w-10 h-10 rounded-lg ${bg} ring-1 ${ring} flex items-center justify-center flex-shrink-0`}>
             <Icon className={`w-5 h-5 ${color}`} />
             {isUnmanaged && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-zinc-700 ring-2 ring-white dark:ring-zinc-900" title="Unmanaged" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-zinc-700 ring-2 ring-white dark:ring-zinc-900 flex items-center justify-center" title="Unmanaged">
+                <EyeOff className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
+              </span>
             )}
           </div>
           <div className="min-w-0 flex-1">
@@ -1323,13 +1327,15 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
                             <div className={`relative w-6 h-6 rounded-md ${cfg.bg} flex items-center justify-center flex-shrink-0`}>
                               <cfg.Icon className={`w-3 h-3 ${cfg.color}`} />
                               {unmanaged && (
-                                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-zinc-700 ring-2 ring-white dark:ring-zinc-900" title="Unmanaged" />
+                                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-zinc-700 ring-2 ring-white dark:ring-zinc-900 flex items-center justify-center" title="Unmanaged">
+                            <EyeOff className="w-2 h-2 text-white" strokeWidth={2.5} />
+                          </span>
                               )}
                             </div>
                             <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate flex-1">{d.name}</span>
                             {unmanaged && (
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-700 text-white text-[10px] font-medium leading-none flex-shrink-0">
-                                <Receipt className="w-2.5 h-2.5" />
+                                <EyeOff className="w-2.5 h-2.5" />
                                 Unmanaged
                               </span>
                             )}
@@ -1385,7 +1391,7 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
             <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
               <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/40 px-4 py-3 flex items-start gap-3">
                 <div className="w-8 h-8 rounded-md bg-zinc-700 flex items-center justify-center flex-shrink-0">
-                  <Info className="w-4 h-4 text-white" />
+                  <EyeOff className="w-4 h-4 text-white" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{

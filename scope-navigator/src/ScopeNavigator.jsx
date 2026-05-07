@@ -108,7 +108,7 @@ function DropdownPopover({ items, onSelect, onClose, header, currentEntityId }) 
                 {isCurrent
                   ? <Check className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   : ItemIcon && (
-                      <span className={`inline-flex items-center justify-center w-5 h-5 rounded ${typeConfig[getDisplayType(item)]?.bg ?? 'bg-zinc-500'}`}>
+                      <span className={`inline-flex items-center justify-center w-5 h-5 rounded ${typeConfig[item.type]?.bg ?? 'bg-zinc-500'}`}>
                         <ItemIcon className="w-3 h-3 text-white" />
                       </span>
                     )
@@ -312,7 +312,7 @@ export default function ScopeNavigator({ path, onNavigate, onSearchOpen, telepor
       return {
         id: entity.id,
         label: entity.name,
-        entityType: getDisplayType(entity),
+        entityType: entity.type,
         entity,
         pathIndex: i,
         isActive: true,
@@ -327,7 +327,7 @@ export default function ScopeNavigator({ path, onNavigate, onSearchOpen, telepor
       return {
         id: entity.id,
         label: entity.name,
-        entityType: getDisplayType(entity),
+        entityType: entity.type,
         entity,
         pathIndex: i,
         isActive: false,

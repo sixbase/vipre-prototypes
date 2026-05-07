@@ -1,7 +1,7 @@
 import {
   Building2, Store, Users,
   Mail, Send, ShieldCheck, Bug, Globe, Shield, Monitor, Cloud, Key, Package,
-  Layers, Tag, Split, Briefcase, Receipt,
+  Layers, Tag, Split, Briefcase, EyeOff,
 } from 'lucide-react';
 
 // ── Entity type + partner capability taxonomy ──────────────────────
@@ -143,8 +143,8 @@ export const managementModeConfig = {
   },
   unmanaged: {
     label: 'Unmanaged',
-    Icon: Receipt,
-    icon: Receipt,
+    Icon: EyeOff,
+    icon: EyeOff,
     bgClass: 'bg-zinc-100 dark:bg-zinc-800',
     textClass: 'text-zinc-600 dark:text-zinc-400',
     borderClass: 'border-zinc-200 dark:border-zinc-700',
@@ -277,12 +277,12 @@ export const defaultPkgIcon = { icon: Package, color: 'text-zinc-400' };
 const typeDepth = Object.fromEntries(typeOrder.map((t, i) => [t, i]));
 
 export const sortOptions = [
+  { value: 'children-desc', label: 'Most direct descendants' },
+  { value: 'children-asc',  label: 'Fewest direct descendants' },
   { value: 'name-asc',      label: 'Name A-Z' },
   { value: 'name-desc',     label: 'Name Z-A' },
   { value: 'status',        label: 'Status' },
   { value: 'level',         label: 'Level' },
-  { value: 'children-desc', label: 'Most children' },
-  { value: 'children-asc',  label: 'Fewest children' },
 ];
 
 export function applySorting(items, sortBy) {
