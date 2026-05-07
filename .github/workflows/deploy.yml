@@ -1,0 +1,78 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build vipre-prototypes (landing)
+        working-directory: vipre-prototypes
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build scope-navigator
+        working-directory: scope-navigator
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build action-rules
+        working-directory: action-rules
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build marketing-overview
+        working-directory: marketing-overview
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build banner-modal
+        working-directory: banner-modal
+        run: |
+          npm ci
+          npm run build
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -r vipre-prototypes/dist/. _site/
+          cp -r scope-navigator/dist _site/scope-navigator
+          cp -r action-rules/dist _site/action-rules
+          cp -r marketing-overview/dist _site/marketing-overview
+          cp -r banner-modal/dist _site/banner-modal
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

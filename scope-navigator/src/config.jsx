@@ -1,0 +1,298 @@
+import {
+  Building2, Store, Users,
+  Mail, Send, ShieldCheck, Bug, Globe, Shield, Monitor, Cloud, Key, Package,
+  Layers, Tag, Split, Briefcase, Receipt,
+} from 'lucide-react';
+
+// ── Entity type + partner capability taxonomy ──────────────────────
+// Entity types stored on the data model.
+export const entityTypeOrder = ['distributor', 'partner', 'customer'];
+
+// Partner capability variants — only meaningful when entity.type === 'partner'.
+export const partnerCapabilityOrder = ['msp', 'hybrid', 'reseller'];
+
+// ── Display type config ────────────────────────────────────────────
+// The 5 display variants users see. This is the visual source of truth;
+// resolve a runtime entity to one of these keys via getDisplayType(entity).
+// Saturated-fill palette: each variant's `bg` is a solid tier-600 swatch in
+// both light and dark mode, with `color` set to white so an entity icon
+// rendered inside a filled container reads with maximum contrast. The
+// tier-700 stroke colors stay available on `tintColor` for standalone /
+// non-filled contexts (breadcrumb dropdowns, count chips) where white
+// icons would disappear against the surrounding white surface.
+//
+// Hybrid lives on fuchsia (was indigo — too close to MSP blue and Customer
+// violet to differentiate). Icons swapped where silhouettes collided:
+// Combine → Layers (hybrid), Receipt → Tag (reseller), Users → Briefcase
+// (customer, freeing Users for the structural Partner fallback).
+export const displayTypeConfig = {
+  distributor: {
+    label: 'Distributor',
+    Icon: Building2,
+    icon: Building2,
+    color: 'text-white',
+    iconColor: 'text-white',
+    textClass: 'text-white',
+    bgClass: 'bg-blue-600',
+    ring: 'ring-blue-700 dark:ring-blue-500',
+    stroke: '#1d4ed8',
+    tintColor: 'text-blue-700 dark:text-blue-300',
+    // Legacy aliases preserved for components reading typeConfig[type].color/.bg
+    legacyColor: 'text-white',
+    bg: 'bg-blue-600',
+  },
+  msp: {
+    label: 'MSP',
+    Icon: ShieldCheck,
+    icon: ShieldCheck,
+    color: 'text-white',
+    iconColor: 'text-white',
+    textClass: 'text-white',
+    bgClass: 'bg-blue-600',
+    ring: 'ring-blue-700 dark:ring-blue-500',
+    stroke: '#1d4ed8',
+    tintColor: 'text-blue-700 dark:text-blue-300',
+    legacyColor: 'text-white',
+    bg: 'bg-blue-600',
+  },
+  hybrid: {
+    label: 'Hybrid',
+    Icon: Layers,
+    icon: Layers,
+    color: 'text-white',
+    iconColor: 'text-white',
+    textClass: 'text-white',
+    bgClass: 'bg-fuchsia-600',
+    ring: 'ring-fuchsia-700 dark:ring-fuchsia-500',
+    stroke: '#a21caf',
+    tintColor: 'text-fuchsia-700 dark:text-fuchsia-300',
+    legacyColor: 'text-white',
+    bg: 'bg-fuchsia-600',
+  },
+  reseller: {
+    label: 'Reseller',
+    Icon: Tag,
+    icon: Tag,
+    color: 'text-white',
+    iconColor: 'text-white',
+    textClass: 'text-white',
+    bgClass: 'bg-teal-600',
+    ring: 'ring-teal-700 dark:ring-teal-500',
+    stroke: '#0f766e',
+    tintColor: 'text-teal-700 dark:text-teal-300',
+    legacyColor: 'text-white',
+    bg: 'bg-teal-600',
+  },
+  customer: {
+    label: 'Customer',
+    Icon: Briefcase,
+    icon: Briefcase,
+    color: 'text-white',
+    iconColor: 'text-white',
+    textClass: 'text-white',
+    bgClass: 'bg-green-600',
+    ring: 'ring-green-700 dark:ring-green-500',
+    stroke: '#15803d',
+    tintColor: 'text-green-700 dark:text-green-300',
+    legacyColor: 'text-white',
+    bg: 'bg-green-600',
+  },
+};
+
+export const displayTypeOrder = ['distributor', 'msp', 'hybrid', 'reseller', 'customer'];
+
+// Transitional compatibility layer: the legacy typeConfig alias additionally
+// exposes a generic 'partner' entry so consumers that still do
+// typeConfig[entity.type] on partner entities don't crash. This entry is
+// intentionally neutral (zinc, generic icon) so any badge rendered from it
+// is visibly distinct from the real msp / hybrid / reseller capability
+// chips — a "this consumer hasn't been migrated to getDisplayType() yet"
+// marker. Drop the partner fallback once all consumers resolve display
+// type via getDisplayType(entity).
+// displayTypeConfig itself stays keyed by exactly the 5 display variants.
+// @deprecated - use displayTypeConfig with getDisplayType() instead
+export const typeConfig = {
+  ...displayTypeConfig,
+  partner: {
+    label: 'Partner',
+    Icon: Users,
+    icon: Users,
+    color: 'text-white',
+    iconColor: 'text-white',
+    textClass: 'text-white',
+    bgClass: 'bg-red-600',
+    ring: 'ring-red-700 dark:ring-red-500',
+    stroke: '#b91c1c',
+    tintColor: 'text-red-700 dark:text-red-300',
+    legacyColor: 'text-white',
+    bg: 'bg-red-600',
+  },
+};
+// @deprecated - use displayTypeOrder (or entityTypeOrder for data-model iteration)
+export const typeOrder = displayTypeOrder;
+
+// ── Management mode config ─────────────────────────────────────────
+export const managementModeConfig = {
+  managed: {
+    label: 'Managed',
+    Icon: ShieldCheck,
+    icon: ShieldCheck,
+    bgClass: 'bg-emerald-50 dark:bg-emerald-900/30',
+    textClass: 'text-emerald-700 dark:text-emerald-300',
+    borderClass: 'border-emerald-200 dark:border-emerald-800',
+  },
+  unmanaged: {
+    label: 'Unmanaged',
+    Icon: Receipt,
+    icon: Receipt,
+    bgClass: 'bg-zinc-100 dark:bg-zinc-800',
+    textClass: 'text-zinc-600 dark:text-zinc-400',
+    borderClass: 'border-zinc-200 dark:border-zinc-700',
+  },
+  mixed: {
+    label: 'Mixed',
+    Icon: Split,
+    icon: Split,
+    bgClass: 'bg-amber-50 dark:bg-amber-900/30',
+    textClass: 'text-amber-700 dark:text-amber-300',
+    borderClass: 'border-amber-200 dark:border-amber-800',
+  },
+};
+
+// ── Helper functions ───────────────────────────────────────────────
+
+export function getDisplayType(entity) {
+  if (!entity) return null;
+  if (entity.type === 'partner') return entity.partnerCapability;
+  return entity.type;
+}
+
+export function isLeaf(entity) {
+  return entity?.type === 'customer';
+}
+
+export function isPartner(entity) {
+  return entity?.type === 'partner';
+}
+
+export function hasCapability(entity, capability) {
+  return entity?.type === 'partner' && entity?.partnerCapability === capability;
+}
+
+// True for entities that sit outside the SecOps observability boundary:
+//   - customers explicitly marked managementMode === 'unmanaged'
+//   - partners with the reseller capability (their entire customer book is
+//     all-unmanaged by data-model constraint)
+// Distributors and msp / hybrid partners are never "unmanaged" wholesale.
+export function isEntityUnmanaged(entity) {
+  if (!entity) return false;
+  if (entity.type === 'customer') return entity.managementMode === 'unmanaged';
+  if (entity.type === 'partner') return entity.partnerCapability === 'reseller';
+  return false;
+}
+
+export function canProvisionManaged(entity) {
+  if (!entity) return false;
+  if (entity.type === 'distributor') return true;
+  if (hasCapability(entity, 'msp')) return true;
+  if (hasCapability(entity, 'hybrid')) return true;
+  return false;
+}
+
+export function canProvisionUnmanaged(entity) {
+  if (!entity) return false;
+  if (entity.type === 'distributor') return true;
+  if (hasCapability(entity, 'reseller')) return true;
+  if (hasCapability(entity, 'hybrid')) return true;
+  return false;
+}
+
+export function hasSecOpsVisibility(entity) {
+  if (!entity) return false;
+  return !hasCapability(entity, 'reseller');
+}
+
+export function getCustomerEffectiveMode(customer) {
+  if (customer?.type !== 'customer') return null;
+  if (!customer.packages?.length) return customer.managementMode;
+  const overrides = customer.packages.filter(
+    pkg => pkg.managed !== null && pkg.managed !== (customer.managementMode === 'managed')
+  );
+  if (overrides.length > 0) return 'mixed';
+  return customer.managementMode;
+}
+
+// ── Status config ──────────────────────────────────────────────────
+export const statusConfig = {
+  active:    { pill: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', dot: 'bg-green-500', label: 'Active' },
+  trial:     { pill: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', dot: 'bg-amber-500', label: 'Trial' },
+  suspended: { pill: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',         dot: 'bg-red-400',   label: 'Suspended' },
+};
+
+export function StatusBadge({ status }) {
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none ${statusConfig[status].pill}`}>
+      {statusConfig[status].label}
+    </span>
+  );
+}
+
+export function TypeBadge({ type }) {
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 text-[10px] font-medium leading-none uppercase dark:bg-zinc-700 dark:text-zinc-300">
+      {typeConfig[type].label}
+    </span>
+  );
+}
+
+// ── Package icon map ──────────────────────────────────────────────
+export const pkgIconMap = {
+  'ies':               { icon: Mail,        color: 'text-indigo-500' },
+  'ies-beta':          { icon: Mail,        color: 'text-indigo-400' },
+  'safesend':          { icon: Send,        color: 'text-emerald-500' },
+  'safesend-ai':       { icon: Send,        color: 'text-emerald-600' },
+  'safesend-beta':     { icon: Send,        color: 'text-emerald-400' },
+  'tep':               { icon: ShieldCheck, color: 'text-violet-500' },
+  'atp':               { icon: Bug,         color: 'text-rose-500' },
+  'edge':              { icon: Globe,       color: 'text-cyan-500' },
+  'complete':          { icon: Shield,      color: 'text-blue-600' },
+  'edge-nordics':      { icon: Globe,       color: 'text-cyan-600' },
+  'complete-nordics':  { icon: Shield,      color: 'text-blue-700' },
+  'email360':          { icon: Mail,        color: 'text-violet-600' },
+  'epmail':            { icon: Monitor,     color: 'text-teal-500' },
+  'epmail360':         { icon: Monitor,     color: 'text-teal-600' },
+  'essentials':        { icon: Shield,      color: 'text-blue-500' },
+  'emailcloud':        { icon: Cloud,       color: 'text-sky-500' },
+  'exchangesmart':     { icon: Mail,        color: 'text-sky-600' },
+  'exchangesmart-suite': { icon: Mail,      color: 'text-sky-700' },
+  'essentials-inbound': { icon: Shield,     color: 'text-blue-400' },
+  'vaultcritical':     { icon: Key,         color: 'text-amber-500' },
+};
+export const defaultPkgIcon = { icon: Package, color: 'text-zinc-400' };
+
+// ── Sorting ────────────────────────────────────────────────────────
+const typeDepth = Object.fromEntries(typeOrder.map((t, i) => [t, i]));
+
+export const sortOptions = [
+  { value: 'name-asc',      label: 'Name A-Z' },
+  { value: 'name-desc',     label: 'Name Z-A' },
+  { value: 'status',        label: 'Status' },
+  { value: 'level',         label: 'Level' },
+  { value: 'children-desc', label: 'Most children' },
+  { value: 'children-asc',  label: 'Fewest children' },
+];
+
+export function applySorting(items, sortBy) {
+  if (!sortBy) return items;
+  const sorted = [...items];
+  const statusOrder = { active: 0, trial: 1, suspended: 2 };
+  switch (sortBy) {
+    case 'name-asc':      return sorted.sort((a, b) => a.name.localeCompare(b.name));
+    case 'name-desc':     return sorted.sort((a, b) => b.name.localeCompare(a.name));
+    case 'status':        return sorted.sort((a, b) => (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3));
+    case 'level':         return sorted.sort((a, b) => (typeDepth[a.type] ?? 99) - (typeDepth[b.type] ?? 99));
+    case 'children-desc': return sorted.sort((a, b) => (b.children?.length || 0) - (a.children?.length || 0));
+    case 'children-asc':  return sorted.sort((a, b) => (a.children?.length || 0) - (b.children?.length || 0));
+    default:              return sorted;
+  }
+}

@@ -1,0 +1,453 @@
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { Search, ArrowUpDown, Filter, X, Users, Plus, Receipt } from 'lucide-react';
+import { typeConfig, statusConfig, StatusBadge, entityTypeOrder, sortOptions, applySorting, isEntityUnmanaged } from './config';
+import useClickOutside from './useClickOutside';
+import { flattenFrom } from './data';
+
+function DropdownMenu({ children, onClose }) {
+  const ref = useClickOutside(onClose);
+  return (
+    <div ref={ref} className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-zinc-800 rounded-md shadow-lg border border-zinc-200 dark:border-zinc-700 z-50 overflow-hidden">
+      {children}
+    </div>
+  );
+}
+
+function MenuButton({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-3 py-1.5 text-xs cursor-pointer transition-colors ${
+        active
+          ? 'bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-medium'
+          : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-700'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ChildCounts({ entity }) {
+  const isLeaf = !entity.children?.length;
+  if (isLeaf) {
+    return <span className="text-[13px] text-zinc-300 dark:text-zinc-600">&mdash;</span>;
+  }
+
+  const childCounts = {};
+  for (const child of entity.children) {
+    childCounts[child.type] = (childCounts[child.type] || 0) + 1;
+  }
+  const pairs = entityTypeOrder.filter(t => childCounts[t]);
+
+  return (
+    <span className="inline-flex items-center">
+      <span className="text-[13px] font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">{entity.children.length}</span>
+      <span className="inline-flex items-center gap-1.5 ml-2">
+        {pairs.map(t => {
+          const cfg = typeConfig[t];
+          return (
+            <span key={t} className="inline-flex items-center gap-0.5">
+              <cfg.Icon className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
+              <span className="text-[12px] text-zinc-500 dark:text-zinc-400 tabular-nums">{childCounts[t]}</span>
+            </span>
+          );
+        })}
+      </span>
+    </span>
+  );
+}
+
+// Build parent path annotation string for deep descendants
+function formatAncestorPath(ancestorPath) {
+  if (!ancestorPath?.length) return null;
+  // ancestorPath is ordered: [directParent, grandparent, ...closestToScope]
+  // We reverse so it reads: direct parent first, then upward
+  const names = ancestorPath.map(e => e.name);
+  if (names.length <= 3) return names.join(' → ');
+  return `${names[0]} → ... → ${names[names.length - 1]}`;
+}
+
+function EntityRow({ entity, onDrillDown, onSelect, isSelected, isEven, ancestorPath, onTeleport, fullPath, selectOnRowClick = false }) {
+  const rowRef = useRef(null);
+  const { Icon, color, bg } = typeConfig[entity.type];
+  const isLeaf = entity.type === 'customer';
+  const hasAnnotation = ancestorPath?.length > 0;
+
+  useEffect(() => {
+    if (isSelected && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [isSelected]);
+
+  function handleClick() {
+    // selectOnRowClick: View-All pane wants every row click to populate the
+    // detail panel on the right (like distributors do as immediate children),
+    // not teleport into the entity. Deep descendants still expose teleport
+    // via the "Manage" / "Scope" hover buttons (handleDrillAction below).
+    if (selectOnRowClick) {
+      onSelect(entity);
+      return;
+    }
+    if (hasAnnotation && onTeleport && fullPath) {
+      onTeleport(entity, fullPath);
+    } else {
+      onSelect(entity);
+    }
+  }
+
+  function handleDrillAction(e) {
+    e.stopPropagation();
+    if (hasAnnotation && onTeleport && fullPath) {
+      onTeleport(entity, fullPath);
+    } else {
+      onDrillDown(entity);
+    }
+  }
+
+  return (
+    <div
+      ref={rowRef}
+      onClick={handleClick}
+      className={`group/row flex items-center gap-2.5 px-3 ${hasAnnotation ? 'py-2' : 'h-10'} border-b border-zinc-100 dark:border-zinc-800 cursor-pointer transition-[background-color,border-color] duration-100 ease-out ${
+        isSelected
+          ? 'bg-white dark:bg-zinc-900 border-l-2 border-l-zinc-900 dark:border-l-zinc-100'
+          : `border-l-2 border-l-transparent hover:border-l-zinc-400 dark:hover:border-l-zinc-500 hover:bg-white dark:hover:bg-zinc-900 ${isEven ? 'bg-zinc-50/60 dark:bg-zinc-900/50' : ''}`
+      }`}
+    >
+      <div className={`relative w-6 h-6 rounded-md ${bg} flex items-center justify-center flex-shrink-0`}>
+        <Icon className={`w-3 h-3 ${color}`} />
+        {isEntityUnmanaged(entity) && (
+          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-zinc-700 ring-2 ring-white dark:ring-zinc-900" title="Unmanaged" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <span className={`text-sm truncate block ${
+          isSelected
+            ? 'font-medium text-zinc-900 dark:text-zinc-100'
+            : 'text-zinc-700 dark:text-zinc-300 group-hover/row:font-medium group-hover/row:text-zinc-950 dark:group-hover/row:text-zinc-50'
+        }`}>{entity.name}</span>
+        {hasAnnotation && (
+          <span className="text-[12px] text-zinc-400 dark:text-zinc-500 truncate block">
+            <span className="italic">via</span>{' '}{formatAncestorPath(ancestorPath)}
+          </span>
+        )}
+      </div>
+      <span className="flex-shrink-0 ml-1">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-[10px] font-medium text-zinc-500 dark:text-zinc-400 leading-none">
+          {typeConfig[entity.type].label}
+        </span>
+      </span>
+      {isEntityUnmanaged(entity) && (
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-700 text-white text-[10px] font-medium leading-none flex-shrink-0">
+          <Receipt className="w-2.5 h-2.5" />
+          Unmanaged
+        </span>
+      )}
+      <span className="w-16 flex-shrink-0 flex justify-end">
+        <StatusBadge status={entity.status} />
+      </span>
+      <div className="relative flex-shrink-0 w-32 flex items-center justify-end">
+        <div className="group-hover/row:opacity-0 transition-opacity duration-100 ease-out">
+          <ChildCounts entity={entity} />
+        </div>
+        <div className="absolute inset-0 flex items-center justify-end gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity duration-100 ease-out">
+          {!isLeaf && (
+            <button
+              onClick={handleDrillAction}
+              className="px-3 py-1.5 rounded border border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 text-[11px] font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+            >
+              Manage
+            </button>
+          )}
+          <button
+            onClick={handleDrillAction}
+            className="px-3 py-1.5 rounded border border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300 text-[11px] font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+          >
+            Scope
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Scope-aware provisioning button ───────────────────────────────────────────
+
+function ScopeAddButton({ currentLevel, onAdd }) {
+  if (!currentLevel || currentLevel === 'customer') return null;
+
+  const availableTypes =
+    currentLevel === 'root'        ? ['distributor', 'reseller', 'customer'] :
+    currentLevel === 'distributor' ? ['distributor', 'reseller', 'customer'] :
+    /* reseller */                   ['reseller', 'customer'];
+
+  return (
+    <button
+      onClick={() => onAdd(availableTypes)}
+      className="inline-flex items-center gap-1 pl-3 pr-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+    >
+      <Plus className="w-3 h-3" />
+      Add
+    </button>
+  );
+}
+
+// ── Main entity list ───────────────────────────────────────────────────────────
+
+export default function EntityList({ entities, onDrillDown, onSelect, selectedEntity, onTeleport, scopeName, currentLevel, onAdd, viewAllDescendants = false }) {
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(null);
+  const [activeMenu, setActiveMenu] = useState(null);
+  const [includeDescendants, setIncludeDescendants] = useState(true);
+
+  const entityKey = entities?.map(e => e.id).join(',');
+  const [prevKey, setPrevKey] = useState(entityKey);
+  if (entityKey !== prevKey) {
+    setPrevKey(entityKey);
+    setSearch('');
+    setSortBy(null);
+    setStatusFilter(null);
+    setIncludeDescendants(true);
+  }
+
+  // Memoize flattened descendants for search
+  const allDescendants = useMemo(() => {
+    if (!entities?.length) return [];
+    return flattenFrom(entities);
+  }, [entityKey]);
+
+  // Set of immediate child IDs for distinguishing shallow vs deep results
+  const immediateChildIds = useMemo(() => {
+    if (!entities?.length) return new Set();
+    return new Set(entities.map(e => e.id));
+  }, [entityKey]);
+
+  if (!entities?.length) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
+          <Users className="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
+        </div>
+        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">No child entities</p>
+        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">This is a leaf-level account with no nested entities.</p>
+      </div>
+    );
+  }
+
+  const isSearching = search.length > 0;
+  // viewAllDescendants forces the deep listing on regardless of whether the
+  // user is searching — used by Customer Management B's "View all" pane so
+  // descendants render below their ancestors instead of stopping at the
+  // direct-children layer.
+  const useDeepSearch = viewAllDescendants || (isSearching && includeDescendants);
+
+  // Build display list
+  let displayItems = []; // Array of { entity, ancestorPath?, fullPath? }
+
+  if (useDeepSearch) {
+    const lowerQuery = search.toLowerCase();
+    const matches = allDescendants.filter(({ entity }) =>
+      entity.name.toLowerCase().includes(lowerQuery)
+    );
+    displayItems = matches.map(({ entity, path }) => {
+      const isImmediate = immediateChildIds.has(entity.id);
+      // path is [child, grandchild, ...entity] from flattenFrom
+      // ancestorPath = intermediates between scope and entity (excluding entity itself)
+      const ancestors = isImmediate ? [] : path.slice(0, -1);
+      return {
+        entity,
+        ancestorPath: ancestors.length > 0 ? ancestors : null,
+        fullPath: path,
+      };
+    });
+    if (statusFilter) displayItems = displayItems.filter(d => d.entity.status === statusFilter);
+    displayItems = applySorting(displayItems.map(d => d.entity), sortBy).map(e =>
+      displayItems.find(d => d.entity.id === e.id)
+    );
+  } else {
+    let filtered = entities;
+    if (search) filtered = filtered.filter(e => e.name.toLowerCase().includes(search.toLowerCase()));
+    if (statusFilter) filtered = filtered.filter(e => e.status === statusFilter);
+    filtered = applySorting(filtered, sortBy);
+    displayItems = filtered.map(entity => ({ entity, ancestorPath: null, fullPath: null }));
+  }
+
+  // Group by type
+  const typesPresent = [...new Set(displayItems.map(d => d.entity.type))];
+  const levelLabel = !isSearching && typesPresent.length === 1 ? typeConfig[typesPresent[0]].label + 's' : 'Entities';
+  const hasMultipleTypes = typesPresent.length > 1;
+
+  const groups = hasMultipleTypes
+    ? entityTypeOrder.filter(t => displayItems.some(d => d.entity.type === t)).map(t => ({
+        type: t,
+        items: displayItems.filter(d => d.entity.type === t),
+      }))
+    : null;
+
+  function renderRows(items, indexOffset = 0) {
+    return items.map((item, i) => (
+      <EntityRow
+        key={item.entity.id}
+        entity={item.entity}
+        onDrillDown={onDrillDown}
+        onSelect={onSelect}
+        isSelected={selectedEntity?.id === item.entity.id}
+        isEven={(i + indexOffset) % 2 === 1}
+        ancestorPath={item.ancestorPath}
+        onTeleport={onTeleport}
+        fullPath={item.fullPath}
+        selectOnRowClick={viewAllDescendants}
+      />
+    ));
+  }
+
+  // Empty state messages
+  function renderEmptyState() {
+    if (useDeepSearch) {
+      return (
+        <div className="p-8 text-center">
+          <p className="text-sm text-zinc-400 dark:text-zinc-500">No matching entities found below {scopeName || 'this scope'}.</p>
+          <p className="text-xs text-zinc-300 dark:text-zinc-600 mt-2">Uncheck &ldquo;Include all descendants&rdquo; to search immediate children only.</p>
+        </div>
+      );
+    }
+    if (isSearching) {
+      return (
+        <div className="p-8 text-center">
+          <p className="text-sm text-zinc-400 dark:text-zinc-500">No matching children found.</p>
+          <p className="text-xs text-zinc-300 dark:text-zinc-600 mt-2">Check &ldquo;Include all descendants&rdquo; to search deeper.</p>
+        </div>
+      );
+    }
+    return <div className="p-8 text-center text-sm text-zinc-400 dark:text-zinc-500">No results found</div>;
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-black/[0.03] dark:bg-white/[0.03]">
+      {/* Toolbar — pinned at top */}
+      <div className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+        {/* Row 1: label + add button */}
+        <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-1.5">
+          <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex-shrink-0">
+            {levelLabel}
+            <span className="ml-1.5 text-zinc-500 dark:text-zinc-400 font-semibold">
+              {isSearching ? `${displayItems.length} / ${entities.length}` : useDeepSearch ? displayItems.length : entities.length}
+            </span>
+          </h2>
+          {onAdd && (
+            <ScopeAddButton currentLevel={currentLevel} onAdd={onAdd} />
+          )}
+        </div>
+        {/* Row 2: search + sort + filter */}
+        <div className="flex items-center gap-1.5 px-3 pb-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md outline-none focus:ring-2 focus:ring-zinc-300 dark:focus:ring-zinc-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="relative flex-shrink-0">
+            <button
+              onClick={() => setActiveMenu(activeMenu === 'sort' ? null : 'sort')}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${
+                sortBy ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-700'
+              }`}
+            >
+              <ArrowUpDown className="w-3.5 h-3.5" />
+              <span>{sortBy ? sortOptions.find(o => o.value === sortBy)?.label : 'Sort'}</span>
+            </button>
+            {activeMenu === 'sort' && (
+              <DropdownMenu onClose={() => setActiveMenu(null)}>
+                {sortOptions.map(opt => (
+                  <MenuButton key={opt.value} active={sortBy === opt.value} onClick={() => { setSortBy(opt.value); setActiveMenu(null); }}>
+                    {opt.label}
+                  </MenuButton>
+                ))}
+              </DropdownMenu>
+            )}
+          </div>
+
+          <div className="relative flex-shrink-0">
+            <button
+              onClick={() => setActiveMenu(activeMenu === 'filter' ? null : 'filter')}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${
+                statusFilter ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-700'
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span>{statusFilter ? statusConfig[statusFilter].label : 'Filter'}</span>
+            </button>
+            {activeMenu === 'filter' && (
+              <DropdownMenu onClose={() => setActiveMenu(null)}>
+                {statusFilter && (
+                  <MenuButton onClick={() => { setStatusFilter(null); setActiveMenu(null); }}>
+                    <X className="w-3 h-3 inline mr-1" />Clear filter
+                  </MenuButton>
+                )}
+                {['active', 'trial', 'suspended'].map(s => (
+                  <MenuButton key={s} active={statusFilter === s} onClick={() => { setStatusFilter(s); setActiveMenu(null); }}>
+                    <StatusBadge status={s} />
+                  </MenuButton>
+                ))}
+              </DropdownMenu>
+            )}
+          </div>
+
+          {(search || sortBy || statusFilter) && (
+            <button
+              onClick={() => { setSearch(''); setSortBy(null); setStatusFilter(null); }}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-md text-xs text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-300 dark:hover:bg-zinc-700 transition-colors cursor-pointer flex-shrink-0"
+            >
+              <X className="w-3.5 h-3.5" />Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Include descendants checkbox — visible only when searching */}
+      {isSearching && (
+        <div className="flex-shrink-0 px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          <label className="inline-flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeDescendants}
+              onChange={e => setIncludeDescendants(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+            />
+            <span className="text-[13px] text-zinc-600 dark:text-zinc-400">Include all descendants</span>
+          </label>
+        </div>
+      )}
+
+      {/* Scrollable table body */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {displayItems.length === 0 ? renderEmptyState() : groups ? (
+          groups.map(group => {
+            const cfg = typeConfig[group.type];
+            return (
+              <div key={group.type}>
+                <div className="sticky top-0 z-[5] flex items-center gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                  <span className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">{cfg.label}s</span>
+                  <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{group.items.length}</span>
+                </div>
+                {renderRows(group.items)}
+              </div>
+            );
+          })
+        ) : renderRows(displayItems)}
+      </div>
+    </div>
+  );
+}
