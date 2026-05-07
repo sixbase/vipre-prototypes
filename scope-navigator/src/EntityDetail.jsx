@@ -4,13 +4,13 @@ import {
   Shield, Mail, Send, Bug, ScanSearch, CheckCircle, AlertTriangle,
   Trash2, Paperclip, UserCheck, Plus, Copy, Search, X, Cloud,
   Fingerprint, Check, TrendingUp, TrendingDown, AlertCircle, Settings,
-  Activity, Target, Zap, BarChart3, Info, MapPin, Phone, User, Languages, ArrowLeft
+  Activity, Target, Zap, BarChart3, Info, MapPin, Phone, User, Languages, ArrowLeft, Receipt
 } from 'lucide-react';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, ResponsiveContainer,
   XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell
 } from 'recharts';
-import { typeConfig, statusConfig, entityTypeOrder, isEntityUnmanaged } from './config';
+import { typeConfig, statusConfig, StatusBadge, entityTypeOrder, isEntityUnmanaged } from './config';
 import { countDescendantsByType, hash, VIPRE_PACKAGES, VIPRE_ADD_ONS, genPartnerPackages, genCustomerPackages } from './data';
 
 // ── Hooks ──
@@ -1079,6 +1079,7 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
   // ops normally.
   const isUnmanaged = isEntityUnmanaged(entity);
   const isUnmanagedPartner = isUnmanaged && entity.type === 'partner';
+  const isUnmanagedDistributor = isUnmanaged && entity.type === 'distributor';
   const adoption = biz.productAdoption || {};
 
   const childTypeCounts = {};
@@ -1086,6 +1087,20 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
     for (const child of entity.children) childTypeCounts[child.type] = (childTypeCounts[child.type] || 0) + 1;
   }
   const childTypeEntries = entityTypeOrder.filter(t => childTypeCounts[t]).map(t => ({ type: t, count: childTypeCounts[t] }));
+
+  // Direct descendants (entity.children only — no recursion), sorted by
+  // type using entityTypeOrder so the list reads distributors → partners
+  // → customers. Powers the list view that sits under the rollup KPI cards.
+  const descendantList = (() => {
+    if (!hasChildren) return [];
+    const orderIndex = Object.fromEntries(entityTypeOrder.map((t, i) => [t, i]));
+    return [...entity.children].sort((a, b) => {
+      const da = orderIndex[a.type] ?? 99;
+      const db = orderIndex[b.type] ?? 99;
+      if (da !== db) return da - db;
+      return a.name.localeCompare(b.name);
+    });
+  })();
 
   const periodText = period === '7D' ? '7 days' : period === '14D' ? '14 days' : period === '30D' ? '30 days' : '90 days';
 
@@ -1292,6 +1307,40 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
                       />
                     ))}
                   </div>
+
+                  {descendantList.length > 0 && (
+                    <div className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-black/[0.03] dark:bg-white/[0.03] max-h-[400px] overflow-y-auto">
+                      {descendantList.map((d, i) => {
+                        const cfg = typeConfig[d.type];
+                        const unmanaged = isEntityUnmanaged(d);
+                        const isEven = i % 2 === 1;
+                        return (
+                          <div
+                            key={d.id}
+                            onClick={() => onDrillDown && onDrillDown(d)}
+                            className={`flex items-center gap-2.5 px-3 h-10 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0 cursor-pointer transition-[background-color,border-color] duration-100 ease-out border-l-2 border-l-transparent hover:border-l-zinc-400 dark:hover:border-l-zinc-500 hover:bg-white dark:hover:bg-zinc-900 ${isEven ? 'bg-zinc-50/60 dark:bg-zinc-900/50' : ''}`}
+                          >
+                            <div className={`relative w-6 h-6 rounded-md ${cfg.bg} flex items-center justify-center flex-shrink-0`}>
+                              <cfg.Icon className={`w-3 h-3 ${cfg.color}`} />
+                              {unmanaged && (
+                                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-zinc-700 ring-2 ring-white dark:ring-zinc-900" title="Unmanaged" />
+                              )}
+                            </div>
+                            <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate flex-1">{d.name}</span>
+                            {unmanaged && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-700 text-white text-[10px] font-medium leading-none flex-shrink-0">
+                                <Receipt className="w-2.5 h-2.5" />
+                                Unmanaged
+                              </span>
+                            )}
+                            <span className="w-16 flex-shrink-0 flex justify-end">
+                              <StatusBadge status={d.status} />
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1339,9 +1388,17 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
                   <Info className="w-4 h-4 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{isUnmanagedPartner ? 'Unmanaged partner' : 'Unmanaged customer'}</div>
+                  <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{
+                    isUnmanagedDistributor ? 'Unmanaged distributor'
+                    : isUnmanagedPartner ? 'Unmanaged partner'
+                    : 'Unmanaged customer'
+                  }</div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
-                    Operations health, device telemetry, and per-product analytics are hidden — this {isUnmanagedPartner ? 'partner sells through a transactional / reseller motion' : 'customer is'} outside the SecOps observability boundary.
+                    Operations health, device telemetry, and per-product analytics are hidden — this {
+                      isUnmanagedDistributor ? 'distributor aggregates transactional / reseller business'
+                      : isUnmanagedPartner ? 'partner sells through a transactional / reseller motion'
+                      : 'customer is'
+                    } outside the SecOps observability boundary.
                   </p>
                 </div>
               </div>

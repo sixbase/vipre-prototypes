@@ -183,11 +183,14 @@ export function hasCapability(entity, capability) {
 //   - customers explicitly marked managementMode === 'unmanaged'
 //   - partners with the reseller capability (their entire customer book is
 //     all-unmanaged by data-model constraint)
-// Distributors and msp / hybrid partners are never "unmanaged" wholesale.
+//   - distributors marked managementMode === 'unmanaged' (sub-distributors
+//     that aggregate transactional / reseller business)
+// msp / hybrid partners are never "unmanaged" wholesale.
 export function isEntityUnmanaged(entity) {
   if (!entity) return false;
   if (entity.type === 'customer') return entity.managementMode === 'unmanaged';
   if (entity.type === 'partner') return entity.partnerCapability === 'reseller';
+  if (entity.type === 'distributor') return entity.managementMode === 'unmanaged';
   return false;
 }
 

@@ -238,11 +238,11 @@ function makeEntity({ type, partnerCapability = null, managementMode = null, nam
   if (type === 'customer' && !managementMode) {
     throw new Error('managementMode required when type === "customer"');
   }
-  if (type === 'customer' && !['managed', 'unmanaged'].includes(managementMode)) {
+  if (managementMode !== null && !['managed', 'unmanaged'].includes(managementMode)) {
     throw new Error(`Invalid managementMode "${managementMode}" — must be managed | unmanaged`);
   }
-  if (type !== 'customer' && managementMode) {
-    throw new Error('managementMode only allowed when type === "customer"');
+  if (type === 'partner' && managementMode) {
+    throw new Error('managementMode not allowed when type === "partner" (use partnerCapability instead)');
   }
 
   const id = deterministicUUID();
@@ -283,7 +283,7 @@ function makeEntity({ type, partnerCapability = null, managementMode = null, nam
     name,
     type,
     partnerCapability: type === 'partner' ? partnerCapability : null,
-    managementMode: type === 'customer' ? managementMode : null,
+    managementMode: (type === 'customer' || type === 'distributor') ? managementMode : null,
     status,
     children,
     devices,
@@ -498,6 +498,7 @@ function validateHierarchy(roots) {
 const PARTNERS_PER_DISTRIBUTOR = 9;           // 3 msp / 3 reseller / 3 hybrid
 const CUSTOMERS_PER_PARTNER_RANGE = [12, 20];
 const DIRECT_CUSTOMERS_PER_DISTRIBUTOR = 5;   // mixed managed/unmanaged
+const SMALL_BOOK_RANGE = [3, 6];              // sub-distributors / sub-partners
 
 function pickCustomerCount(seed) {
   const r = seededRand(seed);
@@ -505,8 +506,14 @@ function pickCustomerCount(seed) {
   return Math.floor(min + r * (max - min));
 }
 
-function buildPartnerForCapability(capability, seed) {
-  const count = pickCustomerCount(seed);
+function pickSmallCustomerCount(seed) {
+  const r = seededRand(seed);
+  const [min, max] = SMALL_BOOK_RANGE;
+  return Math.floor(min + r * (max - min));
+}
+
+function buildPartnerForCapability(capability, seed, opts = {}) {
+  const count = opts.smallBook ? pickSmallCustomerCount(seed) : pickCustomerCount(seed);
   let children;
   if (capability === 'msp')        children = generateCustomers(count, 'managed');
   else if (capability === 'reseller') children = generateCustomers(count, 'unmanaged');
@@ -519,13 +526,42 @@ function buildPartnerForCapability(capability, seed) {
   });
 }
 
+// A sub-distributor has a small partner book aligned with its mode plus a
+// couple of direct customers — just enough to demonstrate the lateral
+// hierarchy without bloating the dataset.
+function buildSubDistributor(managementMode, parentDistIndex, subIndex) {
+  const partnerCap = managementMode === 'managed' ? 'msp' : 'reseller';
+  const partner = buildPartnerForCapability(
+    partnerCap,
+    `d${parentDistIndex}-sd${subIndex}-${partnerCap}`,
+    { smallBook: true }
+  );
+  const directs = generateCustomers(2, managementMode);
+  return makeEntity({
+    type: 'distributor',
+    managementMode,
+    name: nextName(distributorNames, dCur),
+    children: [partner, ...directs],
+  });
+}
+
 function buildDistributor(name, distIndex) {
   const partners = [];
   // Round-robin capability so the rollup stays balanced no matter the count.
   const caps = ['msp', 'hybrid', 'reseller'];
   for (let pi = 0; pi < PARTNERS_PER_DISTRIBUTOR; pi++) {
     const cap = caps[pi % caps.length];
-    partners.push(buildPartnerForCapability(cap, `d${distIndex}-p${pi}-${cap}`));
+    const partner = buildPartnerForCapability(cap, `d${distIndex}-p${pi}-${cap}`);
+    // Demonstrate partner-under-partner on every hybrid: attach one managed
+    // (msp) and one unmanaged (reseller) sub-partner so both flavors are
+    // reachable across the tree.
+    if (cap === 'hybrid') {
+      partner.children.push(
+        buildPartnerForCapability('msp', `d${distIndex}-p${pi}-sub-msp`, { smallBook: true }),
+        buildPartnerForCapability('reseller', `d${distIndex}-p${pi}-sub-reseller`, { smallBook: true }),
+      );
+    }
+    partners.push(partner);
   }
   const directs = [];
   for (let ci = 0; ci < DIRECT_CUSTOMERS_PER_DISTRIBUTOR; ci++) {
@@ -533,10 +569,18 @@ function buildDistributor(name, distIndex) {
     const mode = (ci % 10) < 7 ? 'managed' : 'unmanaged';
     directs.push(makeEntity({ type: 'customer', managementMode: mode, name: nextCustomerName() }));
   }
+  // Demonstrate distributor-under-distributor: a 1-managed / 2-unmanaged mix
+  // so the lateral hierarchy is impossible to miss while browsing the tree.
+  const subDistributors = [
+    buildSubDistributor('managed', distIndex, 0),
+    buildSubDistributor('unmanaged', distIndex, 1),
+    buildSubDistributor('unmanaged', distIndex, 2),
+  ];
   return makeEntity({
     type: 'distributor',
+    managementMode: 'managed',
     name,
-    children: [...partners, ...directs],
+    children: [...partners, ...directs, ...subDistributors],
   });
 }
 
