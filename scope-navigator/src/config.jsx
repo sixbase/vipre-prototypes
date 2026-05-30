@@ -1,5 +1,5 @@
 import {
-  Building2, Store, Users,
+  Building2, Store, Users, Network,
   Mail, Send, ShieldCheck, Bug, Globe, Shield, Monitor, Cloud, Key, Package,
   Layers, Tag, Split, Briefcase, EyeOff,
 } from 'lucide-react';
@@ -41,47 +41,25 @@ export const displayTypeConfig = {
     legacyColor: 'text-white',
     bg: 'bg-blue-600',
   },
-  msp: {
-    label: 'MSP',
-    Icon: ShieldCheck,
-    icon: ShieldCheck,
-    color: 'text-white',
-    iconColor: 'text-white',
-    textClass: 'text-white',
-    bgClass: 'bg-blue-600',
-    ring: 'ring-blue-700 dark:ring-blue-500',
-    stroke: '#1d4ed8',
-    tintColor: 'text-blue-700 dark:text-blue-300',
-    legacyColor: 'text-white',
-    bg: 'bg-blue-600',
-  },
-  hybrid: {
-    label: 'Hybrid',
-    Icon: Layers,
-    icon: Layers,
-    color: 'text-white',
-    iconColor: 'text-white',
-    textClass: 'text-white',
-    bgClass: 'bg-fuchsia-600',
-    ring: 'ring-fuchsia-700 dark:ring-fuchsia-500',
-    stroke: '#a21caf',
-    tintColor: 'text-fuchsia-700 dark:text-fuchsia-300',
-    legacyColor: 'text-white',
-    bg: 'bg-fuchsia-600',
-  },
+  // Three-tier model: Distributor · Reseller · Customer. The partner tier is
+  // presented uniformly as "Reseller" (the prior MSP / Hybrid / Reseller
+  // capability sub-variants are no longer surfaced as distinct display types).
+  // Reseller iconography: Network (org-chart) on red-600 — the canonical
+  // reseller look shown across the app (e.g. the Descendants card). B and C
+  // both read from here, so they stay identical.
   reseller: {
     label: 'Reseller',
-    Icon: Tag,
-    icon: Tag,
+    Icon: Network,
+    icon: Network,
     color: 'text-white',
     iconColor: 'text-white',
     textClass: 'text-white',
-    bgClass: 'bg-teal-600',
-    ring: 'ring-teal-700 dark:ring-teal-500',
-    stroke: '#0f766e',
-    tintColor: 'text-teal-700 dark:text-teal-300',
+    bgClass: 'bg-red-600',
+    ring: 'ring-red-700 dark:ring-red-500',
+    stroke: '#b91c1c',
+    tintColor: 'text-red-700 dark:text-red-300',
     legacyColor: 'text-white',
-    bg: 'bg-teal-600',
+    bg: 'bg-red-600',
   },
   customer: {
     label: 'Customer',
@@ -99,7 +77,7 @@ export const displayTypeConfig = {
   },
 };
 
-export const displayTypeOrder = ['distributor', 'msp', 'hybrid', 'reseller', 'customer'];
+export const displayTypeOrder = ['distributor', 'reseller', 'customer'];
 
 // Transitional compatibility layer: the legacy typeConfig alias additionally
 // exposes a generic 'partner' entry so consumers that still do
@@ -114,9 +92,9 @@ export const displayTypeOrder = ['distributor', 'msp', 'hybrid', 'reseller', 'cu
 export const typeConfig = {
   ...displayTypeConfig,
   partner: {
-    label: 'Partner',
-    Icon: Users,
-    icon: Users,
+    label: 'Reseller',
+    Icon: Network,
+    icon: Network,
     color: 'text-white',
     iconColor: 'text-white',
     textClass: 'text-white',
@@ -163,7 +141,9 @@ export const managementModeConfig = {
 
 export function getDisplayType(entity) {
   if (!entity) return null;
-  if (entity.type === 'partner') return entity.partnerCapability;
+  // Three-tier model: every partner — whatever its underlying
+  // partnerCapability (msp / hybrid / reseller) — displays as a Reseller.
+  if (entity.type === 'partner') return 'reseller';
   return entity.type;
 }
 
@@ -227,9 +207,9 @@ export function getCustomerEffectiveMode(customer) {
 
 // ── Status config ──────────────────────────────────────────────────
 export const statusConfig = {
-  active:    { pill: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', dot: 'bg-green-500', label: 'Active' },
-  trial:     { pill: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', dot: 'bg-amber-500', label: 'Trial' },
-  suspended: { pill: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',         dot: 'bg-red-400',   label: 'Suspended' },
+  active:    { pill: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', dot: 'bg-green-500', label: 'Active',    desc: 'Live, paying subscription' },
+  trial:     { pill: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', dot: 'bg-amber-500', label: 'Trial',     desc: 'Evaluating, not yet converted' },
+  suspended: { pill: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',         dot: 'bg-red-400',   label: 'Suspended', desc: 'Access paused — billing or policy hold' },
 };
 
 export function StatusBadge({ status }) {

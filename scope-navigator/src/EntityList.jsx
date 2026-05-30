@@ -68,30 +68,17 @@ function formatAncestorPath(ancestorPath) {
   return `${names[0]} → ... → ${names[names.length - 1]}`;
 }
 
-// Soft tint pairings used to render the icon tile in "inverse" mode for
-// non-direct descendants. Telegraphs that the entity sits one or more
-// levels below the current scope without the saturated fill that direct
-// children get.
-const inverseTileBg = {
-  distributor: 'bg-blue-50 dark:bg-blue-900/30',
-  partner: 'bg-red-50 dark:bg-red-900/30',
-  customer: 'bg-green-50 dark:bg-green-900/30',
-};
-const inverseTileFg = {
-  distributor: 'text-blue-700 dark:text-blue-300',
-  partner: 'text-red-700 dark:text-red-300',
-  customer: 'text-green-700 dark:text-green-300',
-};
-
 function EntityRowImpl({ entity, onDrillDown, onSelect, isSelected, isEven, ancestorPath, onTeleport, fullPath, selectOnRowClick = false }) {
   const rowRef = useRef(null);
   const { Icon, color, bg } = typeConfig[entity.type];
   const isLeaf = entity.type === 'customer';
   const hasAnnotation = ancestorPath?.length > 0;
-  // Non-direct rows wear an inverse (light tint) icon tile so they read
-  // as one-step-removed from the current scope.
-  const tileBg = hasAnnotation ? (inverseTileBg[entity.type] ?? bg) : bg;
-  const tileFg = hasAnnotation ? (inverseTileFg[entity.type] ?? color) : color;
+  // All rows wear the same saturated icon tile regardless of depth — direct
+  // and non-direct descendants share one consistent treatment. The "via …"
+  // ancestor annotation below the name still telegraphs that a row sits one
+  // or more levels below the current scope.
+  const tileBg = bg;
+  const tileFg = color;
 
   useEffect(() => {
     if (isSelected && rowRef.current) {
@@ -237,10 +224,6 @@ export default function EntityList({ entities, onDrillDown, onSelect, selectedEn
   const [managementFilter, setManagementFilter] = useState(null);
   const [activeMenu, setActiveMenu] = useState(null);
   const [includeDescendants, setIncludeDescendants] = useState(true);
-  // In viewAllDescendants mode users can flip between flat-all and
-  // direct-only without leaving Browse all. Defaults to All so the prop
-  // semantics are unchanged on initial render.
-  const [showAllDescendants, setShowAllDescendants] = useState(viewAllDescendants);
 
   const entityKey = entities?.map(e => e.id).join(',');
   const [prevKey, setPrevKey] = useState(entityKey);
@@ -251,7 +234,6 @@ export default function EntityList({ entities, onDrillDown, onSelect, selectedEn
     setStatusFilter(null);
     setManagementFilter(null);
     setIncludeDescendants(true);
-    setShowAllDescendants(viewAllDescendants);
   }
 
   // Memoize flattened descendants for search
@@ -279,12 +261,10 @@ export default function EntityList({ entities, onDrillDown, onSelect, selectedEn
   }
 
   const isSearching = search.length > 0;
-  // viewAllDescendants forces the deep listing on regardless of whether the
-  // user is searching — used by Customer Management B's "View all" pane so
-  // descendants render below their ancestors instead of stopping at the
-  // direct-children layer. Inside that pane, showAllDescendants lets the
-  // user flip back to a direct-children-only view via the header toggle.
-  const useDeepSearch = (viewAllDescendants && showAllDescendants) || (isSearching && includeDescendants);
+  // The list always shows direct children only when not searching. Deep
+  // descendants surface solely through search (when "Include all
+  // descendants" is checked) — there is no flat all-descendants listing.
+  const useDeepSearch = isSearching && includeDescendants;
 
   // Build display list
   let displayItems = []; // Array of { entity, ancestorPath?, fullPath? }
@@ -377,39 +357,12 @@ export default function EntityList({ entities, onDrillDown, onSelect, selectedEn
       <div className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
         {/* Row 1: label + add button */}
         <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-1.5">
-          {viewAllDescendants ? (
-            <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 flex-shrink-0">
-              <span>Descendants</span>
-              <button
-                onClick={() => setShowAllDescendants(true)}
-                className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
-                  showAllDescendants
-                    ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200'
-                    : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'
-                }`}
-              >
-                All <span className="font-semibold">{allDescendants.length}</span>
-              </button>
-              <span className="text-zinc-300 dark:text-zinc-600">/</span>
-              <button
-                onClick={() => setShowAllDescendants(false)}
-                className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
-                  !showAllDescendants
-                    ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200'
-                    : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'
-                }`}
-              >
-                Direct <span className="font-semibold">{entities.length}</span>
-              </button>
-            </h2>
-          ) : (
-            <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex-shrink-0">
-              {levelLabel}
-              <span className="ml-1.5 text-zinc-500 dark:text-zinc-400 font-semibold">
-                {isSearching ? `${displayItems.length} / ${entities.length}` : useDeepSearch ? displayItems.length : entities.length}
-              </span>
-            </h2>
-          )}
+          <h2 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex-shrink-0">
+            {levelLabel}
+            <span className="ml-1.5 text-zinc-500 dark:text-zinc-400 font-semibold">
+              {isSearching ? `${displayItems.length} / ${entities.length}` : useDeepSearch ? displayItems.length : entities.length}
+            </span>
+          </h2>
           {onAdd && (
             <ScopeAddButton currentLevel={currentLevel} onAdd={onAdd} />
           )}

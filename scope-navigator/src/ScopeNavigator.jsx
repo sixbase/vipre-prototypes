@@ -271,8 +271,7 @@ function SearchTrigger({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 pl-3 pr-2.5 py-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-400 hover:text-zinc-500 hover:border-zinc-300 dark:hover:text-zinc-300 dark:hover:border-zinc-600 transition-colors cursor-pointer flex-shrink-0"
-      style={{ width: 200 }}
+      className="flex items-center gap-2 pl-3 pr-2.5 py-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-400 hover:text-zinc-500 hover:border-zinc-300 dark:hover:text-zinc-300 dark:hover:border-zinc-600 transition-colors cursor-pointer flex-shrink-0 w-full sm:w-[200px]"
     >
       <Search className="w-4 h-4 flex-shrink-0" />
       <span className="text-[13px]">Search entities...</span>
@@ -378,7 +377,8 @@ export default function ScopeNavigator({ path, onNavigate, onSearchOpen, telepor
 
   return (
     <nav ref={navRef} className="bg-transparent px-4 py-3">
-      <div className="flex items-center gap-3 whitespace-nowrap">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0 whitespace-nowrap">
         <div ref={innerRef} className="flex items-center gap-3 flex-1 min-w-0">
           {visibleSegments.map((seg, i) => {
             if (seg === 'ellipsis') {
@@ -412,6 +412,7 @@ export default function ScopeNavigator({ path, onNavigate, onSearchOpen, telepor
           <Zap className="w-3 h-3" />
           Future State
         </button>
+        </div>
         <SearchTrigger onClick={onSearchOpen} />
       </div>
     </nav>

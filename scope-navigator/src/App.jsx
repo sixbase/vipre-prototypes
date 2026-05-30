@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Moon, Sun, Zap } from 'lucide-react';
+import { Moon, Sun, Zap, Menu, X } from 'lucide-react';
 import { ScopeProvider, useScope } from './ScopeContext';
 import ScopeNavigator from './ScopeNavigator';
 import EntityList from './EntityList';
@@ -10,6 +10,7 @@ import DevicesPageB from './DevicesPageB';
 import DashboardPage from './DashboardPage';
 import PoliciesPage from './PoliciesPage';
 import CustomerManagementPageB from './CustomerManagementPageB';
+import CustomerManagementPageC from './CustomerManagementPageC';
 import ScopeSummaryStrip from './ScopeSummaryStrip';
 import { mockData } from './data';
 import { ProvisioningModal, SuccessToast } from './ProvisioningModal';
@@ -46,6 +47,7 @@ function AppContent() {
   const [selectedEntity, setSelectedEntity] = useState(null);
   const [activePage, setActivePage] = useState('Customer Management B');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false); // mobile off-canvas sidebar
   const [provisioningModal, setProvisioningModal] = useState(null); // { type, contextEntity }
   const [toast, setToast] = useState(null); // string message
 
@@ -60,6 +62,9 @@ function AppContent() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
+
+  // Close the mobile nav whenever a page is selected.
+  useEffect(() => { setNavOpen(false); }, [activePage]);
 
   // Cmd+K / Ctrl+K global shortcut
   useEffect(() => {
@@ -116,10 +121,18 @@ function AppContent() {
       />
 
       <div className="flex-1 flex min-h-0">
-      {/* Left Nav */}
-      <nav className="w-56 shrink-0 bg-[#e5e5e5] dark:bg-[#1a1a1a] border-r border-zinc-200 dark:border-zinc-700 flex flex-col overflow-y-auto">
+      {/* Mobile nav backdrop */}
+      {navOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => setNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      {/* Left Nav — static on desktop, off-canvas drawer on mobile */}
+      <nav className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-out lg:static lg:z-auto lg:w-56 lg:translate-x-0 lg:transition-none ${navOpen ? 'translate-x-0' : '-translate-x-full'} shrink-0 bg-[#e5e5e5] dark:bg-[#1a1a1a] border-r border-zinc-200 dark:border-zinc-700 flex flex-col overflow-y-auto`}>
         {/* Vipre Logo */}
-        <div className="px-5 pt-5 pb-4">
+        <div className="px-5 pt-5 pb-4 flex items-center justify-between">
           <svg width="90" height="16" viewBox="0 0 220 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-zinc-800 dark:text-white">
             <path d="M12.4474 10.6562C13.149 9.44293 14.283 9.44293 14.9845 10.6562L26.6408 30.8076C27.3424 32.0209 27.3424 34.0259 26.6408 35.2393L24.4826 39.0898C23.781 40.3031 22.648 40.3031 21.9465 39.0898L10.2892 18.9385C9.58766 17.7252 9.58766 15.7202 10.2892 14.4541L12.4474 10.6562Z" fill="currentColor"/>
             <path d="M45.4758 0C46.9329 0 47.4723 1.0025 46.7707 2.21582L34.5744 22.209C33.8189 23.4222 32.0383 24.4246 30.5812 24.4248H26.1017C24.6447 24.4248 24.1044 23.4222 24.8058 22.209L37.0031 2.21582C37.7586 1.00258 39.5392 0.000127689 40.9963 0H45.4758Z" fill="currentColor"/>
@@ -130,6 +143,13 @@ function AppContent() {
             <path d="M219.083 14.6992H199.762L199.007 18.4453H217.896L217.032 22.876H198.144L197.388 26.6221H216.708L215.791 31.2637H186.594L189.725 15.3857C190.318 12.3261 193.071 10.0576 196.309 10.0576H220L219.083 14.6992Z" fill="currentColor"/>
             <path d="M72.8088 25.1973L73.4025 26.833L74.59 25.25L74.6437 25.1445L83.8185 12.8008C85.1137 11.1127 87.1101 10.1104 89.2687 10.1104V10.0576H96.9318L80.0402 31.2109H65.6848L57.2121 10.0576H67.4123L72.8088 25.1973Z" fill="currentColor"/>
           </svg>
+          <button
+            onClick={() => setNavOpen(false)}
+            className="lg:hidden p-1.5 -mr-1 rounded-md text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Nav Sections */}
@@ -138,6 +158,7 @@ function AppContent() {
             <NavItem label="Dashboard" active={activePage === 'Dashboard'} onClick={() => setActivePage('Dashboard')} />
             <NavItem label="Customer Management" active={activePage === 'Customer Management'} onClick={() => setActivePage('Customer Management')} />
             <NavItem label="Customer Management B" active={activePage === 'Customer Management B'} onClick={() => setActivePage('Customer Management B')} />
+            <NavItem label="Customer Management C" active={activePage === 'Customer Management C'} onClick={() => setActivePage('Customer Management C')} />
           </NavSection>
           <NavSection label="ENDPOINT">
             <NavItem label="Devices" active={activePage === 'Devices'} onClick={() => setActivePage('Devices')} />
@@ -174,12 +195,17 @@ function AppContent() {
       {/* Main Content */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Page header */}
-        <div className="px-6 py-3 flex items-center justify-between flex-shrink-0">
-          <div>
-            <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">
-              {activePage === 'Customer Management' ? 'Customer Management' : activePage.replace(/^(EP|ES|SS) /, '')}
-            </h1>
-          </div>
+        <div className="px-4 sm:px-6 py-3 flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => setNavOpen(true)}
+            className="lg:hidden p-1.5 -ml-1 rounded-md text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <h1 className="text-lg font-semibold text-zinc-900 dark:text-white truncate">
+            {activePage === 'Customer Management' ? 'Customer Management' : activePage.replace(/^(EP|ES|SS) /, '')}
+          </h1>
         </div>
 
         {activePage === 'Customer Management' ? (
@@ -227,6 +253,8 @@ function AppContent() {
           </>
         ) : activePage === 'Customer Management B' ? (
           <CustomerManagementPageB openModal={openModal} showFuture={showFuture} />
+        ) : activePage === 'Customer Management C' ? (
+          <CustomerManagementPageC openModal={openModal} showFuture={showFuture} />
         ) : activePage === 'Devices' ? (
           <div className="flex-1 min-h-0 overflow-hidden mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
             <DevicesPage />

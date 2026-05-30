@@ -32,3 +32,6 @@ lerna-debug.log*
 
 # Claude local session state
 .claude/
+
+# gstack QA browser session state
+.gstack/

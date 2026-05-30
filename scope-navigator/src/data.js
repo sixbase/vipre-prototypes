@@ -641,6 +641,23 @@ function generateData() {
     roots.push(buildDistributor(nextName(distributorNames, dCur), i));
   }
 
+  // ── Scale demo (Customer Management C) ─────────────────────────────
+  // One very large hybrid reseller (~2,600 customers, ~60% managed) so
+  // reviewers can drill from the root into the scale case and compare B's
+  // non-virtualized list with C's virtualized directory on the SAME
+  // accounts. Built with the same makeEntity/generator path as every other
+  // entity, so the shape is identical — no parallel dataset.
+  {
+    const SCALE_CUSTOMER_COUNT = 2600;
+    const bigReseller = makeEntity({
+      type: 'partner',
+      partnerCapability: 'hybrid',
+      name: 'Summit Managed Services',
+      children: generateHybridCustomers(SCALE_CUSTOMER_COUNT),
+    });
+    roots.push(bigReseller);
+  }
+
   // Direct top-level partners — partners that contract directly with
   // Vipre and don't sit under any distributor. Mix of capabilities and
   // book sizes so root partners scale realistically when listed.

@@ -3,7 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useScope } from './ScopeContext';
 import EntityDetail from './EntityDetail';
 import EntityList from './EntityList';
-import DashboardPage from './DashboardPage';
+import DashboardPageB from './DashboardPageB';
 
 export default function CustomerManagementPageB({ openModal, showFuture }) {
   const { path, currentEntity, currentLevel, childEntities, navigate, drillDown, teleport } = useScope();
@@ -33,7 +33,7 @@ export default function CustomerManagementPageB({ openModal, showFuture }) {
 
   if (showAllPane) {
     return (
-      <main className="flex-1 min-h-0 flex flex-col overflow-hidden mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+      <main className="flex-1 min-h-0 flex flex-col overflow-hidden mx-3 sm:mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
         <div className="flex items-center gap-2 px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0">
           <button
             onClick={() => { setShowAllPane(false); setSelectedEntity(null); }}
@@ -90,7 +90,7 @@ export default function CustomerManagementPageB({ openModal, showFuture }) {
   }
 
   return (
-    <main className="flex-1 min-h-0 flex flex-col overflow-hidden mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+    <main className="flex-1 min-h-0 flex flex-col overflow-hidden mx-3 sm:mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
       {currentEntity ? (
         <EntityDetail
           entity={currentEntity}
@@ -102,9 +102,10 @@ export default function CustomerManagementPageB({ openModal, showFuture }) {
         />
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <DashboardPage
+          <DashboardPageB
             onDrillDown={(child) => navigate([...path, child])}
             onViewAll={() => setShowAllPane(true)}
+            showFuture={showFuture}
           />
         </div>
       )}
