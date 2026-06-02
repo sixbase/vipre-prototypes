@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, Search, ArrowUpDown, Filter, X, Check, MoreHorizontal, Zap } from 'lucide-react';
 import { typeConfig, statusConfig, StatusBadge, TypeBadge, sortOptions, applySorting, getDisplayType } from './config';
 import { mockData, getSiblingsAtLevel } from './data';
@@ -21,15 +21,41 @@ function DropdownPopover({ items, onSelect, onClose, header, currentEntityId }) 
   const [activeMenu, setActiveMenu] = useState(null);
   const ref = useClickOutside(onClose);
   const inputRef = useRef(null);
+  // Keep the panel on-screen. It's anchored under its trigger (left-0), but a
+  // deep/right-side trigger would push a viewport-wide panel off the edge. We
+  // measure after layout and shift its actual `left` (not a transform) so the
+  // layout box itself stays in view — otherwise the off-screen box widens the
+  // scroll area and auto-focusing the search input scrolls the page sideways.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const clamp = () => {
+      el.style.left = '0px';
+      const r = el.getBoundingClientRect();
+      const m = 8;
+      let dx = 0;
+      if (r.left < m) dx = m - r.left;
+      else if (r.right > window.innerWidth - m) dx = (window.innerWidth - m) - r.right;
+      el.style.left = dx ? `${dx}px` : '';
+    };
+    clamp();
+    window.addEventListener('resize', clamp);
+    return () => window.removeEventListener('resize', clamp);
+  }, []);
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  // preventScroll: belt-and-suspenders so focusing never nudges the page even
+  // if the panel still slightly overruns.
+  useEffect(() => { inputRef.current?.focus({ preventScroll: true }); }, []);
 
   let displayed = items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
   if (statusFilter) displayed = displayed.filter(i => i.status === statusFilter);
   displayed = applySorting(displayed, sortBy);
 
   return (
-    <div ref={ref} className="absolute top-full left-0 mt-1 w-80 bg-white dark:bg-zinc-800 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-700 z-50 overscroll-contain whitespace-normal">
+    <div
+      ref={ref}
+      className="absolute top-full left-0 mt-1 w-[calc(100vw-1.5rem)] sm:w-80 bg-white dark:bg-zinc-800 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-700 z-50 overscroll-contain whitespace-normal"
+    >
       {header && (
         <div className="px-2 py-1.5 bg-zinc-100 dark:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-700">
           <span className="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-semibold">{header}</span>
@@ -181,7 +207,7 @@ function EllipsisMenu({ hiddenSegments, onSelect }) {
         <MoreHorizontal className="w-5 h-5" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-zinc-800 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-700 z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1 w-[calc(100vw-1.5rem)] sm:w-64 bg-white dark:bg-zinc-800 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-700 z-50 overflow-hidden">
           <div className="max-h-[280px] overflow-y-auto">
             {hiddenSegments.map(seg => {
               const SegIcon = typeConfig[seg.entityType]?.Icon;
@@ -210,7 +236,7 @@ function EllipsisMenu({ hiddenSegments, onSelect }) {
 
 function BreadcrumbSegment({ label, isActive, isRoot, entityType, entity, pathIndex, onClick, dropdownItems, onDropdownSelect, dropdownHeader, currentEntityId, isTeleported }) {
   const [open, setOpen] = useState(false);
-  const Icon = isRoot ? typeConfig.distributor.Icon : typeConfig[entityType]?.Icon;
+  const Icon = isRoot ? typeConfig.root.Icon : typeConfig[entityType]?.Icon;
   const hasDropdown = dropdownItems?.length > 0;
 
   return (

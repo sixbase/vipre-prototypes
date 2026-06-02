@@ -10,7 +10,6 @@ import DevicesPageB from './DevicesPageB';
 import DashboardPage from './DashboardPage';
 import PoliciesPage from './PoliciesPage';
 import CustomerManagementPageB from './CustomerManagementPageB';
-import CustomerManagementPageC from './CustomerManagementPageC';
 import ScopeSummaryStrip from './ScopeSummaryStrip';
 import { mockData } from './data';
 import { ProvisioningModal, SuccessToast } from './ProvisioningModal';
@@ -158,7 +157,6 @@ function AppContent() {
             <NavItem label="Dashboard" active={activePage === 'Dashboard'} onClick={() => setActivePage('Dashboard')} />
             <NavItem label="Customer Management" active={activePage === 'Customer Management'} onClick={() => setActivePage('Customer Management')} />
             <NavItem label="Customer Management B" active={activePage === 'Customer Management B'} onClick={() => setActivePage('Customer Management B')} />
-            <NavItem label="Customer Management C" active={activePage === 'Customer Management C'} onClick={() => setActivePage('Customer Management C')} />
           </NavSection>
           <NavSection label="ENDPOINT">
             <NavItem label="Devices" active={activePage === 'Devices'} onClick={() => setActivePage('Devices')} />
@@ -253,8 +251,6 @@ function AppContent() {
           </>
         ) : activePage === 'Customer Management B' ? (
           <CustomerManagementPageB openModal={openModal} showFuture={showFuture} />
-        ) : activePage === 'Customer Management C' ? (
-          <CustomerManagementPageC openModal={openModal} showFuture={showFuture} />
         ) : activePage === 'Devices' ? (
           <div className="flex-1 min-h-0 overflow-hidden mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
             <DevicesPage />

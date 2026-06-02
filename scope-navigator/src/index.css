@@ -1,9 +1,39 @@
 @import "tailwindcss";
+/* Vipre Design System tokens — :root{--vds-*} + .dark{} overrides.
+   Single source of truth lives in ../../vipre-design-system; rebuilt there with
+   `npm run build:tokens`. We consume only the compiled custom properties. */
+@import "vipre-design-system/tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Typeface — Rubik, from the design system (replaces Inter). */
+  --font-sans: var(--vds-font-sans);
+
+  /* Semantic color tokens bridged from the DS. These are ADDITIVE — they create
+     new utilities (bg-surface, text-ink, text-primary, border-line, text-success…)
+     that resolve to DS tokens and flip in dark mode automatically. Existing
+     palette classes are untouched; migrate them to these incrementally. */
+  --color-canvas: var(--vds-canvas);
+  --color-surface: var(--vds-surface);
+  --color-surface-raised: var(--vds-surface-raised);
+  --color-line: var(--vds-line);
+  --color-line-strong: var(--vds-line-strong);
+  --color-ink: var(--vds-ink);
+  --color-ink-muted: var(--vds-ink-muted);
+  --color-ink-subtle: var(--vds-ink-subtle);
+  --color-primary: var(--vds-primary);
+  --color-primary-hover: var(--vds-primary-hover);
+  --color-primary-soft: var(--vds-primary-soft);
+  --color-on-primary: var(--vds-on-primary);
+  --color-success: var(--vds-success);
+  --color-success-soft: var(--vds-success-soft);
+  --color-warning: var(--vds-warning);
+  --color-warning-soft: var(--vds-warning-soft);
+  --color-danger: var(--vds-danger);
+  --color-danger-soft: var(--vds-danger-soft);
+  --color-info: var(--vds-info);
+  --color-info-soft: var(--vds-info-soft);
 }
 
 @keyframes palette-in {

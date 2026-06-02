@@ -1,12 +1,8 @@
 import { useMemo, useState, useEffect, Fragment } from 'react';
-import {
-  Building2, Monitor, Shield, Activity,
-  Package, Mail, Send, ShieldCheck, Bug, Globe, Cloud, Key, ScanSearch, Clock, Paperclip,
-  MapPin, Phone, User, Network, ArrowLeft, ArrowUpRight, ChevronRight,
-} from 'lucide-react';
+import { Building2, ArrowLeft, ArrowUpRight, ChevronRight } from 'lucide-react';
 import { useScope } from './ScopeContext';
 import { mockData, genCustomerPackages, genPartnerPackages, findEntityById, buildRootAggregateEntity } from './data';
-import { typeConfig, statusConfig, pkgIconMap, defaultPkgIcon, isPartner, isLeaf, isEntityUnmanaged } from './config';
+import { typeConfig, pkgIconMap, defaultPkgIcon } from './config';
 import EntityDetail, { ChildrenListView, EntityPackageDetail, EntityIdentityHeader } from './EntityDetail';
 import useClickOutside from './useClickOutside';
 
@@ -24,16 +20,36 @@ function BreadcrumbEllipsis({ items }) {
         …
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 min-w-[180px] max-w-[280px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-lg py-1">
-          {items.map(it => (
-            <button
-              key={it.key}
-              onClick={() => { setOpen(false); it.onClick(); }}
-              className="w-full text-left px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors truncate"
-            >
-              {it.label}
-            </button>
-          ))}
+        <div className="absolute left-0 top-full mt-1 z-50 min-w-[200px] max-w-[280px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-lg p-1">
+          {items.map((it, i) => {
+            // These are the collapsed middle levels — an ancestor→descendant
+            // chain. A continuous vertical line threads through the entity icons
+            // (clipped at the first/last) to make the nesting relationship
+            // explicit, mirroring the entity→package connector elsewhere.
+            const cfg = it.entityType ? typeConfig[it.entityType] : null;
+            const Icon = cfg?.Icon;
+            const isLast = i === items.length - 1;
+            return (
+              <button
+                key={it.key}
+                onClick={() => { setOpen(false); it.onClick(); }}
+                className="relative w-full flex items-stretch gap-2.5 px-2 py-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+              >
+                <span className="relative flex-shrink-0 flex items-center justify-center w-5">
+                  <span
+                    aria-hidden
+                    className={`absolute left-1/2 -translate-x-1/2 w-px bg-zinc-200 dark:bg-zinc-600 ${i === 0 ? 'top-1/2 bottom-0' : isLast ? 'top-0 bottom-1/2' : 'inset-y-0'}`}
+                  />
+                  {Icon && (
+                    <span className={`relative z-10 w-5 h-5 rounded flex items-center justify-center ${cfg.bg ?? 'bg-zinc-500'}`}>
+                      <Icon className="w-3 h-3 text-white" />
+                    </span>
+                  )}
+                </span>
+                <span className="self-center min-w-0 truncate text-xs font-medium text-zinc-700 dark:text-zinc-200 text-left">{it.label}</span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -57,23 +73,32 @@ function DrawerTopBar({ crumbs, onBack, showOpen = false, onOpen }) {
         <ArrowLeft className="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors" />
       </button>
       <nav className="flex items-center gap-1 min-w-0 flex-1">
-        {shown.map((c, i) => (
-          <Fragment key={c.key}>
-            {i > 0 && <ChevronRight className="w-3 h-3 text-zinc-300 dark:text-zinc-600 flex-shrink-0" />}
-            {c.ellipsis ? (
-              <BreadcrumbEllipsis items={c.items} />
-            ) : c.onClick ? (
-              <button
-                onClick={c.onClick}
-                className="text-xs font-medium px-1.5 py-1 rounded-md text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 transition-colors truncate min-w-0"
-              >
-                {c.label}
-              </button>
-            ) : (
-              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate min-w-0">{c.label}</span>
-            )}
-          </Fragment>
-        ))}
+        {shown.map((c, i) => {
+          // Every crumb shares one box (same padding/typography) so the leading
+          // "list" crumb + back arrow stay perfectly still as you drill in and
+          // out — it only ever gains a hover affordance, never shifts or
+          // recolors at rest. The leading crumb keeps the darker "anchor" tone
+          // in both list and detail; deeper parent links read lighter.
+          const box = 'text-xs font-medium px-1.5 py-1 rounded-md truncate min-w-0';
+          const tone = i === 0 ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-500 dark:text-zinc-400';
+          return (
+            <Fragment key={c.key}>
+              {i > 0 && <ChevronRight className="w-3 h-3 text-zinc-300 dark:text-zinc-600 flex-shrink-0" />}
+              {c.ellipsis ? (
+                <BreadcrumbEllipsis items={c.items} />
+              ) : c.onClick ? (
+                <button
+                  onClick={c.onClick}
+                  className={`${box} ${tone} hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 ${i === 0 ? '' : 'hover:text-zinc-900 dark:hover:text-zinc-100'}`}
+                >
+                  {c.label}
+                </button>
+              ) : (
+                <span className={`${box} ${tone}`}>{c.label}</span>
+              )}
+            </Fragment>
+          );
+        })}
       </nav>
       {showOpen && (
         <button
@@ -124,7 +149,7 @@ function Drawer({ open, onClose, wide = false, children }) {
 // Detail body shown under the (static) drawer top bar: the entity identity header
 // plus the overview, which slides aside when a package datapoint is opened. The
 // breadcrumb / back / "Open" all live in the persistent top bar above this.
-function DrawerEntityDetail({ entity, filter, onFilterChange, pkg, siblings, showFuture, onDrillDown, onPackageClick }) {
+function DrawerEntityDetail({ entity, filter, onFilterChange, pkg, siblings, showFuture, onDrillDown, onPackageClick, onCustomerDrillDown }) {
   // Keep the last package mounted through the slide-out so the panel doesn't
   // blank out mid-animation when navigating back to the overview.
   const [shownPkg, setShownPkg] = useState(pkg);
@@ -151,7 +176,7 @@ function DrawerEntityDetail({ entity, filter, onFilterChange, pkg, siblings, sho
         </div>
         {/* Package datapoint layer — slides over with a soft depth shadow on its edge */}
         <div className={`absolute inset-0 flex flex-col bg-white dark:bg-zinc-900 shadow-[-16px_0_40px_-16px_rgba(0,0,0,0.18)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${pkg ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
-          {shownPkg && <EntityPackageDetail entity={entity} pkg={shownPkg} embedded />}
+          {shownPkg && <EntityPackageDetail entity={entity} pkg={shownPkg} embedded onCustomerClick={onCustomerDrillDown} />}
         </div>
       </div>
     </div>
@@ -287,7 +312,7 @@ function PackageDetail({ pkg, scope, onClose }) {
 }
 
 export default function DashboardPageB({ externalFilter, onExternalFilterChange, onDrillDown, onViewAll, showFuture = false, openModal } = {}) {
-  const { currentEntity, currentLevel, childEntities, path, navigate } = useScope();
+  const { currentEntity, childEntities, path, navigate } = useScope();
   const [internalFilter, setInternalFilter] = useState(null);
   // Retains the last opened type so the drawer keeps rendering its list while
   // it slides out (childrenFilter goes null on close before the transition ends).
@@ -344,6 +369,10 @@ export default function DashboardPageB({ externalFilter, onExternalFilterChange,
   useEffect(() => { setSelectedPkg(null); setDetailStack([]); setDetailPkg(null); }, [currentEntity?.id]);
   // Returning to the list clears any drilled-in package.
   useEffect(() => { if (!detailStack.length) setDetailPkg(null); }, [detailStack.length]);
+  // A package datapoint is scoped to one entity — moving to a different entity
+  // in the stack (e.g. drilling from a package into one of its customers) always
+  // closes it, so the package overlay can't linger over the wrong entity.
+  useEffect(() => { setDetailPkg(null); }, [detailTop?.entity?.id]);
 
   // Escape: step back one level (package → up the entity stack → list), then close.
   useEffect(() => {
@@ -391,6 +420,7 @@ export default function DashboardPageB({ externalFilter, onExternalFilterChange,
         ...detailStack.slice(0, -1).map((e, i) => ({
           key: e.entity.id,
           label: e.entity.name,
+          entityType: e.entity.type,
           onClick: () => { setDetailPkg(null); setDetailStack(s => s.slice(0, i + 1).map((x, idx) => idx === i ? { ...x, filter: null } : x)); },
         })),
       ]
@@ -483,6 +513,7 @@ export default function DashboardPageB({ externalFilter, onExternalFilterChange,
                   filter={retainedFilter === 'all' ? null : retainedFilter}
                   onBack={closeChildrenPanel}
                   onDrillDown={(child) => setDetailStack([{ entity: child, filter: null }])}
+                  onOpen={(child) => handleChildDrillDown(child)}
                   deep
                   labelOverrides={B_LABEL_OVERRIDES}
                   hideHeader
@@ -506,6 +537,7 @@ export default function DashboardPageB({ externalFilter, onExternalFilterChange,
                   showFuture={showFuture}
                   onDrillDown={(child) => setDetailStack(s => [...s, { entity: child, filter: null }])}
                   onPackageClick={(pkg) => setDetailPkg(pkg)}
+                  onCustomerDrillDown={(child) => { setDetailPkg(null); setDetailStack(s => [...s, { entity: child, filter: null }]); }}
                 />
               )}
             </div>

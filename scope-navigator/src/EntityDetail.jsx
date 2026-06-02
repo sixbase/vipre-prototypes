@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ChevronRight, ChevronDown, Monitor, Key, ShieldCheck, Clock, Globe,
   Shield, Mail, Send, Bug, ScanSearch, CheckCircle, AlertTriangle,
   Trash2, Paperclip, UserCheck, Plus, Copy, Search, X, Cloud,
   Fingerprint, Check, TrendingUp, TrendingDown, AlertCircle, Settings,
-  Activity, Target, Zap, BarChart3, Info, MapPin, Phone, User, Languages, ArrowLeft, EyeOff, CaptionsOff, Loader2, Package
+  Activity, Target, Zap, BarChart3, Info, MapPin, Phone, User, Languages, ArrowLeft, ArrowUpRight, EyeOff, CaptionsOff, Loader2, Package
 } from 'lucide-react';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, ResponsiveContainer,
@@ -500,7 +500,9 @@ function PackageAdoptionTable({ entityId, entityType, onPackageClick }) {
 
 // Sortable, lazy-loaded table of customers on a package. Default: most seats first.
 const PKG_CUST_PAGE = 25;
-function CustomerSeatTable({ rows }) {
+function CustomerSeatTable({ rows, onRowClick }) {
+  const clickable = !!onRowClick;
+  const gridCols = clickable ? 'grid-cols-[1fr_64px_56px_16px]' : 'grid-cols-[1fr_64px_56px]';
   const [sortKey, setSortKey] = useState('seats');
   const [sortDir, setSortDir] = useState('desc');
   const [visibleCount, setVisibleCount] = useState(PKG_CUST_PAGE);
@@ -548,17 +550,22 @@ function CustomerSeatTable({ rows }) {
 
   return (
     <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-      <div className="grid grid-cols-[1fr_64px_56px] gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800">
+      <div className={`grid ${gridCols} gap-2 px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800`}>
         <Header label="Customer" k="name" />
         <div className="flex justify-end"><Header label="Seats" k="seats" right /></div>
         <div className="flex justify-end"><Header label="Util" k="util" right /></div>
+        {clickable && <div />}
       </div>
       <div>
         {visible.map((row, ri) => {
           const rowCfg = typeConfig[row.type === 'reseller' ? 'partner' : row.type] || typeConfig.customer;
           const RowIcon = rowCfg.Icon;
           return (
-            <div key={ri} className="grid grid-cols-[1fr_64px_56px] gap-2 items-center px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
+            <div
+              key={ri}
+              onClick={clickable ? () => onRowClick(row) : undefined}
+              className={`grid ${gridCols} gap-2 items-center px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0 ${clickable ? 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors group' : ''}`}
+            >
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${rowCfg.bg || 'bg-zinc-100 dark:bg-zinc-800'}`}>
                   <RowIcon className={`w-3 h-3 ${rowCfg.color || 'text-zinc-400'}`} />
@@ -572,6 +579,7 @@ function CustomerSeatTable({ rows }) {
               </div>
               <div className="text-right text-[13px] tabular-nums text-zinc-700 dark:text-zinc-300">{row.seats.toLocaleString()}</div>
               <div className={`text-right text-[13px] tabular-nums font-medium ${utilColor(row.util)}`}>{row.util}%</div>
+              {clickable && <ChevronRight className="w-3.5 h-3.5 self-center text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-400 dark:group-hover:text-zinc-400 transition-colors" />}
             </div>
           );
         })}
@@ -587,16 +595,32 @@ function CustomerSeatTable({ rows }) {
 }
 
 // ── Single package's adoption detail, scoped to one entity (drawer view) ──
-export function EntityPackageDetail({ entity, pkg, onBack, embedded = false }) {
+export function EntityPackageDetail({ entity, pkg, onBack, embedded = false, onCustomerClick }) {
   const isCustomer = entity.type === 'customer';
   const pkgIconMap = Object.fromEntries(
     availableProducts.filter(p => p.category !== 'Add-on').map(p => [p.key, { icon: p.icon, iconColor: p.iconColor }])
   );
   const { icon: PkgIcon, iconColor: pkgIconColor } = pkgIconMap[pkg.id] || {};
 
-  // Per-customer rows enriched with seats (consumed) + utilization for the table.
+  // Real descendant entities, used as the navigable target for each row so a
+  // click drills into an actual entity (with a matching name + type icon)
+  // rather than a fabricated one. Order is a stable depth-first walk.
+  const realDescendants = useMemo(() => {
+    const out = [];
+    (function walk(nodes) {
+      for (const n of nodes || []) { out.push(n); if (n.children?.length) walk(n.children); }
+    })(entity.children);
+    return out;
+  }, [entity]);
+
+  // Per-customer rows: synthetic seats/utilization/add-ons, but pinned onto the
+  // partner's real descendants so the name, type icon, and drill target are real.
   const customerRows = isCustomer ? [] : genCustomerRows(entity.id, pkg.id, pkg.customers, entity.type)
-    .map(r => ({ ...r, seats: r.actual, util: r.declared > 0 ? Math.round((r.actual / r.declared) * 100) : 0 }));
+    .slice(0, realDescendants.length)
+    .map((r, i) => {
+      const real = realDescendants[i];
+      return { ...r, name: real.name, type: real.type, entity: real, seats: r.actual, util: r.declared > 0 ? Math.round((r.actual / r.declared) * 100) : 0 };
+    });
 
   const kpis = isCustomer
     ? [
@@ -669,7 +693,7 @@ export function EntityPackageDetail({ entity, pkg, onBack, embedded = false }) {
             <div className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2">
               Customers ({customerRows.length})
             </div>
-            <CustomerSeatTable rows={customerRows} />
+            <CustomerSeatTable rows={customerRows} onRowClick={onCustomerClick ? (row) => row.entity && onCustomerClick(row.entity) : undefined} />
           </div>
         )}
       </div>
@@ -705,7 +729,7 @@ function ComplianceDonut({ score }) {
 // How many list rows to mount per lazy-load page.
 const LIST_PAGE_SIZE = 40;
 
-export function ChildrenListView({ entity, filter, onBack, onDrillDown, deep = false, labelOverrides, hideTypeBadge = false, statusAsDot = false, showManagementFilter = false, subtleUnmanaged = false, typeTitle = false, hideHeader = false }) {
+export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, deep = false, labelOverrides, hideTypeBadge = false, statusAsDot = false, showManagementFilter = false, subtleUnmanaged = false, typeTitle = false, hideHeader = false }) {
   const [search, setSearch] = useState('');
   // Managed / Unmanaged audience filter (opt-in via showManagementFilter).
   const [mgmtFilter, setMgmtFilter] = useState('all');
@@ -896,7 +920,7 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, deep = f
                   return (
                     <div
                       key={child.id}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer border-b border-zinc-100 dark:border-zinc-800 group"
+                      className="relative flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer border-b border-zinc-100 dark:border-zinc-800 group"
                       onClick={() => onDrillDown(child)}
                     >
                       <div className={`relative w-7 h-7 rounded-lg ${childBg} flex items-center justify-center flex-shrink-0`}>
@@ -911,29 +935,40 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, deep = f
                         <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{child.name}</div>
                         {childCountLabel && <div className="text-xs text-zinc-400 dark:text-zinc-500">{childCountLabel}</div>}
                       </div>
-                      {!hideTypeBadge && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px] font-medium leading-none dark:bg-zinc-800 dark:text-zinc-400 flex-shrink-0">{childLabel}</span>
-                      )}
-                      {isEntityUnmanaged(child) && (
-                        subtleUnmanaged ? (
-                          <span className="inline-flex items-center text-zinc-400 dark:text-zinc-500 flex-shrink-0" title="Unmanaged — outside the managed boundary">
-                            <CaptionsOff className="w-3.5 h-3.5" strokeWidth={2} />
+                      <div className={`flex items-center gap-2.5 flex-shrink-0 ${onOpen ? 'transition-opacity duration-100 group-hover:opacity-0' : ''}`}>
+                        {!hideTypeBadge && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px] font-medium leading-none dark:bg-zinc-800 dark:text-zinc-400 flex-shrink-0">{childLabel}</span>
+                        )}
+                        {isEntityUnmanaged(child) && (
+                          subtleUnmanaged ? (
+                            <span className="inline-flex items-center text-zinc-400 dark:text-zinc-500 flex-shrink-0" title="Unmanaged — outside the managed boundary">
+                              <CaptionsOff className="w-3.5 h-3.5" strokeWidth={2} />
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-700 text-white text-[10px] font-medium leading-none flex-shrink-0">
+                              <CaptionsOff className="w-2.5 h-2.5" />
+                              Unmanaged
+                            </span>
+                          )
+                        )}
+                        <span className="relative flex items-center flex-shrink-0 group/status">
+                          <span className={`w-2.5 h-2.5 rounded-full ${statusConfig[child.status].dot}`} />
+                          <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 z-20 hidden group-hover/status:block whitespace-nowrap rounded-md bg-zinc-900 dark:bg-zinc-700 text-white text-[11px] leading-none px-2 py-1.5 shadow-lg">
+                            <span className="font-medium">{statusConfig[child.status].label}</span>
+                            <span className="text-zinc-300"> — {statusConfig[child.status].desc}</span>
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-700 text-white text-[10px] font-medium leading-none flex-shrink-0">
-                            <CaptionsOff className="w-2.5 h-2.5" />
-                            Unmanaged
-                          </span>
-                        )
-                      )}
-                      <span className="relative flex items-center flex-shrink-0 group/status">
-                        <span className={`w-2.5 h-2.5 rounded-full ${statusConfig[child.status].dot}`} />
-                        <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 z-20 hidden group-hover/status:block whitespace-nowrap rounded-md bg-zinc-900 dark:bg-zinc-700 text-white text-[11px] leading-none px-2 py-1.5 shadow-lg">
-                          <span className="font-medium">{statusConfig[child.status].label}</span>
-                          <span className="text-zinc-300"> — {statusConfig[child.status].desc}</span>
                         </span>
-                      </span>
-                      <ChevronRight className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-400 dark:group-hover:text-zinc-400 transition-colors flex-shrink-0" />
+                        <ChevronRight className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-400 dark:group-hover:text-zinc-400 transition-colors flex-shrink-0" />
+                      </div>
+                      {onOpen && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onOpen(child); }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                        >
+                          Open
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -981,16 +1016,18 @@ function RollupCard({ type, count, entityId, period, onClick }) {
   const displayCount = useCountUp(count);
   return (
     <div
-      className={`flex-1 min-w-0 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 ${onClick ? 'cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-600 hover:bg-white dark:hover:bg-zinc-800/50 transition-colors' : ''}`}
+      className={`flex-1 min-w-0 overflow-hidden bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 ${onClick ? 'cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-600 hover:bg-white dark:hover:bg-zinc-800/50 transition-colors' : ''}`}
       onClick={onClick}
     >
       <div className="flex items-center gap-1.5 mb-2">
-        <TypeIcon className={`w-3.5 h-3.5 ${typeColor}`} />
-        <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">{typeLabel}s</span>
+        <TypeIcon className={`w-3.5 h-3.5 flex-shrink-0 ${typeColor}`} />
+        <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider truncate">{typeLabel}s</span>
       </div>
       <div className="flex items-end justify-between gap-3">
-        <div className={`text-2xl font-semibold text-zinc-900 dark:text-zinc-100 leading-tight tabular-nums ${onClick ? 'group-hover:underline' : ''}`}>{displayCount}</div>
-        <div className="w-20 h-8 flex-shrink-0">
+        <div className={`text-2xl font-semibold text-zinc-900 dark:text-zinc-100 leading-tight tabular-nums flex-shrink-0 ${onClick ? 'group-hover:underline' : ''}`}>{displayCount}</div>
+        {/* Sparkline shrinks (and clips) so the card never overflows on narrow
+            screens where a wide count leaves little room beside it. */}
+        <div className="h-8 w-20 min-w-0 shrink overflow-hidden">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={generateSparkline(entityId + type, count, period)}>
               <Line type="monotone" dataKey="v" stroke={stroke} strokeWidth={1.5} dot={false} isAnimationActive animationDuration={800} animationEasing="ease-out" />
@@ -1368,11 +1405,6 @@ export function EntityIdentityHeader({ entity, scrolled = false, statusAsDot = f
       <div className="flex items-start gap-3">
         <div className={`relative w-10 h-10 rounded-lg ${bg} ring-1 ${ring} flex items-center justify-center flex-shrink-0`}>
           <Icon className={`w-5 h-5 ${color}`} />
-          {isUnmanaged && (
-            <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-zinc-700 ring-2 ring-white dark:ring-zinc-900 flex items-center justify-center" title="Unmanaged">
-              <CaptionsOff className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
-            </span>
-          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -1381,8 +1413,8 @@ export function EntityIdentityHeader({ entity, scrolled = false, statusAsDot = f
               <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px] font-medium leading-none dark:bg-zinc-800 dark:text-zinc-400 flex-shrink-0">{label}</span>
             )}
             {isUnmanaged && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-700 text-white text-[10px] font-medium leading-none flex-shrink-0">
-                <CaptionsOff className="w-2.5 h-2.5" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 flex-shrink-0" title="Unmanaged — outside the managed boundary">
+                <CaptionsOff className="w-3.5 h-3.5" strokeWidth={2} />
                 Unmanaged
               </span>
             )}
@@ -1492,6 +1524,25 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
     }
   }
   const childTypeEntries = entityTypeOrder.filter(t => childTypeCounts[t]).map(t => ({ type: t, count: childTypeCounts[t] }));
+
+  // Adaptive descendants: for accounts with only a few direct descendants, list
+  // them inline (skip the count-tiles + drill-in). Root rolls up the whole tree,
+  // so it never qualifies.
+  const INLINE_DESCENDANT_MAX = 10;
+  const directChildCount = entity.type === 'root' ? Infinity : (entity.children?.length || 0);
+  const showInlineDescendants = hasChildren && directChildCount > 0 && directChildCount <= INLINE_DESCENDANT_MAX;
+  const groupedChildren = showInlineDescendants
+    ? entityTypeOrder
+        .map(t => ({ type: t, items: (entity.children || []).filter(c => c.type === t) }))
+        .filter(g => g.items.length)
+    : [];
+  const descCountLabel = (child) => {
+    const n = child.children?.length || 0;
+    if (!n) return null;
+    const types = entityTypeOrder.filter(t => child.children.some(g => g.type === t));
+    if (types.length === 1) { const l = typeConfig[types[0]]?.label || 'child'; return `${n} ${l}${n !== 1 ? 's' : ''}`; }
+    return `${n} children`;
+  };
 
   const periodText = period === '7D' ? '7 days' : period === '14D' ? '14 days' : period === '30D' ? '30 days' : '90 days';
 
@@ -1640,7 +1691,7 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
 
               {childTypeEntries.length > 0 && (
                 <div className="space-y-2">
-                  {onViewAll && childTypeEntries.length > 1 && (
+                  {!showInlineDescendants && onViewAll && childTypeEntries.length > 1 && (
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Descendants</span>
                       <button
@@ -1651,13 +1702,52 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
                       </button>
                     </div>
                   )}
-                  <div className="flex gap-3">
-                    {childTypeEntries.map(({ type, count }) => (
-                      <RollupCard key={type} type={type} count={count} entityId={entity.id} period={period}
-                        onClick={() => openChildrenPanel(type)}
-                      />
-                    ))}
-                  </div>
+                  {showInlineDescendants ? (
+                    <div className="space-y-3">
+                      {groupedChildren.map(group => (
+                        <div key={group.type}>
+                          <div className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5 px-2">{typeConfig[group.type]?.label}s ({group.items.length})</div>
+                          <div className="space-y-2 px-2">
+                            {group.items.map(child => {
+                              const cfg = typeConfig[child.type] || {};
+                              const ChildIcon = cfg.Icon;
+                              const countLabel = descCountLabel(child);
+                              return (
+                                <button
+                                  key={child.id}
+                                  onClick={() => onDrillDown(child)}
+                                  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer group/desc"
+                                >
+                                  <span className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${cfg.bg || 'bg-zinc-100 dark:bg-zinc-800'}`}>
+                                    {ChildIcon && <ChildIcon className={`w-3.5 h-3.5 ${cfg.color || 'text-zinc-400'}`} />}
+                                  </span>
+                                  <div className="flex-1 min-w-0 text-left">
+                                    <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{child.name}</div>
+                                    {countLabel && <div className="text-xs text-zinc-400 dark:text-zinc-500">{countLabel}</div>}
+                                  </div>
+                                  {isEntityUnmanaged(child) && (
+                                    <span className="inline-flex items-center text-zinc-400 dark:text-zinc-500 flex-shrink-0" title="Unmanaged — outside the managed boundary">
+                                      <CaptionsOff className="w-3.5 h-3.5" strokeWidth={2} />
+                                    </span>
+                                  )}
+                                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusConfig[child.status].dot}`} title={statusConfig[child.status].label} />
+                                  <ChevronRight className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 group-hover/desc:text-zinc-400 transition-colors flex-shrink-0" />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      {childTypeEntries.map(({ type, count }) => (
+                        <RollupCard key={type} type={type} count={count} entityId={entity.id} period={period}
+                          onClick={() => openChildrenPanel(type)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
