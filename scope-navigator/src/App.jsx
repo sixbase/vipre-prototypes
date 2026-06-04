@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Moon, Sun, Zap, Menu, X } from 'lucide-react';
+import { Moon, Sun, Zap, Menu, X, Building2, Network, Briefcase } from 'lucide-react';
 import { ScopeProvider, useScope } from './ScopeContext';
-import ScopeNavigator from './ScopeNavigator';
+import { ScopeNavigator } from './vds/components/index.js';
+import { VipreMark } from './config';
 import EntityList from './EntityList';
 import EntityDetail from './EntityDetail';
 import CommandPalette from './CommandPalette';
@@ -14,10 +15,18 @@ import ScopeSummaryStrip from './ScopeSummaryStrip';
 import { mockData } from './data';
 import { ProvisioningModal, SuccessToast } from './ProvisioningModal';
 
+// Maps the prototype's entity types onto the DS ScopeNavigator's render config.
+// Partner entities display as "Reseller" (rose), matching the rollup/drawer scheme.
+const SCOPE_TYPE_CONFIG = {
+  distributor: { label: 'Distributor', icon: Building2, tone: 'azure' },
+  partner: { label: 'Reseller', icon: Network, tone: 'rose' },
+  customer: { label: 'Customer', icon: Briefcase, tone: 'emerald' },
+};
+
 function NavSection({ label, children }) {
   return (
     <div>
-      <div className="px-3 pb-1 text-[11px] font-semibold tracking-wider text-zinc-400 dark:text-zinc-500">{label}</div>
+      <div className="px-3 pb-1 text-[11px] font-semibold tracking-wider text-midnight-400">{label}</div>
       <div className="space-y-0.5">{children}</div>
     </div>
   );
@@ -29,8 +38,8 @@ function NavItem({ label, active, onClick }) {
       onClick={onClick}
       className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
         active
-          ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-medium'
-          : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+          ? 'bg-midnight-700 text-white font-medium'
+          : 'text-midnight-200 hover:bg-midnight-800 hover:text-white'
       }`}
     >
       {label}
@@ -106,11 +115,33 @@ function AppContent() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-[#e5e5e5] dark:bg-[#1a1a1a] font-sans transition-colors duration-150 flex flex-col">
-      {/* Breadcrumb — edge to edge, above everything */}
-      <div className="w-full">
-        <ScopeNavigator path={path} onNavigate={handleNavigate} onSearchOpen={() => setSearchOpen(true)} teleportedSegments={teleportedSegments} showFuture={showFuture} onToggleFuture={() => setShowFuture(f => !f)} />
-      </div>
+    <div className="h-screen overflow-hidden bg-graphite-200 dark:bg-midnight-950 font-sans transition-colors duration-150 flex flex-col">
+      {/* Breadcrumb — edge to edge, above everything. DS ScopeNavigator owns the
+          navy chrome + bottom divider; Future State lives in its actions slot. */}
+      <ScopeNavigator
+        className="dark"
+        path={path}
+        onNavigate={handleNavigate}
+        rootItems={mockData}
+        rootIcon={VipreMark}
+        typeConfig={SCOPE_TYPE_CONFIG}
+        onSearch={() => setSearchOpen(true)}
+        teleportedSegments={teleportedSegments}
+        actions={
+          <button
+            onClick={() => setShowFuture(f => !f)}
+            title="Future State"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer flex-shrink-0 ${
+              showFuture
+                ? 'bg-violet-400/15 border-violet-400/40 text-violet-200'
+                : 'border-white/15 text-white/70 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <Zap className="w-3 h-3" />
+            <span className="hidden md:inline">Future State</span>
+          </button>
+        }
+      />
 
       {/* Command palette search overlay */}
       <CommandPalette
@@ -129,10 +160,10 @@ function AppContent() {
         />
       )}
       {/* Left Nav — static on desktop, off-canvas drawer on mobile */}
-      <nav className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-out lg:static lg:z-auto lg:w-56 lg:translate-x-0 lg:transition-none ${navOpen ? 'translate-x-0' : '-translate-x-full'} shrink-0 bg-[#e5e5e5] dark:bg-[#1a1a1a] border-r border-zinc-200 dark:border-zinc-700 flex flex-col overflow-y-auto`}>
+      <nav className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-out lg:static lg:z-auto lg:w-56 lg:translate-x-0 lg:transition-none ${navOpen ? 'translate-x-0' : '-translate-x-full'} shrink-0 bg-midnight-950 border-r border-midnight-800 flex flex-col overflow-y-auto`}>
         {/* Vipre Logo */}
         <div className="px-5 pt-5 pb-4 flex items-center justify-between">
-          <svg width="90" height="16" viewBox="0 0 220 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-zinc-800 dark:text-white">
+          <svg width="90" height="16" viewBox="0 0 220 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
             <path d="M12.4474 10.6562C13.149 9.44293 14.283 9.44293 14.9845 10.6562L26.6408 30.8076C27.3424 32.0209 27.3424 34.0259 26.6408 35.2393L24.4826 39.0898C23.781 40.3031 22.648 40.3031 21.9465 39.0898L10.2892 18.9385C9.58766 17.7252 9.58766 15.7202 10.2892 14.4541L12.4474 10.6562Z" fill="currentColor"/>
             <path d="M45.4758 0C46.9329 0 47.4723 1.0025 46.7707 2.21582L34.5744 22.209C33.8189 23.4222 32.0383 24.4246 30.5812 24.4248H26.1017C24.6447 24.4248 24.1044 23.4222 24.8058 22.209L37.0031 2.21582C37.7586 1.00258 39.5392 0.000127689 40.9963 0H45.4758Z" fill="currentColor"/>
             <path d="M25.2638 0.0527344C26.7209 0.0529233 28.5015 1.05535 29.257 2.26855L31.5773 6.06641C32.3329 7.27973 31.7393 8.28223 30.3361 8.28223H6.64471C5.18761 8.28223 3.40711 7.2797 2.65154 6.06641L0.330252 2.26855C-0.425245 1.05531 0.168497 0.0528588 1.57146 0.0527344H25.2638Z" fill="currentColor"/>
@@ -144,7 +175,7 @@ function AppContent() {
           </svg>
           <button
             onClick={() => setNavOpen(false)}
-            className="lg:hidden p-1.5 -mr-1 rounded-md text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+            className="lg:hidden p-1.5 -mr-1 rounded-md text-midnight-300 hover:bg-midnight-800 hover:text-white transition-colors"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
@@ -177,12 +208,12 @@ function AppContent() {
         </div>
 
         {/* Bottom Items */}
-        <div className="px-2 pb-3 border-t border-zinc-200 dark:border-zinc-700 pt-3 space-y-0.5">
+        <div className="px-2 pb-3 border-t border-midnight-800 pt-3 space-y-0.5">
           <NavItem label="Users & Roles" active={activePage === 'Users & Roles'} onClick={() => setActivePage('Users & Roles')} />
           <NavItem label="Settings" active={activePage === 'Settings'} onClick={() => setActivePage('Settings')} />
           <button
             onClick={() => setDark(!dark)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-midnight-200 hover:bg-midnight-800 hover:text-white transition-colors cursor-pointer"
           >
             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             {dark ? 'Light Mode' : 'Dark Mode'}
@@ -196,12 +227,12 @@ function AppContent() {
         <div className="px-4 sm:px-6 py-3 flex items-center gap-2 flex-shrink-0">
           <button
             onClick={() => setNavOpen(true)}
-            className="lg:hidden p-1.5 -ml-1 rounded-md text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+            className="lg:hidden p-1.5 -ml-1 rounded-md text-ink-muted hover:bg-surface transition-colors"
             aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-white truncate">
+          <h1 className="text-lg font-semibold text-ink truncate">
             {activePage === 'Customer Management' ? 'Customer Management' : activePage.replace(/^(EP|ES|SS) /, '')}
           </h1>
         </div>
@@ -209,7 +240,7 @@ function AppContent() {
         {activePage === 'Customer Management' ? (
           <>
           <ScopeSummaryStrip />
-          <main className="flex-1 min-h-0 flex overflow-hidden mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+          <main className="flex-1 min-h-0 flex overflow-hidden mx-6 mb-5 rounded-lg border border-line bg-surface">
             <div className="w-[40%] flex flex-col overflow-hidden">
               <EntityList
                 entities={childEntities}
@@ -252,27 +283,27 @@ function AppContent() {
         ) : activePage === 'Customer Management B' ? (
           <CustomerManagementPageB openModal={openModal} showFuture={showFuture} />
         ) : activePage === 'Devices' ? (
-          <div className="flex-1 min-h-0 overflow-hidden mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+          <div className="flex-1 min-h-0 overflow-hidden mx-6 mb-5 rounded-lg border border-line bg-surface">
             <DevicesPage />
           </div>
         ) : activePage === 'Devices B' ? (
-          <div className="flex-1 min-h-0 overflow-hidden mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+          <div className="flex-1 min-h-0 overflow-hidden mx-6 mb-5 rounded-lg border border-line bg-surface">
             <DevicesPageB />
           </div>
         ) : activePage === 'Dashboard' ? (
-          <div className="flex-1 min-h-0 overflow-y-auto mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+          <div className="flex-1 min-h-0 overflow-y-auto mx-6 mb-5 rounded-lg border border-line bg-surface">
             <DashboardPage />
           </div>
         ) : activePage === 'EP Policies' ? (
-          <div className="flex-1 min-h-0 overflow-hidden mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+          <div className="flex-1 min-h-0 overflow-hidden mx-6 mb-5 rounded-lg border border-line bg-surface">
             <PoliciesPage variant="ep" />
           </div>
         ) : activePage === 'ES Policies' ? (
-          <div className="flex-1 min-h-0 overflow-hidden mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+          <div className="flex-1 min-h-0 overflow-hidden mx-6 mb-5 rounded-lg border border-line bg-surface">
             <PoliciesPage variant="es" />
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto mx-6 mb-5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+          <div className="flex-1 min-h-0 overflow-y-auto mx-6 mb-5 rounded-lg border border-line bg-surface">
             <div className="flex-1 flex items-center justify-center h-full">
               <span className="text-zinc-400 dark:text-zinc-500 text-sm">Placeholder</span>
             </div>

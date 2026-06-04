@@ -1,0 +1,89 @@
+// ============================================================================
+// Checkbox — real <input> visually replaced by a styled box. Checked +
+// indeterminate use the brand; the box is neutral graphite when off.
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  position: relative;
+  @include type.step(body);
+
+  &--disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  // the real input sits over the box, invisible but focusable/clickable
+  &__input {
+    position: absolute;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  &__box {
+    flex-shrink: 0;
+    width: 1.125rem;
+    height: 1.125rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--vds-graphite-400);
+    border-radius: var(--vds-radius-sm);
+    background-color: var(--vds-white);
+    transition:
+      background-color var(--vds-dur-fast) var(--vds-ease-out),
+      border-color var(--vds-dur-fast) var(--vds-ease-out);
+  }
+
+  &__label {
+    color: var(--vds-ink);
+    user-select: none;
+  }
+
+  // focus ring (driven by the input's focus state)
+  &__input:focus-visible ~ &__box {
+    outline: 2px solid var(--vds-focus-ring);
+    outline-offset: 2px;
+  }
+
+  // checked + indeterminate → brand fill
+  &__input:checked ~ &__box,
+  &__input:indeterminate ~ &__box {
+    background-color: var(--vds-primary);
+    border-color: var(--vds-primary);
+  }
+
+  // checkmark (drawn with two borders)
+  &__input:checked ~ &__box::after {
+    content: '';
+    width: 0.3rem;
+    height: 0.55rem;
+    margin-top: -2px;
+    border: solid var(--vds-on-primary);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  // indeterminate dash (overrides the check)
+  &__input:indeterminate ~ &__box::after {
+    content: '';
+    width: 0.55rem;
+    height: 0;
+    margin: 0;
+    border: 0;
+    border-top: 2px solid var(--vds-on-primary);
+    transform: none;
+  }
+}
+
+.dark .vds-checkbox__box {
+  border-color: var(--vds-graphite-600);
+  background-color: var(--vds-midnight-950);
+}

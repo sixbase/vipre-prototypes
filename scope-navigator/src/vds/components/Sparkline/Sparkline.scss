@@ -1,0 +1,51 @@
+// ============================================================================
+// Sparkline — inline trend SVG. Tone drives currentColor; line uses it solid,
+// area uses a soft mix. vector-effect keeps the stroke crisp at any size.
+// ============================================================================
+.vds-sparkline {
+  display: block;
+  overflow: visible;
+  color: var(--vds-primary);
+
+  &--success { color: var(--vds-success); }
+  &--warning { color: var(--vds-warning); }
+  &--danger  { color: var(--vds-danger); }
+  &--muted   { color: var(--vds-ink-subtle); }
+
+  // Chromatic tones — for categorical series (not good/bad signals) that still
+  // want a distinct hue. Light uses the 600 step; dark flips to the vivid 400
+  // (below), mirroring how the status tones step per mode.
+  &--azure   { color: var(--vds-azure-600); }
+  &--harbor  { color: var(--vds-harbor-600); }
+  &--emerald { color: var(--vds-emerald-600); }
+  &--amber   { color: var(--vds-amber-600); }
+  &--rose    { color: var(--vds-rose-600); }
+  &--orchid  { color: var(--vds-orchid-600); }
+  &--clay    { color: var(--vds-clay-600); }
+
+  &__line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__area {
+    fill: color-mix(in oklab, currentColor 14%, transparent);
+    stroke: none;
+  }
+}
+
+// Dark mode — vivid 400 step for chromatic tones so lines stay legible on the
+// dark surface (parity with the status tones, which flip via their semantics).
+.dark .vds-sparkline {
+  &--azure   { color: var(--vds-azure-400); }
+  &--harbor  { color: var(--vds-harbor-400); }
+  &--emerald { color: var(--vds-emerald-400); }
+  &--amber   { color: var(--vds-amber-400); }
+  &--rose    { color: var(--vds-rose-400); }
+  &--orchid  { color: var(--vds-orchid-400); }
+  &--clay    { color: var(--vds-clay-400); }
+}

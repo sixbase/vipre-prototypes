@@ -8,6 +8,7 @@ import { useScope } from './ScopeContext';
 import { collectDevicesInScope, computeDeviceStats, collectPackageAdoption, mockData } from './data';
 import { typeConfig, statusConfig, pkgIconMap, defaultPkgIcon, isPartner, isLeaf } from './config';
 import { ChildrenListView } from './EntityDetail';
+import { StatTile, Surface, Button } from './vds/components/index.js';
 
 // Roll up descendants into the three structural buckets shown on the dashboard:
 // distributor / partner / customer. Partner capability (msp / hybrid / reseller)
@@ -35,7 +36,7 @@ function countDescendantsByStructuralType(entities) {
 const PARTNER_TILE = {
   label: 'Partner',
   Icon: Network,
-  bg: 'bg-red-600',
+  bg: 'bg-rose-600',
   color: 'text-white',
 };
 
@@ -203,12 +204,7 @@ export default function DashboardPage({ externalFilter, onExternalFilterChange, 
         {onViewAll && (
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Descendants</span>
-            <button
-              onClick={onViewAll}
-              className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer transition-colors"
-            >
-              View all →
-            </button>
+            <Button variant="ghost" size="sm" onClick={onViewAll}>View all →</Button>
           </div>
         )}
         <div className="grid grid-cols-3 gap-4">
@@ -236,32 +232,32 @@ export default function DashboardPage({ externalFilter, onExternalFilterChange, 
       </div>
 
       {/* Package Adoption */}
-      <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-5">
+      <Surface padding={5}>
         <div className="text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-medium mb-4">Package Adoption</div>
 
         <div className="grid grid-cols-2 gap-5">
           {/* KPI cards — left column */}
           <div className="grid grid-cols-2 gap-3 content-start">
             {[
-              { label: 'Unique Packages', value: pkgAdoption.uniquePackages, color: 'text-zinc-900 dark:text-zinc-100' },
-              { label: 'Subscriptions', value: pkgAdoption.totalSubscriptions, color: 'text-zinc-900 dark:text-zinc-100' },
-              { label: 'Total Seats', value: pkgAdoption.totalSeats, color: 'text-zinc-900 dark:text-zinc-100' },
+              { label: 'Unique Packages', value: pkgAdoption.uniquePackages },
+              { label: 'Subscriptions', value: pkgAdoption.totalSubscriptions },
+              { label: 'Total Seats', value: pkgAdoption.totalSeats },
               {
                 label: 'Avg Utilization',
-                value: `${pkgAdoption.avgUtil}%`,
-                color: pkgAdoption.avgUtil >= 70
-                  ? 'text-green-600 dark:text-green-400'
-                  : pkgAdoption.avgUtil >= 40
-                    ? 'text-amber-600 dark:text-amber-400'
-                    : 'text-red-600 dark:text-red-400',
+                value: pkgAdoption.avgUtil,
+                suffix: '%',
+                tone: pkgAdoption.avgUtil >= 70 ? 'success' : pkgAdoption.avgUtil >= 40 ? 'warning' : 'danger',
               },
             ].map(item => (
-              <div key={item.label} className="rounded-lg border border-zinc-100 dark:border-zinc-700/60 px-4 py-3">
-                <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{item.label}</div>
-                <div className={`text-xl font-semibold tabular-nums ${item.color}`}>
-                  {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
-                </div>
-              </div>
+              <StatTile
+                key={item.label}
+                layout="stacked"
+                size="sm"
+                label={item.label}
+                value={item.value}
+                suffix={item.suffix}
+                tone={item.tone ?? 'default'}
+              />
             ))}
           </div>
 
@@ -295,10 +291,10 @@ export default function DashboardPage({ externalFilter, onExternalFilterChange, 
                         <td className="py-1.5 text-right tabular-nums text-zinc-600 dark:text-zinc-400">{pkg.seats.toLocaleString()}</td>
                         <td className={`py-1.5 text-right tabular-nums font-medium ${
                           pkg.avgUtil >= 70
-                            ? 'text-green-600 dark:text-green-500'
+                            ? 'text-emerald-600 dark:text-emerald-500'
                             : pkg.avgUtil >= 40
                               ? 'text-amber-600 dark:text-amber-500'
-                              : 'text-red-600 dark:text-red-500'
+                              : 'text-rose-600 dark:text-rose-500'
                         }`}>{pkg.avgUtil}%</td>
                       </tr>
                     );
@@ -308,25 +304,29 @@ export default function DashboardPage({ externalFilter, onExternalFilterChange, 
             </div>
           )}
         </div>
-      </div>
+      </Surface>
 
       {/* Device stats */}
-      <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-5">
+      <Surface padding={5}>
         <div className="text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-medium mb-3">Device Overview</div>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'Total Devices', value: stats.total, color: 'text-zinc-900 dark:text-zinc-100' },
-            { label: 'Compliant', value: stats.compliant, color: 'text-emerald-600 dark:text-emerald-400' },
-            { label: 'Non-Compliant', value: stats.nonCompliant, color: 'text-red-600 dark:text-red-400' },
-            { label: 'Outdated Agent', value: stats.outdatedAgent, color: 'text-amber-600 dark:text-amber-400' },
+            { label: 'Total Devices', value: stats.total },
+            { label: 'Compliant', value: stats.compliant, tone: 'success' },
+            { label: 'Non-Compliant', value: stats.nonCompliant, tone: 'danger' },
+            { label: 'Outdated Agent', value: stats.outdatedAgent, tone: 'warning' },
           ].map(item => (
-            <div key={item.label} className="rounded-lg border border-zinc-100 dark:border-zinc-700/60 px-4 py-3">
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{item.label}</div>
-              <div className={`text-xl font-semibold tabular-nums ${item.color}`}>{item.value.toLocaleString()}</div>
-            </div>
+            <StatTile
+              key={item.label}
+              layout="stacked"
+              size="sm"
+              label={item.label}
+              value={item.value}
+              tone={item.tone ?? 'default'}
+            />
           ))}
         </div>
-      </div>
+      </Surface>
 
       {/* Scope persistence proof */}
       <div className="text-xs text-zinc-400 dark:text-zinc-500 text-center py-2">

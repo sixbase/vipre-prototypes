@@ -1,0 +1,22 @@
+// ============================================================================
+// Divider — a 1px hairline in the line token. Horizontal (row separator) by
+// default; vertical for separating inline items. Owns the "what a separator
+// looks like" decision so composites never draw their own 1px lines.
+// ============================================================================
+
+.vds-divider {
+  border: 0;
+  background-color: var(--vds-line);
+  flex: none;
+
+  &--horizontal {
+    width: 100%;
+    height: 1px;
+  }
+
+  &--vertical {
+    width: 1px;
+    align-self: stretch;
+    min-height: 1em;
+  }
+}

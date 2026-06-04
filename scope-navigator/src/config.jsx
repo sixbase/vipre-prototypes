@@ -54,12 +54,12 @@ export const displayTypeConfig = {
     color: 'text-white',
     iconColor: 'text-white',
     textClass: 'text-white',
-    bgClass: 'bg-red-600',
-    ring: 'ring-red-700 dark:ring-red-500',
+    bgClass: 'bg-rose-600',
+    ring: 'ring-rose-700 dark:ring-rose-500',
     stroke: '#b91c1c',
-    tintColor: 'text-red-700 dark:text-red-300',
+    tintColor: 'text-rose-700 dark:text-rose-300',
     legacyColor: 'text-white',
-    bg: 'bg-red-600',
+    bg: 'bg-rose-600',
   },
   customer: {
     label: 'Customer',
@@ -68,12 +68,12 @@ export const displayTypeConfig = {
     color: 'text-white',
     iconColor: 'text-white',
     textClass: 'text-white',
-    bgClass: 'bg-green-600',
-    ring: 'ring-green-700 dark:ring-green-500',
+    bgClass: 'bg-emerald-600',
+    ring: 'ring-emerald-700 dark:ring-emerald-500',
     stroke: '#15803d',
-    tintColor: 'text-green-700 dark:text-green-300',
+    tintColor: 'text-emerald-700 dark:text-emerald-300',
     legacyColor: 'text-white',
-    bg: 'bg-green-600',
+    bg: 'bg-emerald-600',
   },
 };
 
@@ -116,16 +116,55 @@ export const typeConfig = {
     color: 'text-white',
     iconColor: 'text-white',
     textClass: 'text-white',
-    bgClass: 'bg-red-600',
-    ring: 'ring-red-700 dark:ring-red-500',
+    bgClass: 'bg-rose-600',
+    ring: 'ring-rose-700 dark:ring-rose-500',
     stroke: '#b91c1c',
-    tintColor: 'text-red-700 dark:text-red-300',
+    tintColor: 'text-rose-700 dark:text-rose-300',
     legacyColor: 'text-white',
-    bg: 'bg-red-600',
+    bg: 'bg-rose-600',
   },
 };
 // @deprecated - use displayTypeOrder (or entityTypeOrder for data-model iteration)
 export const typeOrder = displayTypeOrder;
+
+// ── Entity-type iconography (single source of truth) ───────────────
+// Every place that shows a distributor / reseller / customer icon (KPI tiles,
+// drawer list rows, breadcrumb crumbs, detail cards, package sub-rows) renders
+// it the SAME way: a neutral ring chip + a DS-toned glyph. Tones match the
+// rollup KPIs — distributor→azure, reseller/partner→rose, customer→emerald.
+export const TYPE_DS_GLYPH = {
+  distributor: 'text-azure-600 dark:text-azure-400',
+  partner: 'text-rose-600 dark:text-rose-400',
+  reseller: 'text-rose-600 dark:text-rose-400',
+  customer: 'text-emerald-600 dark:text-emerald-400',
+  root: 'text-ink-muted',
+};
+const ENTITY_ICON_CHIP = { xs: 'w-5 h-5', sm: 'w-6 h-6', md: 'w-7 h-7', lg: 'w-10 h-10' };
+const ENTITY_ICON_GLYPH = { xs: 'w-3 h-3', sm: 'w-3 h-3', md: 'w-3.5 h-3.5', lg: 'w-5 h-5' };
+
+export function EntityTypeIcon({ type, size = 'md', className = '' }) {
+  const cfg = typeConfig[type] || typeConfig.customer;
+  const Glyph = cfg.Icon;
+  const glyphColor = TYPE_DS_GLYPH[type] ?? 'text-ink-muted';
+  return (
+    <span className={`inline-flex items-center justify-center rounded-full border border-line-strong flex-shrink-0 ${ENTITY_ICON_CHIP[size]} ${className}`}>
+      {Glyph && <Glyph className={`${ENTITY_ICON_GLYPH[size]} ${glyphColor}`} />}
+    </span>
+  );
+}
+
+// Vipre logomark (the angular "V" — just the mark, not the VIPRE wordmark).
+// Accepts width/height (so it works as a DS `Icon as={VipreMark}`) and className.
+// currentColor-filled, so `text-*` controls its color.
+export function VipreMark({ className, width, height, ...props }) {
+  return (
+    <svg viewBox="0 0 47 40" width={width} height={height} className={className} fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path d="M12.4474 10.6562C13.149 9.44293 14.283 9.44293 14.9845 10.6562L26.6408 30.8076C27.3424 32.0209 27.3424 34.0259 26.6408 35.2393L24.4826 39.0898C23.781 40.3031 22.648 40.3031 21.9465 39.0898L10.2892 18.9385C9.58766 17.7252 9.58766 15.7202 10.2892 14.4541L12.4474 10.6562Z" fill="currentColor"/>
+      <path d="M45.4758 0C46.9329 0 47.4723 1.0025 46.7707 2.21582L34.5744 22.209C33.8189 23.4222 32.0383 24.4246 30.5812 24.4248H26.1017C24.6447 24.4248 24.1044 23.4222 24.8058 22.209L37.0031 2.21582C37.7586 1.00258 39.5392 0.000127689 40.9963 0H45.4758Z" fill="currentColor"/>
+      <path d="M25.2638 0.0527344C26.7209 0.0529233 28.5015 1.05535 29.257 2.26855L31.5773 6.06641C32.3329 7.27973 31.7393 8.28223 30.3361 8.28223H6.64471C5.18761 8.28223 3.40711 7.2797 2.65154 6.06641L0.330252 2.26855C-0.425245 1.05531 0.168497 0.0528588 1.57146 0.0527344H25.2638Z" fill="currentColor"/>
+    </svg>
+  );
+}
 
 // ── Management mode config ─────────────────────────────────────────
 export const managementModeConfig = {
@@ -224,10 +263,12 @@ export function getCustomerEffectiveMode(customer) {
 }
 
 // ── Status config ──────────────────────────────────────────────────
+// Status colors bind to the DS semantic status tokens (success=emerald, warning=amber,
+// danger=rose) via the soft/solid utilities — they flip light/dark automatically.
 export const statusConfig = {
-  active:    { pill: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', dot: 'bg-green-500', label: 'Active',    desc: 'Live, paying subscription' },
-  trial:     { pill: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', dot: 'bg-amber-500', label: 'Trial',     desc: 'Evaluating, not yet converted' },
-  suspended: { pill: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',         dot: 'bg-red-400',   label: 'Suspended', desc: 'Access paused — billing or policy hold' },
+  active:    { pill: 'bg-success-soft text-success', dot: 'bg-success', label: 'Active',    desc: 'Live, paying subscription' },
+  trial:     { pill: 'bg-warning-soft text-warning', dot: 'bg-warning', label: 'Trial',     desc: 'Evaluating, not yet converted' },
+  suspended: { pill: 'bg-danger-soft text-danger',   dot: 'bg-danger',  label: 'Suspended', desc: 'Access paused — billing or policy hold' },
 };
 
 // Status is visualized as a simple colored dot (hover for meaning). Pass

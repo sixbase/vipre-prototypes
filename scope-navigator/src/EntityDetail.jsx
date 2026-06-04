@@ -10,8 +10,9 @@ import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, ResponsiveContainer,
   XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell
 } from 'recharts';
-import { typeConfig, statusConfig, StatusBadge, entityTypeOrder, isEntityUnmanaged } from './config';
+import { typeConfig, statusConfig, StatusBadge, entityTypeOrder, isEntityUnmanaged, EntityTypeIcon, TYPE_DS_GLYPH, VipreMark } from './config';
 import { countDescendantsByType, hash, VIPRE_PACKAGES, VIPRE_ADD_ONS, genPartnerPackages, genCustomerPackages, collectPackageAdoption } from './data';
+import { StatTile, Button, Table } from './vds/components/index.js';
 
 // ── Hooks ──
 function useCountUp(target, duration = 600) {
@@ -141,7 +142,7 @@ function OpportunityGauge({ score }) {
   const progress = (score / 100) * circumference;
   const gaugeColor = score >= 60 ? '#10b981' : score >= 30 ? '#f59e0b' : '#ef4444';
   const label = getOpportunityLabel(score);
-  const labelColor = score >= 60 ? 'text-emerald-600 dark:text-emerald-400' : score >= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400';
+  const labelColor = score >= 60 ? 'text-emerald-600 dark:text-emerald-400' : score >= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
 
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -176,7 +177,7 @@ function UtilizationBar({ consumed, licensed }) {
   // Threshold-based color
   let barColor = 'bg-zinc-500 dark:bg-zinc-400'; // 30-85% healthy neutral
   if (pct < 30) barColor = 'bg-emerald-500'; // underutilized — opportunity
-  else if (pct >= 95) barColor = 'bg-red-500'; // over-provisioned risk
+  else if (pct >= 95) barColor = 'bg-rose-500'; // over-provisioned risk
   else if (pct >= 85) barColor = 'bg-amber-500'; // approaching capacity
 
   return (
@@ -199,7 +200,7 @@ function SignalBadge({ icon: IconComp, value, label, variant = 'neutral' }) {
   const colors = {
     healthy: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
     warning: 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
-    critical: 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800',
+    critical: 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800',
     neutral: 'bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700',
   };
   return (
@@ -230,10 +231,10 @@ function CustomerGrowthSection({ entityId, period, hasChildren }) {
       {/* Summary line — always visible */}
       <div className="px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className={`text-sm font-semibold tabular-nums ${totalNet >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+          <span className={`text-sm font-semibold tabular-nums ${totalNet >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
             {totalNet >= 0 ? '+' : ''}{totalNet} net
           </span>
-          {totalNet >= 0 ? <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /> : <TrendingDown className="w-3.5 h-3.5 text-red-500" />}
+          {totalNet >= 0 ? <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /> : <TrendingDown className="w-3.5 h-3.5 text-rose-500" />}
           <span className="text-[11px] text-zinc-400 dark:text-zinc-500">customers · last {periodText}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -264,7 +265,7 @@ function CustomerGrowthSection({ entityId, period, hasChildren }) {
         <div className="px-4 pb-4 border-t border-zinc-100 dark:border-zinc-800" onClick={e => e.stopPropagation()}>
           <div className="flex items-center gap-4 py-2 text-[11px] text-zinc-400 dark:text-zinc-500">
             <span><span className="inline-block w-2 h-2 rounded-sm bg-emerald-500 mr-1" />{totalAdded} added</span>
-            <span><span className="inline-block w-2 h-2 rounded-sm bg-red-500 mr-1" />{totalChurned} churned</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm bg-rose-500 mr-1" />{totalChurned} churned</span>
           </div>
           <div className="h-32">
             <ResponsiveContainer width="100%" height="100%">
@@ -347,9 +348,9 @@ function AddOnTag({ name }) {
 }
 
 function utilColor(util) {
-  if (util >= 70) return 'text-green-600 dark:text-green-500';
+  if (util >= 70) return 'text-emerald-600 dark:text-emerald-500';
   if (util >= 40) return 'text-amber-600 dark:text-amber-500';
-  return 'text-red-600 dark:text-red-500';
+  return 'text-rose-600 dark:text-rose-500';
 }
 
 function PackageAdoptionTable({ entityId, entityType, onPackageClick }) {
@@ -399,7 +400,7 @@ function PackageAdoptionTable({ entityId, entityType, onPackageClick }) {
               <div className="text-right pt-0.5 tabular-nums">
                 <span className="text-[13px] font-medium text-zinc-800 dark:text-zinc-200">{pkg.declared.toLocaleString()}</span>
                 <span className="text-[11px] text-zinc-400 dark:text-zinc-500"> / </span>
-                <span className={`text-[13px] font-medium ${pkg.actual > pkg.declared ? 'text-red-600 dark:text-red-500' : 'text-zinc-700 dark:text-zinc-300'}`}>{pkg.actual.toLocaleString()}</span>
+                <span className={`text-[13px] font-medium ${pkg.actual > pkg.declared ? 'text-rose-600 dark:text-rose-500' : 'text-zinc-700 dark:text-zinc-300'}`}>{pkg.actual.toLocaleString()}</span>
               </div>
               <span className={`text-[13px] tabular-nums text-right pt-0.5 font-medium ${utilColor(pkg.util)}`}>{pkg.util}%</span>
             </div>
@@ -416,6 +417,39 @@ function PackageAdoptionTable({ entityId, entityType, onPackageClick }) {
   const packages = entityType === 'root'
     ? collectPackageAdoption(null).packages.map(p => ({ ...p, customers: p.entities, util: p.avgUtil }))
     : genPartnerPackages(entityId);
+
+  // When rows drill into a package (CMB), use the DS Table at compact density —
+  // the "Package" column is a product cell (icon + name). The inline-expand
+  // variant below is kept for the non-drill view (DS Table has no nested rows).
+  if (onPackageClick) {
+    return (
+      <Table
+        density="compact"
+        data={packages}
+        getRowKey={(pkg) => pkg.id}
+        onRowClick={(pkg) => onPackageClick(pkg)}
+        columns={[
+          {
+            key: 'name',
+            header: 'Package',
+            render: (pkg) => {
+              const { icon: PkgIcon, iconColor: pkgIconColor } = pkgIconMap[pkg.id] || {};
+              return (
+                <span className="inline-flex items-center gap-1.5 min-w-0">
+                  {PkgIcon && <PkgIcon className={`w-3.5 h-3.5 flex-shrink-0 ${pkgIconColor}`} />}
+                  <span className="font-medium truncate">{pkg.name}</span>
+                </span>
+              );
+            },
+          },
+          { key: 'customers', header: 'Customers', align: 'right' },
+          { key: 'seats', header: 'Seats', align: 'right', render: (pkg) => pkg.seats.toLocaleString() },
+          { key: 'util', header: 'Util.', align: 'right', render: (pkg) => <span className={`font-medium ${utilColor(pkg.util)}`}>{pkg.util}%</span> },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
       <div className="grid grid-cols-[1fr_72px_72px_48px] gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800 text-[10px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
@@ -474,7 +508,7 @@ function PackageAdoptionTable({ entityId, entityType, onPackageClick }) {
                     <div className="text-right tabular-nums self-start pt-0.5">
                       <span className="text-[12px] text-zinc-700 dark:text-zinc-300">{row.declared}</span>
                       <span className="text-[11px] text-zinc-400 dark:text-zinc-500"> / </span>
-                      <span className={`text-[12px] font-medium ${row.actual > row.declared ? 'text-red-600 dark:text-red-500' : 'text-zinc-700 dark:text-zinc-300'}`}>{row.actual}</span>
+                      <span className={`text-[12px] font-medium ${row.actual > row.declared ? 'text-rose-600 dark:text-rose-500' : 'text-zinc-700 dark:text-zinc-300'}`}>{row.actual}</span>
                     </div>
                   </div>
                   );
@@ -482,7 +516,7 @@ function PackageAdoptionTable({ entityId, entityType, onPackageClick }) {
                 {customerRows.length > 6 && !showAll && (
                   <div className="px-8 py-2">
                     <button
-                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      className="text-[11px] text-azure-600 dark:text-azure-400 hover:underline cursor-pointer"
                       onClick={e => { e.stopPropagation(); setShowAllMap(prev => ({ ...prev, [pkg.id]: true })); }}
                     >
                       View all {pkg.customers} customers
@@ -567,9 +601,7 @@ function CustomerSeatTable({ rows, onRowClick }) {
               className={`grid ${gridCols} gap-2 items-center px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0 ${clickable ? 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors group' : ''}`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${rowCfg.bg || 'bg-zinc-100 dark:bg-zinc-800'}`}>
-                  <RowIcon className={`w-3 h-3 ${rowCfg.color || 'text-zinc-400'}`} />
-                </span>
+                <EntityTypeIcon type={row.type === 'reseller' ? 'partner' : row.type} size="sm" />
                 <div className="min-w-0">
                   <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-200 truncate">{row.name}</div>
                   {row.addOns.length > 0 && (
@@ -923,8 +955,8 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
                       className="relative flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer border-b border-zinc-100 dark:border-zinc-800 group"
                       onClick={() => onDrillDown(child)}
                     >
-                      <div className={`relative w-7 h-7 rounded-lg ${childBg} flex items-center justify-center flex-shrink-0`}>
-                        <ChildIcon className={`w-3.5 h-3.5 ${childColor}`} />
+                      <div className="relative w-7 h-7 rounded-full border border-line-strong flex items-center justify-center flex-shrink-0">
+                        <ChildIcon className={`w-3.5 h-3.5 ${TYPE_DS_GLYPH[child.type] ?? 'text-ink-muted'}`} />
                         {!subtleUnmanaged && isEntityUnmanaged(child) && (
                           <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-zinc-700 ring-2 ring-white dark:ring-zinc-900 flex items-center justify-center" title="Unmanaged">
                             <CaptionsOff className="w-2 h-2 text-white" strokeWidth={2.5} />
@@ -1009,33 +1041,33 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
 }
 
 // ── Rollup card ──
+// Design-system StatTile (row layout): icon chip + label/value + trend sparkline.
+// We keep the count-up animation by feeding StatTile the animated value, and map
+// the recharts-shaped sparkline data ([{v}]) to the number[] StatTile expects.
+// These are categorical (not good/bad) tiles, so each type gets a matched DS
+// chromatic tone — the DS equivalents of the old blue/red/green: distributor→
+// azure, reseller→rose, customer→emerald. A single `tone` colors BOTH the icon
+// glyph and the sparkline, and flips light/dark inside the DS.
+const ROLLUP_TONE = {
+  distributor: 'azure',
+  reseller: 'rose',
+  customer: 'emerald',
+  partner: 'rose',
+};
 function RollupCard({ type, count, entityId, period, onClick }) {
-  // Use tintColor (readable brand tint) for the bare icon — `color` is 'text-white',
-  // meant for icons sitting inside a colored bg, so it'd be invisible here.
-  const { Icon: TypeIcon, tintColor: typeColor, label: typeLabel, stroke } = typeConfig[type];
+  const { Icon: TypeIcon, label: typeLabel } = typeConfig[type];
   const displayCount = useCountUp(count);
+  const trend = generateSparkline(entityId + type, count, period).map(d => d.v);
   return (
-    <div
-      className={`flex-1 min-w-0 overflow-hidden bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 ${onClick ? 'cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-600 hover:bg-white dark:hover:bg-zinc-800/50 transition-colors' : ''}`}
+    <StatTile
+      className="flex-1 min-w-0"
+      icon={TypeIcon}
+      label={`${typeLabel}s`}
+      value={displayCount}
+      trend={trend}
+      tone={ROLLUP_TONE[type] ?? 'default'}
       onClick={onClick}
-    >
-      <div className="flex items-center gap-1.5 mb-2">
-        <TypeIcon className={`w-3.5 h-3.5 flex-shrink-0 ${typeColor}`} />
-        <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider truncate">{typeLabel}s</span>
-      </div>
-      <div className="flex items-end justify-between gap-3">
-        <div className={`text-2xl font-semibold text-zinc-900 dark:text-zinc-100 leading-tight tabular-nums flex-shrink-0 ${onClick ? 'group-hover:underline' : ''}`}>{displayCount}</div>
-        {/* Sparkline shrinks (and clips) so the card never overflows on narrow
-            screens where a wide count leaves little room beside it. */}
-        <div className="h-8 w-20 min-w-0 shrink overflow-hidden">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={generateSparkline(entityId + type, count, period)}>
-              <Line type="monotone" dataKey="v" stroke={stroke} strokeWidth={1.5} dot={false} isAnimationActive animationDuration={800} animationEasing="ease-out" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
+    />
   );
 }
 
@@ -1049,11 +1081,11 @@ function MetricCell({ label, value, sparkSeed, strokeColor, period }) {
   return (
     <div className="min-w-0">
       <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">{label}</div>
-      <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums mt-0.5">
+      <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums mt-1.5">
         {typeof value === 'number' ? displayVal.toLocaleString() : value}
       </div>
       {sparkData && (
-        <div className="h-6 mt-1.5 -ml-0.5">
+        <div className="h-7 mt-3.5 -ml-0.5">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={sparkData} margin={{ top: 2, bottom: 2, left: 0, right: 0 }}>
               <Line type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={1.5} dot={false} isAnimationActive animationDuration={800} animationEasing="ease-out" />
@@ -1062,7 +1094,7 @@ function MetricCell({ label, value, sparkSeed, strokeColor, period }) {
         </div>
       )}
       {isRate && (
-        <div className="h-1.5 mt-2.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+        <div className="h-1.5 mt-4 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
           <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: strokeColor }} />
         </div>
       )}
@@ -1075,26 +1107,30 @@ function OpsProductCard({ title, icon: ProductIcon, iconColor, accentBorder, met
   const [collapsed, setCollapsed] = useState(false);
   return (
     <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors" onClick={() => setCollapsed(!collapsed)}>
-        <div className="flex items-center gap-2">
-          <ProductIcon className={`w-4 h-4 ${iconColor}`} />
+      <div className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors" onClick={() => setCollapsed(!collapsed)}>
+        <div className="flex items-center gap-2.5">
+          {/* Circular icon chip — colored glyph in a neutral ring keys the section
+              by category color (mirrors the reference product dashboard). */}
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-700 shrink-0">
+            <ProductIcon className={`w-4 h-4 ${iconColor}`} />
+          </span>
           <span className="text-[13px] font-medium text-zinc-800 dark:text-zinc-200">{title}</span>
         </div>
         <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`} />
       </div>
       {!collapsed && (
         <div className="border-t border-zinc-100 dark:border-zinc-800">
-          <div className="px-4 pt-3 pb-3 grid grid-cols-2 gap-x-4 gap-y-4">
+          <div className="px-5 pt-5 pb-5 grid grid-cols-2 gap-x-8 gap-y-8">
             {metrics.map((m) => <MetricCell key={m.label} {...m} period={period} />)}
           </div>
           {agentVersions && (
-            <div className="px-4 pb-3 border-t border-zinc-100 dark:border-zinc-800 pt-2.5">
+            <div className="px-5 pb-4 border-t border-zinc-100 dark:border-zinc-800 pt-3.5">
               <span className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Agent Versions</span>
               <div className="mt-1.5"><AgentVersionBar versions={agentVersions} /></div>
             </div>
           )}
           {footer && (
-            <div className="px-4 pb-3 border-t border-zinc-100 dark:border-zinc-800 pt-2.5">
+            <div className="px-5 pb-4 border-t border-zinc-100 dark:border-zinc-800 pt-3.5">
               {footer}
             </div>
           )}
@@ -1107,7 +1143,7 @@ function OpsProductCard({ title, icon: ProductIcon, iconColor, accentBorder, met
 // ── Agent version distribution ──
 function AgentVersionBar({ versions }) {
   const entries = Object.entries(versions).filter(([, v]) => v > 0);
-  const colors = { 'v4.2': 'bg-emerald-500', 'v4.1': 'bg-amber-400', 'v3.x': 'bg-red-400' };
+  const colors = { 'v4.2': 'bg-emerald-500', 'v4.1': 'bg-amber-400', 'v3.x': 'bg-rose-400' };
   return (
     <div>
       <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
@@ -1164,7 +1200,7 @@ function ExpandableChildrenSection({ entity, onDrillDown }) {
             return (
               <div key={type} className="inline-flex items-center gap-1 flex-shrink-0">
                 <span className="text-zinc-200 dark:text-zinc-700 text-[10px]">&middot;</span>
-                <Icon className={`w-3 h-3 ${cfg.tintColor ?? cfg.color}`} />
+                <Icon className={`w-3 h-3 ${TYPE_DS_GLYPH[type] ?? 'text-ink-muted'}`} />
                 <span className="text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">{counts[type]}</span>
               </div>
             );
@@ -1174,7 +1210,7 @@ function ExpandableChildrenSection({ entity, onDrillDown }) {
           <div className="w-32 h-1.5 flex gap-0.5 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-700">
             {breakdown.active > 0 && <div className="bg-emerald-500 rounded-full" style={{ width: `${(breakdown.active / total) * 100}%` }} />}
             {breakdown.trial > 0 && <div className="bg-amber-500 rounded-full" style={{ width: `${(breakdown.trial / total) * 100}%` }} />}
-            {breakdown.suspended > 0 && <div className="bg-red-400 rounded-full" style={{ width: `${(breakdown.suspended / total) * 100}%` }} />}
+            {breakdown.suspended > 0 && <div className="bg-rose-400 rounded-full" style={{ width: `${(breakdown.suspended / total) * 100}%` }} />}
           </div>
           <div className="flex items-center gap-2">
             {Object.entries(breakdown).map(([status, count]) => count > 0 && (
@@ -1357,8 +1393,8 @@ function SummaryStatCard({ label, value, format, sparkSeed, period, variant }) {
     borderClass = 'border-amber-200 dark:border-amber-800/50';
     valueColorClass = 'text-amber-700 dark:text-amber-400';
   } else if (variant === 'critical') {
-    borderClass = 'border-red-200 dark:border-red-800/50';
-    valueColorClass = 'text-red-700 dark:text-red-400';
+    borderClass = 'border-rose-200 dark:border-rose-800/50';
+    valueColorClass = 'text-rose-700 dark:text-rose-400';
   }
 
   const formatted = format === 'currency'
@@ -1403,9 +1439,13 @@ export function EntityIdentityHeader({ entity, scrolled = false, statusAsDot = f
         <span aria-hidden className="absolute top-14 bottom-0 w-px bg-zinc-200 dark:bg-zinc-700" style={{ left: '43.5px' }} />
       )}
       <div className="flex items-start gap-3">
-        <div className={`relative w-10 h-10 rounded-lg ${bg} ring-1 ${ring} flex items-center justify-center flex-shrink-0`}>
-          <Icon className={`w-5 h-5 ${color}`} />
-        </div>
+        {entity.type === 'root' ? (
+          <div className="relative w-10 h-10 rounded-lg bg-midnight-950 flex items-center justify-center flex-shrink-0">
+            <VipreMark className="w-5 h-5 text-white" />
+          </div>
+        ) : (
+          <EntityTypeIcon type={entity.type} size="lg" />
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">{entity.name}</h2>
@@ -1547,7 +1587,7 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
   const periodText = period === '7D' ? '7 days' : period === '14D' ? '14 days' : period === '30D' ? '30 days' : '90 days';
 
   const activeProducts = ['Endpoint', 'Email Security', 'SafeSend'];
-  const productColors = { 'Endpoint': '#3b82f6', 'Email Security': '#8b5cf6', 'SafeSend': '#10b981' };
+  const productColors = { 'Endpoint': '#0596d2', 'Email Security': '#b269c3', 'SafeSend': '#2ca45b' };
 
   // Utilization
   const consumed = biz.seatsConsumed || 0;
@@ -1694,12 +1734,7 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
                   {!showInlineDescendants && onViewAll && childTypeEntries.length > 1 && (
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Descendants</span>
-                      <button
-                        onClick={onViewAll}
-                        className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer transition-colors"
-                      >
-                        View all →
-                      </button>
+                      <Button variant="ghost" size="sm" onClick={onViewAll}>View all →</Button>
                     </div>
                   )}
                   {showInlineDescendants ? (
@@ -1718,9 +1753,7 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
                                   onClick={() => onDrillDown(child)}
                                   className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer group/desc"
                                 >
-                                  <span className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${cfg.bg || 'bg-zinc-100 dark:bg-zinc-800'}`}>
-                                    {ChildIcon && <ChildIcon className={`w-3.5 h-3.5 ${cfg.color || 'text-zinc-400'}`} />}
-                                  </span>
+                                  <EntityTypeIcon type={child.type} size="md" />
                                   <div className="flex-1 min-w-0 text-left">
                                     <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{child.name}</div>
                                     {countLabel && <div className="text-xs text-zinc-400 dark:text-zinc-500">{countLabel}</div>}
@@ -1761,7 +1794,7 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Package Adoption</span>
                   {!hideAddProduct && (
-                    <button onClick={() => onAddProduct ? onAddProduct(entity) : setShowAddProduct(true)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer inline-flex items-center gap-1">
+                    <button onClick={() => onAddProduct ? onAddProduct(entity) : setShowAddProduct(true)} className="text-xs text-azure-600 dark:text-azure-400 hover:underline cursor-pointer inline-flex items-center gap-1">
                       <Plus className="w-3 h-3" />Add
                     </button>
                   )}
@@ -1779,7 +1812,7 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Package Adoption</h3>
                 {!hideAddProduct && (
-                  <button onClick={() => onAddProduct ? onAddProduct(entity) : setShowAddProduct(true)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer inline-flex items-center gap-1">
+                  <button onClick={() => onAddProduct ? onAddProduct(entity) : setShowAddProduct(true)} className="text-xs text-azure-600 dark:text-azure-400 hover:underline cursor-pointer inline-flex items-center gap-1">
                     <Plus className="w-3 h-3" />Add
                   </button>
                 )}
@@ -1872,25 +1905,25 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
           {/* Per-product health cards */}
           <div className="space-y-3">
             <OpsProductCard
-              title="Endpoint" icon={Shield} iconColor="text-blue-500" accentBorder="border-l-blue-400"
+              title="Endpoint" icon={Shield} iconColor="text-azure-600 dark:text-azure-400" accentBorder="border-l-azure-400"
               entityId={entity.id} period={period}
               agentVersions={ops.agentVersions}
               metrics={[
-                { label: 'Devices protected', value: scaleByPeriod(products.endpoint?.devicesProtected || 0, period, entity.id + 'ep-dev'), sparkSeed: entity.id + 'ep-dev', strokeColor: '#3b82f6' },
-                { label: 'Threats blocked', value: scaleByPeriod(products.endpoint?.threatsBlocked || 0, period, entity.id + 'ep-thr'), sparkSeed: entity.id + 'ep-thr', strokeColor: '#3b82f6' },
-                { label: 'Scans completed', value: scaleByPeriod(products.endpoint?.scansCompleted || 0, period, entity.id + 'ep-scan'), sparkSeed: entity.id + 'ep-scan', strokeColor: '#3b82f6' },
-                { label: 'Compliance', value: (products.endpoint?.complianceRate || 0) + '%', sparkSeed: entity.id + 'ep-comp', strokeColor: '#3b82f6' },
+                { label: 'Devices protected', value: scaleByPeriod(products.endpoint?.devicesProtected || 0, period, entity.id + 'ep-dev'), sparkSeed: entity.id + 'ep-dev', strokeColor: '#0596d2' },
+                { label: 'Threats blocked', value: scaleByPeriod(products.endpoint?.threatsBlocked || 0, period, entity.id + 'ep-thr'), sparkSeed: entity.id + 'ep-thr', strokeColor: '#0596d2' },
+                { label: 'Scans completed', value: scaleByPeriod(products.endpoint?.scansCompleted || 0, period, entity.id + 'ep-scan'), sparkSeed: entity.id + 'ep-scan', strokeColor: '#0596d2' },
+                { label: 'Compliance', value: (products.endpoint?.complianceRate || 0) + '%', sparkSeed: entity.id + 'ep-comp', strokeColor: '#0596d2' },
               ]}
             />
 
             <OpsProductCard
-              title="Email Security" icon={Mail} iconColor="text-violet-500" accentBorder="border-l-violet-400"
+              title="Email Security" icon={Mail} iconColor="text-orchid-600 dark:text-orchid-400" accentBorder="border-l-orchid-400"
               entityId={entity.id} period={period}
               metrics={[
-                { label: 'Emails scanned', value: scaleByPeriod(products.emailSecurity?.emailsScanned || 0, period, entity.id + 'es-scan'), sparkSeed: entity.id + 'es-scan', strokeColor: '#8b5cf6' },
-                { label: 'Threats caught', value: scaleByPeriod(products.emailSecurity?.threatsCaught || 0, period, entity.id + 'es-thr'), sparkSeed: entity.id + 'es-thr', strokeColor: '#8b5cf6' },
-                { label: 'Phishing blocked', value: scaleByPeriod(products.emailSecurity?.phishingBlocked || 0, period, entity.id + 'es-ph'), sparkSeed: entity.id + 'es-ph', strokeColor: '#8b5cf6' },
-                { label: 'Spam filtered', value: scaleByPeriod(products.emailSecurity?.spamFiltered || 0, period, entity.id + 'es-sp'), sparkSeed: entity.id + 'es-sp', strokeColor: '#8b5cf6' },
+                { label: 'Emails scanned', value: scaleByPeriod(products.emailSecurity?.emailsScanned || 0, period, entity.id + 'es-scan'), sparkSeed: entity.id + 'es-scan', strokeColor: '#b269c3' },
+                { label: 'Threats caught', value: scaleByPeriod(products.emailSecurity?.threatsCaught || 0, period, entity.id + 'es-thr'), sparkSeed: entity.id + 'es-thr', strokeColor: '#b269c3' },
+                { label: 'Phishing blocked', value: scaleByPeriod(products.emailSecurity?.phishingBlocked || 0, period, entity.id + 'es-ph'), sparkSeed: entity.id + 'es-ph', strokeColor: '#b269c3' },
+                { label: 'Spam filtered', value: scaleByPeriod(products.emailSecurity?.spamFiltered || 0, period, entity.id + 'es-sp'), sparkSeed: entity.id + 'es-sp', strokeColor: '#b269c3' },
               ]}
               footer={ops.domainHealth && (
                 <div className="flex items-center gap-4">
@@ -1915,13 +1948,13 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onAddProdu
             />
 
             <OpsProductCard
-              title="SafeSend" icon={Send} iconColor="text-emerald-500" accentBorder="border-l-emerald-400"
+              title="SafeSend" icon={Send} iconColor="text-emerald-600 dark:text-emerald-400" accentBorder="border-l-emerald-400"
               entityId={entity.id} period={period}
               metrics={[
-                { label: 'Emails sent', value: scaleByPeriod(products.safeSend?.emailsSent || 0, period, entity.id + 'ss-sent'), sparkSeed: entity.id + 'ss-sent', strokeColor: '#10b981' },
-                { label: 'Attachments scanned', value: scaleByPeriod(products.safeSend?.attachmentsScanned || 0, period, entity.id + 'ss-att'), sparkSeed: entity.id + 'ss-att', strokeColor: '#10b981' },
-                { label: 'DLP triggers', value: scaleByPeriod(products.safeSend?.dlpTriggers || 0, period, entity.id + 'ss-dlp'), sparkSeed: entity.id + 'ss-dlp', strokeColor: '#10b981' },
-                { label: 'Recipients verified', value: scaleByPeriod(products.safeSend?.recipientsVerified || 0, period, entity.id + 'ss-rec'), sparkSeed: entity.id + 'ss-rec', strokeColor: '#10b981' },
+                { label: 'Emails sent', value: scaleByPeriod(products.safeSend?.emailsSent || 0, period, entity.id + 'ss-sent'), sparkSeed: entity.id + 'ss-sent', strokeColor: '#2ca45b' },
+                { label: 'Attachments scanned', value: scaleByPeriod(products.safeSend?.attachmentsScanned || 0, period, entity.id + 'ss-att'), sparkSeed: entity.id + 'ss-att', strokeColor: '#2ca45b' },
+                { label: 'DLP triggers', value: scaleByPeriod(products.safeSend?.dlpTriggers || 0, period, entity.id + 'ss-dlp'), sparkSeed: entity.id + 'ss-dlp', strokeColor: '#2ca45b' },
+                { label: 'Recipients verified', value: scaleByPeriod(products.safeSend?.recipientsVerified || 0, period, entity.id + 'ss-rec'), sparkSeed: entity.id + 'ss-rec', strokeColor: '#2ca45b' },
               ]}
             />
           </div>

@@ -411,7 +411,9 @@ export default function ScopeNavigator({ path, onNavigate, onSearchOpen, telepor
   }
 
   return (
-    <nav ref={navRef} className="bg-transparent px-4 py-3">
+    // Top bar: same navy as the left nav + matching divider. Scoped `dark` so its
+    // contents (breadcrumb, Future State, search) render light-on-navy in both themes.
+    <nav ref={navRef} className="dark bg-midnight-950 border-b border-midnight-800 px-4 py-3">
       <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
         <div className="flex items-center gap-3 flex-1 min-w-0 whitespace-nowrap">
         <div ref={innerRef} className="flex items-center gap-3 flex-1 min-w-0">

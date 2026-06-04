@@ -1,0 +1,54 @@
+// ============================================================================
+// Surface — the panel primitive. A token-bound box: background, optional 1px
+// border, radius, padding, and elevation. Every card / panel / popover / table
+// shell COMPOSES this instead of re-declaring bg + border + radius. This is the
+// single place those decisions live.
+// ============================================================================
+
+// Padding steps a panel realistically uses (4px grid). Keeps the emitted CSS
+// small — add a step here if a composite genuinely needs it.
+$pad-steps: (0, 1, 2, 3, 4, 5, 6, 8);
+
+.vds-surface {
+  background-color: var(--vds-surface);
+  color: var(--vds-ink);
+  border: 1px solid transparent;
+  border-radius: var(--vds-radius-lg);
+
+  // ---- background ----
+  // DEPRECATED boolean — the semantic elevation ladder below now implies the
+  // surface (raised → surface-raised). Kept one cycle for back-compat.
+  &--raised { background-color: var(--vds-surface-raised); }
+
+  // ---- border (hairline in the line token) ----
+  &--bordered { border-color: var(--vds-line); }
+
+  // ---- radius ----
+  &--radius-sm { border-radius: var(--vds-radius-sm); }
+  &--radius-md { border-radius: var(--vds-radius-md); }
+  &--radius-lg { border-radius: var(--vds-radius-lg); }
+  &--radius-xl { border-radius: var(--vds-radius-xl); }
+
+  // ---- elevation (semantic ladder — preferred) ----
+  // Each level binds surface tone + shadow together. See docs/playbook/10-depth.md.
+  // Light mode is shadow-led (surfaces barely change); dark mode is lightness-led
+  // (surface tokens step lighter as they rise — the var() handles that per theme).
+  &--elev-flat     { background-color: var(--vds-canvas);         box-shadow: none; }
+  &--elev-resting  { background-color: var(--vds-surface);        box-shadow: none; }
+  &--elev-raised   { background-color: var(--vds-surface-raised); box-shadow: var(--vds-shadow-md); }
+  &--elev-overlay  { background-color: var(--vds-surface-overlay); box-shadow: var(--vds-shadow-lg); }
+  &--elev-floating { background-color: var(--vds-surface-raised); box-shadow: var(--vds-shadow-lg); }
+
+  // ---- elevation (DEPRECATED presentational values — kept one cycle) ----
+  // Shadow-only; these do NOT change the surface background, so existing
+  // consumers render unchanged. Prefer the semantic ladder above.
+  &--elev-xs { box-shadow: var(--vds-shadow-xs); }
+  &--elev-sm { box-shadow: var(--vds-shadow-sm); }
+  &--elev-md { box-shadow: var(--vds-shadow-md); }
+  &--elev-lg { box-shadow: var(--vds-shadow-lg); }
+
+  // ---- padding (token-spaced) ----
+  @each $n in $pad-steps {
+    &--pad-#{$n} { padding: var(--vds-space-#{$n}); }
+  }
+}

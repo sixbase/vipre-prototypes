@@ -218,7 +218,7 @@ function MiniUtilBar({ consumed, licensed }) {
   const pct = Math.min(100, Math.round((consumed / Math.max(licensed, 1)) * 100));
   let barColor = 'bg-zinc-400 dark:bg-zinc-500';
   if (pct < 30) barColor = 'bg-emerald-500';
-  else if (pct >= 95) barColor = 'bg-red-500';
+  else if (pct >= 95) barColor = 'bg-rose-500';
   else if (pct >= 85) barColor = 'bg-amber-500';
 
   return (

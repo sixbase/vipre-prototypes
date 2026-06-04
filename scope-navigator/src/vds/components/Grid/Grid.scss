@@ -1,0 +1,10 @@
+// ============================================================================
+// Grid — responsive auto-fit columns. Wraps to fewer columns as space shrinks
+// and collapses to one stacked column on small screens. min() floor keeps a
+// single column at 100% so it never overflows the container.
+// ============================================================================
+.vds-grid {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--vds-grid-min, 14rem)), 1fr));
+}

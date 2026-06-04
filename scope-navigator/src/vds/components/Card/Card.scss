@@ -1,0 +1,17 @@
+// ============================================================================
+// Card — composes Surface; owns only the header layout. Body is the children.
+// ============================================================================
+.vds-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vds-space-3);
+  margin-bottom: var(--vds-space-4);
+}
+
+.vds-card__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vds-space-2);
+  flex-shrink: 0;
+}

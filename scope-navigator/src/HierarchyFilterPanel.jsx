@@ -353,7 +353,7 @@ export default function HierarchyFilterPanel({
           {isFiltered ? (
             <>
               <span className="text-zinc-600 dark:text-zinc-400">{selectedIds.size} of {totalLeafCount} accounts selected</span>
-              <button onClick={clearFilter} className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium">Clear filter</button>
+              <button onClick={clearFilter} className="text-azure-600 dark:text-azure-400 hover:underline cursor-pointer font-medium">Clear filter</button>
             </>
           ) : (
             <span className="text-zinc-400 dark:text-zinc-500">All {totalLeafCount} accounts</span>

@@ -1,0 +1,17 @@
+// ============================================================================
+// Icon — sizing comes from the width/height attrs set in Icon.jsx; this owns
+// alignment and the tone color overrides. Default inherits currentColor.
+// ============================================================================
+.vds-icon {
+  flex-shrink: 0;
+  vertical-align: middle;
+  color: currentColor;
+
+  &--muted   { color: var(--vds-ink-muted); }
+  &--subtle  { color: var(--vds-ink-subtle); }
+  &--primary { color: var(--vds-primary); }
+  &--success { color: var(--vds-success); }
+  &--warning { color: var(--vds-warning); }
+  &--danger  { color: var(--vds-danger); }
+  &--info    { color: var(--vds-info); }
+}

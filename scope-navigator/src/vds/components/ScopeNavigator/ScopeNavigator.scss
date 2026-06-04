@@ -1,0 +1,567 @@
+// ============================================================================
+// ScopeNavigator — the MSP hierarchy breadcrumb bar. Composes Surface (popovers)
+// + Input (dropdown search) + Icon. The bar itself is a FIXED product-chrome
+// surface: always the Midnight navy in both themes (like the product sidebar),
+// so its contents read light-on-navy regardless of light/dark. Its popovers,
+// by contrast, are real Surfaces and follow the page theme.
+//
+// White-alpha overlays (translucent fills/borders on the navy) are expressed as
+// color-mix on the --vds-white token, never raw rgba — staying token-bound.
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-scope {
+  // ---- local chrome tokens (navy bar, light content) ----
+  --vds-scope-bg: var(--vds-midnight-950);
+  --vds-scope-border: var(--vds-midnight-800);
+  --vds-scope-ink: var(--vds-white);
+  --vds-scope-ink-muted: color-mix(in oklab, var(--vds-white) 70%, transparent);
+  --vds-scope-ink-subtle: color-mix(in oklab, var(--vds-white) 45%, transparent);
+  --vds-scope-hover: color-mix(in oklab, var(--vds-white) 6%, transparent);
+  --vds-scope-line: color-mix(in oklab, var(--vds-white) 15%, transparent);
+
+  background-color: var(--vds-scope-bg);
+  border-bottom: 1px solid var(--vds-scope-border);
+  padding: var(--vds-space-3) var(--vds-space-4);
+  font-family: var(--vds-font-sans);
+
+  &__row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vds-space-2);
+
+    @media (min-width: 768px) {
+      flex-direction: row;
+      align-items: center;
+      gap: var(--vds-space-3);
+    }
+  }
+
+  &__trail-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-3);
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  &__trail {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-3);
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__seg-row {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    min-width: 0;
+  }
+
+  // ---- separator chevron ----
+  &__sep {
+    color: var(--vds-scope-ink-subtle);
+    flex-shrink: 0;
+  }
+
+  // ---- breadcrumb segment ----
+  &__seg {
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    &--active {
+      min-width: 0;
+    }
+    &--inactive {
+      flex-shrink: 0;
+    }
+  }
+
+  &__crumb {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    min-height: 40px;
+    padding: var(--vds-space-2) var(--vds-space-3);
+    border-radius: var(--vds-radius-md);
+    border: 1px solid var(--vds-scope-line);
+    color: var(--vds-scope-ink-muted);
+    @include type.step(body);
+    font-weight: 500;
+    transition:
+      background-color var(--vds-dur-fast) var(--vds-ease-out),
+      color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &--has-caret {
+      padding-right: var(--vds-space-2);
+    }
+
+    &:not(.vds-scope__crumb--active):hover {
+      background-color: var(--vds-scope-hover);
+      color: var(--vds-scope-ink);
+    }
+
+    // Active / current scope = a solid surface pill that pops off the navy.
+    &--active {
+      background-color: var(--vds-surface);
+      color: var(--vds-ink);
+      border-color: transparent;
+      box-shadow: var(--vds-shadow-sm);
+      font-weight: 600;
+    }
+
+    &--teleport {
+      animation: vds-scope-teleport 1.4s var(--vds-ease-out);
+    }
+  }
+
+  &__crumb-main {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    min-width: 0;
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    font: inherit;
+
+    &--clickable {
+      cursor: pointer;
+    }
+  }
+
+  &__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 110px;
+    @media (min-width: 640px) {
+      max-width: 180px;
+    }
+  }
+  &__crumb--active &__label {
+    max-width: 140px;
+    @media (min-width: 640px) {
+      max-width: 230px;
+    }
+  }
+
+  // ---- drill-down caret ----
+  &__caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 9999px;
+    border: 1px solid var(--vds-scope-line);
+    background: transparent;
+    color: var(--vds-scope-ink-subtle);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition:
+      background-color var(--vds-dur-fast) var(--vds-ease-out),
+      color var(--vds-dur-fast) var(--vds-ease-out),
+      border-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover,
+    &--open {
+      background-color: var(--vds-surface);
+      border-color: var(--vds-line-strong);
+      color: var(--vds-ink-muted);
+      box-shadow: var(--vds-shadow-sm);
+    }
+  }
+  // On the active (light) pill, the caret border tracks the surface line token.
+  &__crumb--active &__caret {
+    border-color: var(--vds-line);
+    color: var(--vds-ink-subtle);
+  }
+
+  &:focus-visible,
+  & button:focus-visible {
+    outline: 2px solid var(--vds-focus-ring);
+    outline-offset: 2px;
+  }
+
+  // ---- icon chip (filled, family-tinted square) ----
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--vds-radius-sm);
+    flex-shrink: 0;
+    background-color: var(--vds-scope-chip-bg, var(--vds-midnight-600));
+    color: var(--vds-white);
+
+    &--sm {
+      width: 20px;
+      height: 20px;
+    }
+    &--md {
+      width: 28px;
+      height: 28px;
+    }
+    &--root {
+      background-color: var(--vds-midnight-600);
+    }
+  }
+  // The root chip on the active light pill uses the graphite neutral.
+  &__crumb--active &__chip--root {
+    background-color: var(--vds-graphite-600);
+  }
+
+  // ---- status dot ----
+  &__dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+    background-color: var(--vds-scope-dot, var(--vds-ink-subtle));
+  }
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    color: var(--vds-ink-muted);
+    @include type.step(detail);
+  }
+
+  // ---- type tag (ellipsis menu) ----
+  &__type-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.0625rem 0.375rem;
+    border-radius: var(--vds-radius-sm);
+    background-color: var(--vds-canvas);
+    color: var(--vds-ink-muted);
+    text-transform: uppercase;
+    @include type.step(nano);
+    flex-shrink: 0;
+  }
+
+  // ---- ⌘K search trigger ----
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    padding: var(--vds-space-2) var(--vds-space-2) var(--vds-space-2) var(--vds-space-3);
+    background-color: var(--vds-surface);
+    border: 1px solid var(--vds-line);
+    border-radius: var(--vds-radius-md);
+    color: var(--vds-ink-subtle);
+    cursor: pointer;
+    flex-shrink: 0;
+    width: 100%;
+    transition:
+      color var(--vds-dur-fast) var(--vds-ease-out),
+      border-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    @media (min-width: 768px) {
+      width: 200px;
+    }
+
+    &:hover {
+      color: var(--vds-ink-muted);
+      border-color: var(--vds-line-strong);
+    }
+  }
+  &__search-label {
+    @include type.step(caption);
+  }
+  &__kbd {
+    margin-left: auto;
+    padding: 0.125rem 0.375rem;
+    @include type.step(nano);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--vds-ink-subtle);
+    background-color: var(--vds-canvas);
+    border: 1px solid var(--vds-line);
+    border-radius: var(--vds-radius-sm);
+    flex-shrink: 0;
+  }
+
+  // ---- actions slot ----
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    flex-shrink: 0;
+  }
+
+  // ========================================================================
+  // Popover (drill-down) — a real Surface (theme-following), positioned under
+  // its trigger. Anchored left; JS clamps `left` to keep it on-screen.
+  // ========================================================================
+  &__pop {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: var(--vds-space-1);
+    width: calc(100vw - 1.5rem);
+    z-index: var(--vds-z-dropdown);
+    overscroll-behavior: contain;
+    white-space: normal;
+
+    @media (min-width: 640px) {
+      width: 320px;
+    }
+  }
+
+  &__pop-header {
+    padding: var(--vds-space-2);
+    border-bottom: 1px solid var(--vds-line);
+  }
+  &__eyebrow {
+    @include type.step(eyebrow);
+    text-transform: uppercase;
+    color: var(--vds-ink-subtle);
+  }
+
+  &__pop-search {
+    padding: var(--vds-space-2);
+    border-bottom: 1px solid var(--vds-line);
+  }
+
+  &__pop-toolbar {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--vds-space-2) var(--vds-space-3);
+    border-bottom: 1px solid var(--vds-line);
+  }
+  &__results-count {
+    @include type.step(detail);
+    font-weight: 500;
+    color: var(--vds-ink-subtle);
+  }
+  &__toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-1);
+  }
+
+  // ---- toolbar menu (sort / filter) ----
+  &__menu {
+    position: relative;
+  }
+  &__menu-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-1);
+    padding: 0.125rem 0.375rem;
+    border: 0;
+    border-radius: var(--vds-radius-sm);
+    background: transparent;
+    color: var(--vds-ink-subtle);
+    @include type.step(detail);
+    cursor: pointer;
+    transition:
+      color var(--vds-dur-fast) var(--vds-ease-out),
+      background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      color: var(--vds-ink-muted);
+      background-color: var(--vds-canvas);
+    }
+    &--active {
+      color: var(--vds-primary);
+      background-color: var(--vds-primary-soft);
+    }
+  }
+  &__menu-pop {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: var(--vds-space-1);
+    width: 160px;
+    background-color: var(--vds-surface-overlay);
+    border: 1px solid var(--vds-line);
+    border-radius: var(--vds-radius-md);
+    box-shadow: var(--vds-shadow-md);
+    z-index: var(--vds-z-dropdown);
+    overflow: hidden;
+  }
+  &__menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: var(--vds-space-1) var(--vds-space-3);
+    border: 0;
+    background: transparent;
+    color: var(--vds-ink-muted);
+    @include type.step(detail);
+    cursor: pointer;
+    transition: background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      background-color: var(--vds-canvas);
+    }
+    &--active {
+      background-color: var(--vds-canvas);
+      color: var(--vds-ink);
+      font-weight: 500;
+    }
+  }
+  &__menu-item-icon {
+    margin-right: var(--vds-space-1);
+    vertical-align: -2px;
+  }
+
+  // ---- results list ----
+  &__results {
+    position: relative;
+    max-height: 352px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  &__empty {
+    padding: var(--vds-space-4) var(--vds-space-3);
+    text-align: center;
+    @include type.step(body);
+    color: var(--vds-ink-subtle);
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-3);
+    width: 100%;
+    text-align: left;
+    padding: var(--vds-space-3);
+    border: 0;
+    background: transparent;
+    color: var(--vds-ink);
+    cursor: pointer;
+    transition: background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      background-color: var(--vds-canvas);
+    }
+    &--current {
+      background-color: var(--vds-canvas);
+      cursor: default;
+    }
+  }
+  &__item-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+  &__item-name {
+    @include type.step(body);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__item-sub {
+    @include type.step(detail);
+    color: var(--vds-ink-subtle);
+  }
+  &__current-tag {
+    flex-shrink: 0;
+    padding: 0.0625rem 0.375rem;
+    border-radius: var(--vds-radius-sm);
+    background-color: var(--vds-line);
+    color: var(--vds-ink-muted);
+    text-transform: uppercase;
+    @include type.step(nano);
+  }
+
+  // ========================================================================
+  // Ellipsis (collapsed middle) menu
+  // ========================================================================
+  &__ellipsis-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-3);
+  }
+  &__ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--vds-space-2);
+    border: 0;
+    border-radius: var(--vds-radius-md);
+    background: transparent;
+    color: var(--vds-scope-ink-muted);
+    cursor: pointer;
+    transition:
+      color var(--vds-dur-fast) var(--vds-ease-out),
+      background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      color: var(--vds-scope-ink);
+      background-color: var(--vds-scope-hover);
+    }
+  }
+  &__ellipsis-pop {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: var(--vds-space-1);
+    width: calc(100vw - 1.5rem);
+    z-index: var(--vds-z-dropdown);
+    overflow: hidden;
+
+    @media (min-width: 640px) {
+      width: 256px;
+    }
+  }
+  &__ellipsis-list {
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  &__ellipsis-item {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    width: 100%;
+    text-align: left;
+    padding: var(--vds-space-3);
+    border: 0;
+    background: transparent;
+    color: var(--vds-ink);
+    cursor: pointer;
+    transition: background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      background-color: var(--vds-canvas);
+    }
+  }
+  &__ellipsis-label {
+    @include type.step(body);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@keyframes vds-scope-teleport {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--vds-primary) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 8px color-mix(in oklab, var(--vds-primary) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-scope__crumb--teleport {
+    animation: none;
+  }
+}

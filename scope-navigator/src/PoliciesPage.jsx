@@ -45,8 +45,8 @@ const ES_POLICIES = [
 // ── Policy type metadata ───────────────────────────────────────────
 
 const EP_TYPE_META = {
-  protection:  { label: 'Protection',   color: 'text-blue-600 dark:text-blue-400',    bg: 'bg-blue-50 dark:bg-blue-900/30' },
-  threat:      { label: 'Threat',       color: 'text-red-600 dark:text-red-400',      bg: 'bg-red-50 dark:bg-red-900/30' },
+  protection:  { label: 'Protection',   color: 'text-azure-600 dark:text-azure-400',    bg: 'bg-blue-50 dark:bg-blue-900/30' },
+  threat:      { label: 'Threat',       color: 'text-rose-600 dark:text-rose-400',      bg: 'bg-rose-50 dark:bg-rose-900/30' },
   device:      { label: 'Device',       color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-900/30' },
   application: { label: 'Application',  color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-50 dark:bg-amber-900/30' },
   web:         { label: 'Web',          color: 'text-cyan-600 dark:text-cyan-400',    bg: 'bg-cyan-50 dark:bg-cyan-900/30' },
@@ -56,7 +56,7 @@ const EP_TYPE_META = {
 };
 
 const ES_TYPE_META = {
-  inbound:        { label: 'Inbound',        color: 'text-blue-600 dark:text-blue-400',      bg: 'bg-blue-50 dark:bg-blue-900/30' },
+  inbound:        { label: 'Inbound',        color: 'text-azure-600 dark:text-azure-400',      bg: 'bg-blue-50 dark:bg-blue-900/30' },
   outbound:       { label: 'Outbound',       color: 'text-teal-600 dark:text-teal-400',      bg: 'bg-teal-50 dark:bg-teal-900/30' },
   authentication: { label: 'Auth',           color: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-50 dark:bg-amber-900/30' },
   encryption:     { label: 'Encryption',     color: 'text-pink-600 dark:text-pink-400',      bg: 'bg-pink-50 dark:bg-pink-900/30' },
@@ -65,13 +65,13 @@ const ES_TYPE_META = {
 };
 
 const STATUS_META = {
-  active:   { label: 'Active',   dot: 'bg-green-500',  pill: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  active:   { label: 'Active',   dot: 'bg-emerald-500',  pill: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
   disabled: { label: 'Disabled', dot: 'bg-zinc-400',   pill: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400' },
   draft:    { label: 'Draft',    dot: 'bg-amber-400',  pill: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
 };
 
 const SCOPE_META = {
-  inherited: { label: 'Inherited', color: 'text-blue-600 dark:text-blue-400' },
+  inherited: { label: 'Inherited', color: 'text-azure-600 dark:text-azure-400' },
   local:     { label: 'Local',     color: 'text-zinc-600 dark:text-zinc-400' },
 };
 

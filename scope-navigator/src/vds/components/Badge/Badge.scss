@@ -1,0 +1,33 @@
+// ============================================================================
+// Badge — compact status pill. Soft-tinted bg + matching ink. Co-located.
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--vds-radius-sm);
+  white-space: nowrap;
+  @include type.step(micro);
+
+  &__dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background-color: currentColor;
+    // Optical centering: flex-centering lands the dot a hair low against the
+    // label's visual mass. A small em-based lift (tracks font size) seats the
+    // dot at the middle of the text — judged by eye, not the line box.
+    transform: translateY(-0.15em);
+  }
+
+  &--neutral { background-color: var(--vds-canvas);       color: var(--vds-ink-muted); border-color: var(--vds-line); }
+  &--primary { background-color: var(--vds-primary-soft);  color: var(--vds-primary); }
+  &--success { background-color: var(--vds-success-soft);  color: var(--vds-success); }
+  &--warning { background-color: var(--vds-warning-soft);  color: var(--vds-warning); }
+  &--danger  { background-color: var(--vds-danger-soft);   color: var(--vds-danger); }
+  &--info    { background-color: var(--vds-info-soft);     color: var(--vds-info); }
+}

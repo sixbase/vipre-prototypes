@@ -1,0 +1,25 @@
+// ============================================================================
+// Stack — vertical flow with a token-spaced gap. The primitive that replaces
+// ad-hoc `flex flex-col gap-*` so vertical rhythm is always a spacing token.
+// ============================================================================
+
+$gap-steps: (0, 1, 2, 3, 4, 5, 6, 8, 10, 12);
+
+.vds-stack {
+  display: flex;
+  flex-direction: column;
+
+  @each $n in $gap-steps {
+    &--gap-#{$n} { gap: var(--vds-space-#{$n}); }
+  }
+
+  &--align-start   { align-items: flex-start; }
+  &--align-center  { align-items: center; }
+  &--align-end     { align-items: flex-end; }
+  &--align-stretch { align-items: stretch; }
+
+  &--justify-start   { justify-content: flex-start; }
+  &--justify-center  { justify-content: center; }
+  &--justify-between { justify-content: space-between; }
+  &--justify-end     { justify-content: flex-end; }
+}

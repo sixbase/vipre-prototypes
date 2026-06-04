@@ -1,0 +1,199 @@
+// ============================================================================
+// StatTile — KPI tile. Composes Surface; owns icon box, value/label hierarchy,
+// tone colors, sparkline placement, and the interactive (button) affordance.
+// Two layouts: stacked (default, number is the hero) and row (compact).
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-stat {
+  width: 100%;
+  min-width: 0; // shrink-safe inside a grid/flex cell (no overflow)
+  text-align: left;
+  font-family: var(--vds-font-sans);
+
+  // tone → accent (icon glyph) + soft (filled-chip bg). Set per tone below.
+  --vds-stat-accent: var(--vds-ink-muted);
+  --vds-stat-soft: color-mix(in oklab, var(--vds-ink-muted) 18%, transparent);
+
+  &__icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;   // sized to roughly the value+label block; per-size below
+    height: 2.5rem;
+    color: var(--vds-stat-accent);
+  }
+
+  // ---- icon treatments ----
+  // outline (default, Vipre style): a thin neutral ring, transparent center,
+  // the glyph carries the meaning via tone.
+  &--icon-outline .vds-stat__icon {
+    border-radius: 9999px;
+    border: 1px solid var(--vds-line-strong);
+    background-color: transparent;
+  }
+  // soft: filled circle tinted to the tone (same shape as outline, filled).
+  &--icon-soft .vds-stat__icon {
+    border-radius: 9999px;
+    background-color: var(--vds-stat-soft);
+  }
+
+  &__value {
+    @include type.step(title);
+    font-variant-numeric: tabular-nums;
+    color: var(--vds-ink);
+    line-height: 1.1;
+  }
+
+  &__label {
+    @include type.step(detail);
+    color: var(--vds-ink-muted);
+  }
+
+  &__caption {
+    @include type.step(micro);
+    color: var(--vds-ink-subtle);
+  }
+
+  &__delta { flex-shrink: 0; }
+  &__spark { flex-shrink: 0; }
+
+  // structured delta chip: signed value, colored by direction (+/- conveys it)
+  &__delta--chip {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  &__delta--good { color: var(--vds-success); }
+  &__delta--bad { color: var(--vds-danger); }
+
+  // loading skeleton
+  &__skeleton {
+    display: block;
+    border-radius: var(--vds-radius-sm);
+    background-image: linear-gradient(
+      90deg,
+      var(--vds-line) 25%,
+      var(--vds-line-strong) 37%,
+      var(--vds-line) 63%
+    );
+    background-size: 400% 100%;
+    animation: vds-stat-shimmer 1.4s ease infinite;
+
+    &--label { width: 6rem; height: 0.75rem; }
+    // gap between the label bar and the value bar (label renders first)
+    &--value { width: 4.5rem; height: 1.5rem; margin-top: 0.5rem; }
+  }
+
+  // ---- layout: stacked (default) ----
+  &--stacked {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vds-space-1);
+
+    .vds-stat__top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--vds-space-2);
+    }
+    .vds-stat__top .vds-stat__delta { margin-left: auto; }
+    .vds-stat__value { margin-top: var(--vds-space-1); }
+    .vds-stat__spark { margin-top: var(--vds-space-3); width: 100%; }
+  }
+
+  // ---- layout: row (compact) ----
+  &--row {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-3);
+
+    .vds-stat__body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .vds-stat__spark { margin-left: auto; }
+    .vds-stat__delta { margin-left: auto; }
+    .vds-stat__spark + .vds-stat__delta { margin-left: var(--vds-space-2); }
+  }
+
+  // ---- sizes (value step + icon chip scaled to the value+label height) ----
+  &--size-sm {
+    .vds-stat__value { @include type.step(heading); }
+    .vds-stat__icon { width: 2.5rem; height: 2.5rem; }
+  }
+  &--size-md {
+    .vds-stat__value { @include type.step(title); }
+    .vds-stat__icon { width: 3rem; height: 3rem; }
+  }
+  &--size-lg {
+    .vds-stat__value { @include type.step(display); }
+    .vds-stat__icon { width: 3.25rem; height: 3.25rem; }
+  }
+
+  // ---- interactive (drill-in) ----
+  &--interactive {
+    cursor: pointer;
+    transition:
+      border-color var(--vds-dur-fast) var(--vds-ease-out),
+      background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      border-color: var(--vds-line-strong);
+      background-color: var(--vds-canvas);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--vds-focus-ring);
+      outline-offset: 2px;
+    }
+  }
+
+  // ---- tones (color ONLY the icon glyph + soft chip; the value stays ink) ----
+  &--primary {
+    --vds-stat-accent: var(--vds-primary);
+    --vds-stat-soft: var(--vds-primary-soft);
+  }
+  &--success {
+    --vds-stat-accent: var(--vds-success);
+    --vds-stat-soft: var(--vds-success-soft);
+  }
+  &--warning {
+    --vds-stat-accent: var(--vds-warning);
+    --vds-stat-soft: var(--vds-warning-soft);
+  }
+  &--danger {
+    --vds-stat-accent: var(--vds-danger);
+    --vds-stat-soft: var(--vds-danger-soft);
+  }
+
+  // ---- chromatic tones (categorical: no good/bad meaning) ----
+  // Color the icon glyph + soft chip; the sparkline follows automatically since
+  // sparkTone derives from tone. Light uses the 600 step; dark flips to the
+  // vivid 400 (below), mirroring the status tones' per-mode treatment.
+  @each $fam in azure, harbor, emerald, amber, rose, orchid, clay {
+    &--#{$fam} {
+      --vds-stat-accent: var(--vds-#{$fam}-600);
+      --vds-stat-soft: color-mix(in oklab, var(--vds-#{$fam}-600) 16%, transparent);
+    }
+  }
+}
+
+// Dark mode — vivid 400 step for the chromatic tone accents (parity with light).
+.dark .vds-stat {
+  @each $fam in azure, harbor, emerald, amber, rose, orchid, clay {
+    &--#{$fam} {
+      --vds-stat-accent: var(--vds-#{$fam}-400);
+      --vds-stat-soft: color-mix(in oklab, var(--vds-#{$fam}-400) 16%, transparent);
+    }
+  }
+}
+
+@keyframes vds-stat-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-stat__skeleton { animation: none; }
+}

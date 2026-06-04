@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, Fragment } from 'react';
 import { Building2, ArrowLeft, ArrowUpRight, ChevronRight } from 'lucide-react';
 import { useScope } from './ScopeContext';
 import { mockData, genCustomerPackages, genPartnerPackages, findEntityById, buildRootAggregateEntity } from './data';
-import { typeConfig, pkgIconMap, defaultPkgIcon } from './config';
+import { typeConfig, pkgIconMap, defaultPkgIcon, EntityTypeIcon } from './config';
 import EntityDetail, { ChildrenListView, EntityPackageDetail, EntityIdentityHeader } from './EntityDetail';
 import useClickOutside from './useClickOutside';
 
@@ -40,10 +40,8 @@ function BreadcrumbEllipsis({ items }) {
                     aria-hidden
                     className={`absolute left-1/2 -translate-x-1/2 w-px bg-zinc-200 dark:bg-zinc-600 ${i === 0 ? 'top-1/2 bottom-0' : isLast ? 'top-0 bottom-1/2' : 'inset-y-0'}`}
                   />
-                  {Icon && (
-                    <span className={`relative z-10 w-5 h-5 rounded flex items-center justify-center ${cfg.bg ?? 'bg-zinc-500'}`}>
-                      <Icon className="w-3 h-3 text-white" />
-                    </span>
+                  {it.entityType && (
+                    <EntityTypeIcon type={it.entityType} size="xs" className="relative z-10 bg-surface" />
                   )}
                 </span>
                 <span className="self-center min-w-0 truncate text-xs font-medium text-zinc-700 dark:text-zinc-200 text-left">{it.label}</span>
@@ -120,10 +118,10 @@ const B_LABEL_OVERRIDES = { partner: 'Reseller' };
 
 function utilColor(util) {
   return util >= 70
-    ? 'text-green-600 dark:text-green-400'
+    ? 'text-emerald-600 dark:text-emerald-400'
     : util >= 40
       ? 'text-amber-600 dark:text-amber-400'
-      : 'text-red-600 dark:text-red-400';
+      : 'text-rose-600 dark:text-rose-400';
 }
 
 // Right-side slide-out drawer shell shared by the descendants and package views.
@@ -228,8 +226,8 @@ function PackageDetail({ pkg, scope, onClose }) {
   ];
 
   const utilBar = pkg.avgUtil >= 70
-    ? 'bg-green-500'
-    : pkg.avgUtil >= 40 ? 'bg-amber-500' : 'bg-red-500';
+    ? 'bg-emerald-500'
+    : pkg.avgUtil >= 40 ? 'bg-amber-500' : 'bg-rose-500';
 
   return (
     <div className="flex flex-col h-full">
@@ -270,7 +268,7 @@ function PackageDetail({ pkg, scope, onClose }) {
             <div className={`h-full rounded-full ${utilBar}`} style={{ width: `${Math.min(100, pkg.avgUtil)}%` }} />
           </div>
           {pkg.avgUtil > 100 && (
-            <div className="mt-1.5 text-[11px] text-red-500 dark:text-red-400">Over-provisioned — usage exceeds licensed seats.</div>
+            <div className="mt-1.5 text-[11px] text-rose-500 dark:text-rose-400">Over-provisioned — usage exceeds licensed seats.</div>
           )}
         </div>
 
@@ -289,9 +287,7 @@ function PackageDetail({ pkg, scope, onClose }) {
                 const typeLabel = sub.type === 'partner' ? 'Reseller' : (cfg.label || sub.type);
                 return (
                   <div key={sub.id} className="flex items-center gap-2.5 px-3 py-2">
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${cfg.bg || 'bg-zinc-100 dark:bg-zinc-800'}`}>
-                      <SubIcon className={`w-3 h-3 ${cfg.color || 'text-zinc-400'}`} />
-                    </div>
+                    <EntityTypeIcon type={sub.type} size="sm" />
                     <div className="flex-1 min-w-0">
                       <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-200 truncate">{sub.name}</div>
                       <div className="text-[11px] text-zinc-400 dark:text-zinc-500">{typeLabel}</div>
@@ -343,6 +339,14 @@ export default function DashboardPageB({ externalFilter, onExternalFilterChange,
     setDetailPkg(null);
     if (isControlled) onExternalFilterChange(type);
     else setInternalFilter(type);
+  }
+  // Open the descendants drawer straight to a specific entity's detail view
+  // (used when clicking a descendant row in the inline overview list).
+  function openEntityInDrawer(child) {
+    setDetailPkg(null);
+    setDetailStack([{ entity: child, filter: null }]);
+    if (isControlled) onExternalFilterChange(child.type);
+    else setInternalFilter(child.type);
   }
   function closeChildrenPanel() {
     if (isControlled) onExternalFilterChange(null);
@@ -453,7 +457,7 @@ export default function DashboardPageB({ externalFilter, onExternalFilterChange,
           hideContactInfo
           statusAsDot
           hideTypeBadge
-          onDrillDown={(child) => navigate([...path, child])}
+          onDrillDown={(child) => openEntityInDrawer(child)}
           onOpenChildren={(type) => openChildrenPanel(type)}
           onPackageClick={(pkg) => setSelectedPkg({
             id: pkg.id,

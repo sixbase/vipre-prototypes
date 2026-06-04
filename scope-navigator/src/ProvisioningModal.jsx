@@ -97,7 +97,7 @@ function FormField({ label, error, optional, children }) {
         {optional && <span className="ml-1.5 text-xs text-zinc-400 dark:text-zinc-500 font-normal">(Optional)</span>}
       </label>
       {children}
-      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{error}</p>}
     </div>
   );
 }
@@ -109,7 +109,7 @@ function FormInput({ error, ...props }) {
         bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400
         focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-zinc-900
         ${error
-          ? 'border border-red-400 dark:border-red-500 focus:ring-red-400'
+          ? 'border border-rose-400 dark:border-rose-500 focus:ring-rose-400'
           : 'border border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500 focus:ring-blue-500 focus:border-blue-500'
         }`}
       {...props}
@@ -129,7 +129,7 @@ function FormSelect({ error, options, placeholder, value, onChange, onBlur, disa
           bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100
           focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-zinc-900
           ${error
-            ? 'border border-red-400 dark:border-red-500 focus:ring-red-400'
+            ? 'border border-rose-400 dark:border-rose-500 focus:ring-rose-400'
             : 'border border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500 focus:ring-blue-500 focus:border-blue-500'
           }
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
@@ -243,7 +243,7 @@ function ConfirmationHub({ title, subtitle, actions, onClose }) {
   return (
     <ModalShell title="" onClose={onClose} maxWidth="480px">
       <div className="flex flex-col items-center px-6 py-8">
-        <CheckCircle className="w-12 h-12 text-green-500 mb-4 flex-shrink-0" />
+        <CheckCircle className="w-12 h-12 text-emerald-500 mb-4 flex-shrink-0" />
         <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-1 text-center">{title}</h3>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 text-center mb-6 max-w-xs leading-relaxed">{subtitle}</p>
         <div className="w-full space-y-3">
@@ -603,7 +603,7 @@ function AddProductFlow({ onClose, onSuccess, customerName = 'Customer', existin
           }
         >
           <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-            <CheckCircle className="w-10 h-10 text-green-500 mb-3" />
+            <CheckCircle className="w-10 h-10 text-emerald-500 mb-3" />
             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">This customer has all available packages</p>
           </div>
         </ModalShell>
@@ -894,7 +894,7 @@ function AddPartnerFlow({ entityType, onClose, onSuccess }) {
                       <span className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Add-ons</span>
                       <button
                         onClick={() => toggleAllAddOns(key)}
-                        className="text-[11px] text-blue-500 hover:text-blue-700 cursor-pointer"
+                        className="text-[11px] text-azure-600 hover:text-azure-700 cursor-pointer"
                       >
                         {allAddOnsChecked ? 'Deselect all' : 'Select all'}
                       </button>
@@ -995,8 +995,8 @@ export function SuccessToast({ message, onDismiss }) {
 
   return (
     <div className="fixed bottom-5 right-5 z-[400] animate-palette-in">
-      <div className="flex items-center gap-3 pl-0 pr-4 py-3 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 border-l-4 border-l-green-500 max-w-sm">
-        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 ml-4" />
+      <div className="flex items-center gap-3 pl-0 pr-4 py-3 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 border-l-4 border-l-emerald-500 max-w-sm">
+        <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0 ml-4" />
         <span className="text-sm text-zinc-700 dark:text-zinc-300 flex-1">{message}</span>
         <button
           onClick={onDismiss}

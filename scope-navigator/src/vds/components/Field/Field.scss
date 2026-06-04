@@ -1,0 +1,32 @@
+// ============================================================================
+// Field — label + control + help/error. Owns the vertical rhythm and the
+// label / help / error type so every form field reads identically.
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+
+  &__label {
+    @include type.step(detail);
+    color: var(--vds-ink-muted);
+    font-family: var(--vds-font-sans);
+
+    &--eyebrow {
+      @include type.step(eyebrow);
+      text-transform: uppercase;
+    }
+  }
+
+  &__help {
+    @include type.step(detail);
+    color: var(--vds-ink-muted);
+  }
+
+  &__error {
+    @include type.step(detail);
+    color: var(--vds-danger);
+  }
+}

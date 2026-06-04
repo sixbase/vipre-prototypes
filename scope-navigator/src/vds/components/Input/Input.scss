@@ -1,0 +1,92 @@
+// ============================================================================
+// Input — token-bound text field. Sizes mirror Button (sm/md/lg). The root is
+// a flex shell so leading/trailing affixes sit inside one focusable-looking box.
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-input {
+  // Neutral graphite chrome, but a unified BRAND focus (--vds-focus-ring) to
+  // match Button / Checkbox / Switch. Graphite is only the resting border.
+  --vds-input-border: var(--vds-graphite-300);
+  --vds-input-border-focus: var(--vds-focus-ring);
+  --vds-input-ring: color-mix(in oklab, var(--vds-focus-ring) 35%, transparent);
+  // Subtle graphite for placeholder + leading/trailing icons. Bound to the
+  // graphite ramp directly (NOT --vds-ink-subtle, which is midnight) so the
+  // input stays neutral regardless of the semantic text tokens.
+  --vds-input-muted: var(--vds-graphite-500);
+  // Light fill is white; dark is recessed (one step darker than the surface,
+  // set in the .dark override below).
+  --vds-input-fill: var(--vds-white);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background-color: var(--vds-input-fill);
+  border: 1px solid var(--vds-input-border);
+  border-radius: var(--vds-radius-sm);
+  color: var(--vds-ink);
+  transition:
+    border-color var(--vds-dur-fast) var(--vds-ease-out),
+    box-shadow var(--vds-dur-fast) var(--vds-ease-out);
+
+  // focus ring follows the inner input's focus — graphite, not brand
+  &:focus-within {
+    border-color: var(--vds-input-border-focus);
+    box-shadow: 0 0 0 2px var(--vds-input-ring);
+  }
+
+  &--invalid {
+    border-color: var(--vds-danger);
+    &:focus-within {
+      border-color: var(--vds-danger);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--vds-danger) 30%, transparent);
+    }
+  }
+
+  &--disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  // ---- sizes (heights match Button) ----
+  &--sm { height: 2rem;    padding: 0 0.625rem; @include type.step(detail); }
+  &--md { height: 2.25rem; padding: 0 0.75rem;  @include type.step(body); }
+  &--lg { height: 2.75rem; padding: 0 1rem;     @include type.step(body-lg); }
+
+  &__field {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    outline: none;
+
+    &::placeholder { color: var(--vds-input-muted); }
+  }
+
+  &__affix {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--vds-input-muted);
+  }
+
+  // Trailing affix is often an interactive clear button — let it receive clicks.
+  &__affix--trail { cursor: pointer; }
+}
+
+// Dark theme: the chrome shifts onto the Midnight (Vipre navy) ramp so the
+// field carries the product's cool navy cast instead of neutral graphite.
+.dark .vds-input {
+  --vds-input-border: var(--vds-midnight-700);
+  --vds-input-border-focus: var(--vds-focus-ring);
+  --vds-input-ring: color-mix(in oklab, var(--vds-focus-ring) 40%, transparent);
+  --vds-input-muted: var(--vds-midnight-400); // lighter so the hint stays visible on dark
+  // Darker than --vds-surface (midnight-900) so the field looks recessed.
+  --vds-input-fill: var(--vds-midnight-950);
+}

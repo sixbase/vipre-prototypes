@@ -86,7 +86,7 @@ function FilterSection({ title, items, selected, onToggle, collapsed, onToggleCo
         <ChevronRight className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`} />
         <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{title}</span>
         {selected.size > 0 && (
-          <span className="ml-auto text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-1.5 py-0.5 rounded-full">{selected.size}</span>
+          <span className="ml-auto text-[10px] font-medium text-azure-600 dark:text-azure-400 bg-blue-50 dark:bg-blue-950 px-1.5 py-0.5 rounded-full">{selected.size}</span>
         )}
       </button>
       {!collapsed && (
@@ -156,7 +156,7 @@ function FiltersSidebar({ devices, localFilters, onLocalFiltersChange }) {
             </span>
             <button
               onClick={() => onLocalFiltersChange({ platform: new Set(), type: new Set(), os: new Set(), customer: new Set() })}
-              className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
+              className="text-azure-600 dark:text-azure-400 hover:underline cursor-pointer font-medium"
             >
               Clear filter
             </button>
@@ -303,7 +303,7 @@ function StatsBar({ stats }) {
   const items = [
     { label: 'Total Devices', value: stats.total, color: 'text-zinc-900 dark:text-zinc-100', icon: Monitor, iconColor: 'text-zinc-400' },
     { label: 'Compliant', value: stats.compliant, color: 'text-emerald-600 dark:text-emerald-400', icon: ShieldCheck, iconColor: 'text-emerald-500' },
-    { label: 'Non-Compliant', value: stats.nonCompliant, color: 'text-red-600 dark:text-red-400', icon: ShieldX, iconColor: 'text-red-500' },
+    { label: 'Non-Compliant', value: stats.nonCompliant, color: 'text-rose-600 dark:text-rose-400', icon: ShieldX, iconColor: 'text-rose-500' },
     { label: 'Outdated Agent', value: stats.outdatedAgent, color: 'text-amber-600 dark:text-amber-400', icon: AlertTriangle, iconColor: 'text-amber-500' },
     { label: 'Stale (3+ days)', value: stats.stale, color: 'text-zinc-500 dark:text-zinc-400', icon: Shield, iconColor: 'text-zinc-400' },
   ];
@@ -324,7 +324,7 @@ function ComplianceCell({ status }) {
     </span>
   );
   if (status === 'non-compliant') return (
-    <span className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400">
+    <span className="inline-flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
       <ShieldX className="w-4 h-4" /><span className="text-sm">Non-Compliant</span>
     </span>
   );
@@ -552,7 +552,7 @@ export default function DevicesPage() {
                           ) : (
                             <button
                               onClick={() => handleCustomerClick(device)}
-                              className="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer text-left"
+                              className="text-sm text-azure-600 dark:text-azure-400 hover:underline cursor-pointer text-left"
                             >
                               {device.customer}
                             </button>
@@ -567,7 +567,7 @@ export default function DevicesPage() {
                         </td>
                         <td className="px-4 py-2"><ComplianceCell status={device.compliance} /></td>
                         <td className="px-4 py-2">
-                          <span className={`text-sm tabular-nums ${isStale ? 'text-red-500 dark:text-red-400' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                          <span className={`text-sm tabular-nums ${isStale ? 'text-rose-500 dark:text-rose-400' : 'text-zinc-500 dark:text-zinc-400'}`}>
                             {formatLastSeen(device.lastSeen)}
                           </span>
                         </td>

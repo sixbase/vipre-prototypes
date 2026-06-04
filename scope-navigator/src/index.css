@@ -1,9 +1,10 @@
 @import "tailwindcss";
-/* Vipre Design System tokens — :root{--vds-*} + .dark{} overrides.
-   Vendored snapshot (see src/vipre-tokens.css header). Source of truth lives in
-   ../../vipre-design-system, rebuilt there with `npm run build:tokens`; we copy
-   the compiled output in so the Pages build stays self-contained. */
-@import "./vipre-tokens.css";
+/* Vipre Design System bundle — :root{--vds-*} tokens + .dark{} overrides, the
+   Rubik typescale classes, and every component's BEM styles. Vendored snapshot
+   (see src/vipre.css header). Source of truth lives in ../../vipre-design-system,
+   rebuilt there with `npm run build:styles`; we copy the compiled output in so
+   the Pages build stays self-contained. */
+@import "./vipre.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

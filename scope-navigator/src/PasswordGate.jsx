@@ -53,12 +53,12 @@ export default function PasswordGate({ children }) {
           placeholder="Password"
           className={`w-full rounded-lg bg-zinc-900 border px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-colors ${
             error
-              ? 'border-red-500/60 focus:border-red-500'
+              ? 'border-rose-500/60 focus:border-rose-500'
               : 'border-zinc-800 focus:border-zinc-600'
           }`}
         />
         {error && (
-          <p className="text-xs text-red-400 mt-2">Incorrect password.</p>
+          <p className="text-xs text-rose-400 mt-2">Incorrect password.</p>
         )}
         <button
           type="submit"

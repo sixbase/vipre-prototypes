@@ -1,0 +1,25 @@
+// ============================================================================
+// Spinner — rotating ring. Track = current color at low opacity, head = solid.
+// ============================================================================
+@keyframes vds-spin {
+  to { transform: rotate(360deg); }
+}
+
+.vds-spinner {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 999px;
+  border: 2px solid color-mix(in oklab, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  animation: vds-spin 0.6s linear infinite;
+
+  &--sm { width: 1rem;    height: 1rem; }
+  &--md { width: 1.25rem; height: 1.25rem; }
+  &--lg { width: 1.5rem;  height: 1.5rem; border-width: 3px; }
+
+  &--primary { color: var(--vds-primary); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-spinner { animation: none; }
+}
