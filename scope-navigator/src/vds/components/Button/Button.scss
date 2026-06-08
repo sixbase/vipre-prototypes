@@ -1,5 +1,10 @@
 // ============================================================================
-// Button — variant × size. Token-bound only. Co-located with Button.jsx.
+// Button — variant × tone × size. Token-bound only. Co-located with Button.jsx.
+//
+// Each TONE class sets a set of local custom properties (--_btn-*); each
+// VARIANT class consumes them. That keeps the matrix to (variants + tones)
+// rules instead of (variants × tones), and every value still resolves to a
+// semantic token.
 // ============================================================================
 @use '../../styles/typography' as type;
 
@@ -43,32 +48,118 @@
     aspect-ratio: 1;
   }
 
-  // ---- variants ----
+  // ---- full width ----
+  &--full { width: 100%; }
+
+  // --------------------------------------------------------------------------
+  // TONES — set the local palette consumed by the variants below.
+  //   --_btn-fill / -hover / -active : solid fill states
+  //   --_btn-on                      : text/icon on a solid fill
+  //   --_btn-soft / -soft-hover      : tinted (soft / ghost-hover) fills
+  //   --_btn-text                    : tone text on transparent / tinted bg
+  //   --_btn-line                    : outline border color
+  // --------------------------------------------------------------------------
   &--primary {
-    background-color: var(--vds-primary);
-    color: var(--vds-on-primary);
-    &:hover { background-color: var(--vds-primary-hover); }
+    --_btn-fill: var(--vds-primary);
+    --_btn-fill-hover: var(--vds-primary-hover);
+    --_btn-fill-active: var(--vds-primary-active);
+    --_btn-on: var(--vds-on-primary);
+    --_btn-soft: var(--vds-primary-soft);
+    --_btn-soft-hover: var(--vds-primary-soft-hover);
+    --_btn-text: var(--vds-primary);
+    --_btn-line: var(--vds-primary);
   }
 
-  &--secondary {
+  // Neutral leans on the surface/ink ramps (it has no status family). Its soft
+  // fills reuse the canvas → surface-hover steps so the `outline` variant stays
+  // pixel-identical to the old `secondary` button.
+  &--neutral {
+    --_btn-fill: var(--vds-ink);
+    --_btn-fill-hover: var(--vds-ink);
+    --_btn-fill-active: var(--vds-ink);
+    --_btn-on: var(--vds-surface);
+    --_btn-soft: var(--vds-canvas);
+    --_btn-soft-hover: var(--vds-surface-hover);
+    --_btn-text: var(--vds-ink);
+    --_btn-line: var(--vds-line-strong);
+  }
+
+  &--success {
+    --_btn-fill: var(--vds-success);
+    --_btn-fill-hover: var(--vds-success-hover);
+    --_btn-fill-active: var(--vds-success-active);
+    --_btn-on: var(--vds-on-success);
+    --_btn-soft: var(--vds-success-soft);
+    --_btn-soft-hover: var(--vds-success-soft-hover);
+    --_btn-text: var(--vds-success);
+    --_btn-line: var(--vds-success);
+  }
+
+  &--warning {
+    --_btn-fill: var(--vds-warning);
+    --_btn-fill-hover: var(--vds-warning-hover);
+    --_btn-fill-active: var(--vds-warning-active);
+    --_btn-on: var(--vds-on-warning);
+    --_btn-soft: var(--vds-warning-soft);
+    --_btn-soft-hover: var(--vds-warning-soft-hover);
+    --_btn-text: var(--vds-warning-hover); // 600-step text reads on tinted/transparent bg
+    --_btn-line: var(--vds-warning);
+  }
+
+  &--danger {
+    --_btn-fill: var(--vds-danger);
+    --_btn-fill-hover: var(--vds-danger-hover);
+    --_btn-fill-active: var(--vds-danger-active);
+    --_btn-on: var(--vds-on-danger);
+    --_btn-soft: var(--vds-danger-soft);
+    --_btn-soft-hover: var(--vds-danger-soft-hover);
+    --_btn-text: var(--vds-danger);
+    --_btn-line: var(--vds-danger);
+  }
+
+  &--info {
+    --_btn-fill: var(--vds-info);
+    --_btn-fill-hover: var(--vds-info-hover);
+    --_btn-fill-active: var(--vds-info-active);
+    --_btn-on: var(--vds-on-info);
+    --_btn-soft: var(--vds-info-soft);
+    --_btn-soft-hover: var(--vds-info-soft-hover);
+    --_btn-text: var(--vds-info);
+    --_btn-line: var(--vds-info);
+  }
+
+  // --------------------------------------------------------------------------
+  // VARIANTS — consume the tone vars above.
+  // --------------------------------------------------------------------------
+  &--solid {
+    background-color: var(--_btn-fill);
+    color: var(--_btn-on);
+    &:hover { background-color: var(--_btn-fill-hover); }
+    &:active { background-color: var(--_btn-fill-active); }
+  }
+
+  &--soft {
+    background-color: var(--_btn-soft);
+    color: var(--_btn-text);
+    &:hover { background-color: var(--_btn-soft-hover); }
+  }
+
+  &--outline {
     background-color: var(--vds-surface);
-    color: var(--vds-ink);
-    border-color: var(--vds-line-strong);
-    &:hover { background-color: var(--vds-canvas); }
+    color: var(--_btn-text);
+    border-color: var(--_btn-line);
+    &:hover { background-color: var(--_btn-soft); }
+    &:active { background-color: var(--_btn-soft-hover); }
   }
 
+  // Quiet at rest (muted ink), reveals the tone on hover.
   &--ghost {
     background-color: transparent;
     color: var(--vds-ink-muted);
     &:hover {
-      background-color: var(--vds-primary-soft);
-      color: var(--vds-primary);
+      background-color: var(--_btn-soft);
+      color: var(--_btn-text);
     }
-  }
-
-  &--danger {
-    background-color: var(--vds-danger);
-    color: var(--vds-on-primary);
-    &:hover { filter: brightness(0.95); }
+    &:active { background-color: var(--_btn-soft-hover); }
   }
 }
