@@ -57,7 +57,7 @@ function BreadcrumbEllipsis({ items }) {
 // Shared drawer top bar — identical breadcrumb styling for both the list view and
 // the entity-detail view, so it doesn't visibly change as you drill. "Open" only
 // shows once an entity is selected.
-function DrawerTopBar({ crumbs, onBack, showOpen = false, onOpen }) {
+function DrawerTopBar({ crumbs, onBack, showOpen = false, onOpen, openLabel = 'Open' }) {
   const shown = crumbs.length > 3
     ? [crumbs[0], { key: '__ell', ellipsis: true, items: crumbs.slice(1, -1) }, crumbs[crumbs.length - 1]]
     : crumbs;
@@ -103,7 +103,7 @@ function DrawerTopBar({ crumbs, onBack, showOpen = false, onOpen }) {
           onClick={onOpen}
           className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors flex-shrink-0"
         >
-          Open
+          {openLabel}
           <ArrowUpRight className="w-3.5 h-3.5" />
         </button>
       )}
@@ -312,7 +312,7 @@ function PackageDetail({ pkg, scope, onClose }) {
 // entity in hand (e.g. the MSP Customers list). Open it by passing `entity`; pass null
 // to close. `onOpenEntity` powers the top-bar "Open" affordance. The package slide and
 // step-by-step drill (breadcrumb) work exactly as they do on the dashboard.
-export function EntityDataDrawer({ entity, siblings = [], showFuture = false, onOpenEntity, onClose }) {
+export function EntityDataDrawer({ entity, siblings = [], showFuture = false, onOpenEntity, onClose, openLabel = 'Open' }) {
   // Drill stack inside the drawer — each entry is { entity, filter }, seeded with the
   // opened entity. Kept mounted while the drawer slides out (we only reseed on open),
   // so the content doesn't blank mid-animation.
@@ -347,6 +347,7 @@ export function EntityDataDrawer({ entity, siblings = [], showFuture = false, on
             onBack={back}
             showOpen={!!onOpenEntity}
             onOpen={() => onOpenEntity(stack.map((s) => s.entity))}
+            openLabel={openLabel}
           />
           <div className="flex-1 min-h-0">
             <DrawerEntityDetail

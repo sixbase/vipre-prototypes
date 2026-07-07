@@ -56,14 +56,26 @@ const C = {
 }
 
 const NAV_PAD_X = 16
-// Collapsed rail centers the x=48 icon column (2 × 48), so icons keep the EXACT same x
+// Collapsed rail centers the x=36 icon column (2 × 36), so icons keep the EXACT same x
 // as the expanded nav — they never slide horizontally on collapse/expand.
-const SYM_W_COLLAPSED = 96
+const SYM_W_COLLAPSED = 72
 const SYM_W_EXPANDED = 242
-const OB_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)'
-// Card padding 8 insets every child (header pill + sub-items) from the card edges, so the
-// header's hover/selected pill is visibly contained by the card rather than reaching its edges.
-const PRODUCT_CARD = { background: 'var(--vds-midnight-1000)', borderRadius: 8, padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }
+// "Emphasized decelerate" — starts brisk, lands soft. One curve for all nav motion.
+const OB_EASE = 'cubic-bezier(0.2, 0, 0, 1)'
+// Labels fade OUT fast when collapsing (get out of the way), fade IN slightly late when
+// expanding (let the width lead, then the words arrive) — asymmetry reads as intent.
+const labelFade = (collapsed) =>
+  collapsed
+    ? `max-width 220ms ${OB_EASE}, margin-left 220ms ${OB_EASE}, opacity 90ms ease`
+    : `max-width 220ms ${OB_EASE}, margin-left 220ms ${OB_EASE}, opacity 200ms ease 70ms`
+// Concentric radius system with a 2px nesting gap: the 32px tiles are radius 8; pills
+// wrap a tile with 2px padding → radius 10; cards wrap a pill with 2px padding →
+// radius 12. Every nested corner shares the same center (inner radius + gap = outer).
+const R_TILE = 8
+const NEST = 2
+const R_PILL = R_TILE + NEST   // 10
+const R_CARD = R_PILL + NEST   // 12
+const PRODUCT_CARD = { background: 'var(--vds-midnight-1000)', borderRadius: R_CARD, padding: NEST, display: 'flex', flexDirection: 'column', gap: 2 }
 // Full-portal nav widths (match the original Symphony workspace nav).
 const POR_PAD = 32
 const POR_W_COLLAPSED = 80
@@ -163,30 +175,37 @@ function MenuItem({ icon, label, labelSize = 12, labelWeight = 500, color, iconC
       data-tip={collapsed ? tipText : undefined}
       className={['ob-mrow', selected && 'ob-mrow--sel'].filter(Boolean).join(' ')}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8, width: '100%', borderRadius: 5, border: 0,
-        padding: centerCollapsed && collapsed ? '8px 16px' : '8px 12px 8px 16px',
-        background: selected ? C.selected : undefined,
-        cursor: onClick ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', transition: `background-color 120ms ease, padding 220ms ${OB_EASE}`,
+        // Identical padding in both rail states — rows never shift on collapse/expand.
+        // gap 0 + animated label margin (not flex gap) so the collapsed row carries no
+        // phantom 8px gap after the icon — the fill stays perfectly centered.
+        // Backgrounds + transitions live in shell.css (.msp-nav--v2) so hover/press
+        // timing can be asymmetric — inline styles would override the :hover rules.
+        display: 'flex', alignItems: 'center', width: '100%', borderRadius: R_PILL, border: 0,
+        padding: '6px 10px',
+        cursor: onClick ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left',
       }}
     >
       <span className={fp ? 'ob-fp-icon' : undefined}
-        style={{ width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: fp ? undefined : (selected ? C.white : iconColor) }}>{icon}</span>
+        style={{ width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: fp ? undefined : (selected ? C.white : iconColor), transition: 'color 200ms ease' }}>{icon}</span>
       <span style={{
         color: selected ? C.white : color,
-        maxWidth: collapsed ? 0 : 200, opacity: collapsed ? 0 : 1, minWidth: 0,
+        maxWidth: collapsed ? 0 : 200, opacity: collapsed ? 0 : 1, minWidth: 0, marginLeft: collapsed ? 0 : 8,
         overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: labelSize, fontWeight: labelWeight,
-        transition: `max-width 220ms ${OB_EASE}, opacity 150ms ease`,
+        transition: labelFade(collapsed),
       }}>{label}</span>
     </Tag>
   )
 }
 
 function Eyebrow({ collapsed, children }) {
-  return <p style={{ margin: 0, fontSize: 10, fontWeight: 400, letterSpacing: '1px', color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', opacity: collapsed ? 0 : 1, transition: 'opacity 150ms ease' }}>{children}</p>
+  // paddingLeft 4 aligns the label with the tile column (section 16 + inset 2 + pill 2).
+  // Fades (never unmounts) on collapse so section heights are identical in both states.
+  return <p style={{ margin: 0, paddingLeft: 4, fontSize: 10, fontWeight: 500, letterSpacing: '1.2px', color: C.inkDim, whiteSpace: 'nowrap', overflow: 'hidden', opacity: collapsed ? 0 : 1, transition: collapsed ? 'opacity 90ms ease' : 'opacity 200ms ease 70ms' }}>{children}</p>
 }
 
 function MenuDivider() {
-  return <div style={{ height: 2, width: '100%', background: 'var(--vds-midnight-1000)', flexShrink: 0 }} />
+  // Inset hairline — reads as a quiet separator rather than a full-bleed cut.
+  return <div style={{ height: 1, margin: '0 12px', background: 'var(--vds-midnight-1000)', flexShrink: 0 }} />
 }
 
 // The identity pinned at the top of the nav, above Dashboard and Customers. Defaults to
@@ -206,25 +225,26 @@ function BackRow({ collapsed, parentName, onBack }) {
       data-tip={collapsed ? `Back to ${parentName}` : undefined}
       title={collapsed ? undefined : `Back to ${parentName}`}
       className="ob-mrow"
-      style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', border: 0, borderRadius: 5, padding: collapsed ? '6px 16px' : '4px 8px', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+      // Fixed 24px row, same padding both states — the chevron holds x=36-center and the
+      // label fades/shrinks, so collapsing never nudges anything vertically.
+      style={{ display: 'flex', alignItems: 'center', width: '100%', height: 24, border: 0, borderRadius: R_PILL, padding: '4px 10px', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
       <ChevronLeft size={16} style={{ flexShrink: 0, color: C.inkDim }} />
-      {!collapsed && (
-        <span style={{ fontSize: 12, fontWeight: 500, color: C.inkDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Back to {parentName}</span>
-      )}
+      <span style={{ fontSize: 12, fontWeight: 500, color: C.inkDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 6, transition: labelFade(collapsed) }}>Back to {parentName}</span>
     </button>
   )
 }
 function AccountHeader({ collapsed, account }) {
   return (
     <div data-tip={collapsed ? `${account.name} · ${account.typeLabel}` : undefined}
-      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, borderRadius: 8 }}>
-      <img src={account.tile} alt="" style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0 }} />
-      {!collapsed && (
-        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{account.name}</span>
-          <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: '0.5px', color: C.inkDim, whiteSpace: 'nowrap' }}>{account.typeLabel}</span>
-        </span>
-      )}
+      // Concentric pill: 2px padding around the radius-8 tile → radius 10. Fixed 36px
+      // height; the text block fades/shrinks instead of unmounting so the pill (and
+      // everything below it) holds its exact y through collapse/expand.
+      style={{ display: 'flex', alignItems: 'center', height: 36, padding: NEST, borderRadius: R_PILL }}>
+      <img src={account.tile} alt="" style={{ width: 32, height: 32, borderRadius: R_TILE, flexShrink: 0 }} />
+      <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 8, overflow: 'hidden', transition: labelFade(collapsed) }}>
+        <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{account.name}</span>
+        <span style={{ fontSize: 10, fontWeight: 400, lineHeight: 1.3, letterSpacing: '0.5px', color: C.inkDim, whiteSpace: 'nowrap' }}>{account.typeLabel}</span>
+      </span>
     </div>
   )
 }
@@ -233,8 +253,8 @@ function AccountHeader({ collapsed, account }) {
 function ProductSkeleton({ collapsed, labelWidth = 80 }) {
   return (
     <div style={PRODUCT_CARD}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8 }}>
-        <span className="nav-skel" style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: NEST }}>
+        <span className="nav-skel" style={{ width: 32, height: 32, borderRadius: R_TILE, flexShrink: 0 }} />
         {!collapsed && <span className="nav-skel" style={{ height: 12, borderRadius: 4, flex: 1, maxWidth: labelWidth }} />}
       </div>
     </div>
@@ -257,8 +277,11 @@ function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selec
       aria-current={bare && selected ? 'page' : undefined}
       title={collapsed ? undefined : fullTitle}
       data-tip={collapsed ? tipText : undefined}
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', border: 0, padding: 8, borderRadius: 5, cursor: action ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left', transition: 'background-color 120ms ease' }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+      // Concentric pill: 2px padding wraps the radius-8 tile → radius 10 corners share
+      // the tile's corner centers. Same padding in both rail states; the label's lead
+      // margin (not flex gap) animates away so the collapsed pill is perfectly centered.
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', border: 0, padding: NEST, borderRadius: R_PILL, cursor: action ? 'pointer' : 'default', fontFamily: 'inherit', textAlign: 'left' }}>
+      <span style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
         <span className="ob-ptile" style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
           {product.Tile
             ? <product.Tile />
@@ -268,11 +291,12 @@ function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selec
           {locked && <img src={lockBadge} alt="" style={{ position: 'absolute', left: 20, top: 20, width: 16, height: 16 }} />}
         </span>
         {/* Label fades + shrinks (not instant-removed) so nothing jumps on collapse/expand. */}
-        <span style={{ fontSize: 14, fontWeight: 600, color: locked ? C.ink : C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, transition: `max-width 220ms ${OB_EASE}, opacity 150ms ease` }}>{product.label}</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: locked ? C.ink : C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 8, transition: labelFade(collapsed) }}>{product.label}</span>
       </span>
-      {!collapsed && !locked && onToggle && (
-        <span className="ob-chevc" aria-hidden="true" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 12, flexShrink: 0 }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ display: 'block', transform: open ? 'none' : 'rotate(180deg)', transition: 'transform 150ms ease' }}>
+      {!locked && onToggle && (
+        /* Chevron shrinks/fades in step with the label so the pill never pops on collapse. */
+        <span className="ob-chevc" aria-hidden="true" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 24, borderRadius: 12, flexShrink: 0, maxWidth: collapsed ? 0 : 24, opacity: collapsed ? 0 : 1, overflow: 'hidden', transition: labelFade(collapsed) }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ display: 'block', transform: open ? 'none' : 'rotate(180deg)', transition: `transform 200ms ${OB_EASE}` }}>
             <path d="M8 14L12 10L16 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
@@ -312,21 +336,30 @@ function ShellNav({
   const hideTip = () => setTip(null)
 
   return (
-    <nav className="msp-nav"
+    <nav className="msp-nav msp-nav--v2"
       onMouseOver={showTip} onMouseLeave={hideTip} onFocusCapture={showTip} onBlurCapture={hideTip}
       style={{
+        // No borderRight — it sat against the content column's identical navy frame
+        // (invisible) while eating 1px from the rail, skewing the icon column off-center.
         width: collapsed ? SYM_W_COLLAPSED : SYM_W_EXPANDED, flexShrink: 0, background: C.menu,
-        borderRight: `1px solid ${C.menuBorder}`, display: 'flex', flexDirection: 'column',
+        display: 'flex', flexDirection: 'column',
         fontFamily: 'var(--vds-font-sans)', transition: `width 220ms ${OB_EASE}`,
       }}>
       <div className="ob-scroll-dark" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0, padding: 0, overflowY: 'auto', overflowX: 'hidden' }}>
         {/* Account identity (+ Back to parent) — the node currently logged into. Shown for the
-            whole reseller flow, including a customer leaf that has no Dashboard/Customers. */}
+            whole reseller flow, including a customer leaf that has no Dashboard/Customers.
+            The 4px inset mirrors the cards' padding so the tile column is one x everywhere. */}
         {showAccount && (
         <>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `16px ${px}px` }}>
-          {onBack && <BackRow collapsed={collapsed} parentName={parentName} onBack={onBack} />}
-          <AccountHeader collapsed={collapsed} account={accountFor(path)} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: `10px ${px}px` }}>
+          {onBack && (
+            <div style={{ padding: `0 ${NEST}px` }}>
+              <BackRow collapsed={collapsed} parentName={parentName} onBack={onBack} />
+            </div>
+          )}
+          <div style={{ padding: `0 ${NEST}px` }}>
+            <AccountHeader collapsed={collapsed} account={accountFor(path)} />
+          </div>
         </div>
         <MenuDivider />
         </>
@@ -336,15 +369,15 @@ function ShellNav({
             leaf (no sub-accounts) and in the single-tenant end-customer lens. */}
         {showPartners && (
         <>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: `16px ${px}px` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `10px ${px}px` }}>
           <Eyebrow collapsed={collapsed}>PARTNERS</Eyebrow>
-          {/* 8px inset matches the cards so the bare header's pill is contained too; kept in
-              both states so the icon never shifts x on collapse/expand. */}
-          <div style={{ padding: 8 }}>
+          {/* 2px inset matches the cards' padding so bare pills sit on the same x (and
+              width) as carded ones; kept in both states so icons never shift x. */}
+          <div style={{ padding: `0 ${NEST}px` }}>
             <ProductHeader product={PARTNER_DASHBOARD} collapsed={collapsed} bare
               selected={page === 'dashboard'} onOpen={() => onSelectItem('dashboard')} />
           </div>
-          <div style={{ padding: 8 }}>
+          <div style={{ padding: `0 ${NEST}px` }}>
             <ProductHeader product={PARTNER_CUSTOMERS} collapsed={collapsed} bare
               selected={page === 'customers'} onOpen={() => onSelectItem('customers')} />
           </div>
@@ -355,7 +388,7 @@ function ShellNav({
         )}
 
         {/* PRODUCTS */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `10px ${px}px` }}>
           <Eyebrow collapsed={collapsed}>PRODUCTS</Eyebrow>
           {unmanaged ? (
             /* Unmanaged entity (customer, reseller, or distributor) — nothing to manage. */
@@ -366,19 +399,19 @@ function ShellNav({
             )
           ) : (
           <>
-          <div style={{ padding: 8 }}>
+          <div style={{ padding: `0 ${NEST}px` }}>
             <ProductHeader product={PRODUCTS_OVERVIEW} collapsed={collapsed} bare
               selected={page === PRODUCTS_OVERVIEW.id}
               onOpen={() => onSelectItem(PRODUCTS_OVERVIEW.id)} />
           </div>
           {loading ? (
-            <div key="skel" className="nav-products-anim" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div key="skel" className="nav-products-anim" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[80, 96, 64, 84, 72].map((w, i) => (
                 <ProductSkeleton key={i} collapsed={collapsed} labelWidth={w} />
               ))}
             </div>
           ) : (
-          <div key={subKey} className="nav-products-anim" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div key={subKey} className="nav-products-anim" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {orderedProducts.map((p) => {
               // Subscription is faked off the scoped entity — locked = not in the set.
               const locked = !subscribed.has(p.id)
@@ -395,9 +428,11 @@ function ShellNav({
                 <div key={p.id} style={{ ...PRODUCT_CARD, gap: 0 }}>
                   <ProductHeader product={prod} collapsed={collapsed} open={open}
                     onToggle={() => onToggleProduct(p.id)} />
-                  <div style={{ display: 'grid', gridTemplateRows: open ? '1fr' : '0fr', transition: `grid-template-rows 220ms ${OB_EASE}` }}>
+                  <div style={{ display: 'grid', gridTemplateRows: open ? '1fr' : '0fr', transition: `grid-template-rows 240ms ${OB_EASE}` }}>
                     <div style={{ overflow: 'hidden', minHeight: 0 }} aria-hidden={!open}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 8, opacity: open ? 1 : 0, transition: 'opacity 180ms ease' }}>
+                      {/* Items fade in a beat after the card starts opening (and drop out
+                          quickly on close) — the reveal reads as two soft stages, not a pop. */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 2, opacity: open ? 1 : 0, transition: open ? 'opacity 200ms ease 60ms' : 'opacity 110ms ease' }}>
                         {p.items.map((it) => (
                           <MenuItem key={it.id} collapsed={collapsed} icon={<it.icon size={16} />} label={it.label} labelSize={13} color={C.ink}
                             selected={page === it.id} ariaCurrent={page === it.id ? 'page' : undefined} onClick={() => onSelectItem(it.id)} />
@@ -420,29 +455,29 @@ function ShellNav({
       {/* pinned bottom: OTHER + dark-mode toggle + collapse */}
       <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <MenuDivider />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: `16px ${px}px` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `10px ${px}px` }}>
           <Eyebrow collapsed={collapsed}>OTHER</Eyebrow>
-          {/* 8px inset mirrors the product cards' inner padding so these 16px glyphs
-              center on the same x-axis (48px) as the 32px tiles above — kept in both
+          {/* 2px inset mirrors the product cards' inner padding so these 16px glyphs
+              center on the same x-axis (36px) as the 32px tiles above — kept in both
               states so the icons never shift x on collapse/expand. */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: '0 8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: `0 ${NEST}px` }}>
             {FOOTER.map((f) => (
-              <MenuItem key={f.id} collapsed={collapsed} centerCollapsed icon={<f.icon size={16} />} label={f.label} color={C.ink}
+              <MenuItem key={f.id} collapsed={collapsed} icon={<f.icon size={16} />} label={f.label} color={C.ink}
                 selected={page === f.id} onClick={() => onSelectItem(f.id)} />
             ))}
           </div>
         </div>
         <MenuDivider />
-        <div style={{ display: 'flex', flexDirection: 'column', padding: `8px ${px + 8}px` }}>
-          <MenuItem collapsed={collapsed} centerCollapsed icon={dark ? <Sun size={16} /> : <Moon size={16} />} label={dark ? 'Light mode' : 'Dark mode'} color={C.ink} onClick={onToggleDark} />
-          <MenuItem collapsed={collapsed} centerCollapsed icon={collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />} label="Collapse" color={C.ink} onClick={onToggleCollapse} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: `6px ${px + NEST}px` }}>
+          <MenuItem collapsed={collapsed} icon={dark ? <Sun size={16} /> : <Moon size={16} />} label={dark ? 'Light mode' : 'Dark mode'} color={C.ink} onClick={onToggleDark} />
+          <MenuItem collapsed={collapsed} icon={collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />} label="Collapse" color={C.ink} onClick={onToggleCollapse} />
         </div>
       </div>
 
       {/* Collapsed-rail tooltip — a single floating label pinned to the right of the
           hovered/focused icon (escapes the rail via fixed positioning). */}
       {tip && (
-        <div role="tooltip" style={{
+        <div role="tooltip" key={tip.label} className="msp-tip" style={{
           position: 'fixed', left: tip.x, top: tip.y, transform: 'translateY(-50%)', zIndex: 80,
           pointerEvents: 'none', background: 'var(--vds-midnight-1000)', color: C.white,
           fontSize: 12, fontWeight: 500, lineHeight: 1, padding: '7px 9px', borderRadius: 6,
@@ -884,9 +919,12 @@ function ShellInner() {
     <div className="shell-root" style={{ ...brandStyleVars(brand), height: '100vh', display: 'flex', flexDirection: 'column', background: C.topbar, overflow: 'hidden', fontFamily: 'var(--vds-font-sans)' }}>
       {/* Top chrome: the brand logo strip + reseller theme switcher — the scope navigator lives in the nav. */}
       <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, height: 48, background: 'var(--vds-canvas)', borderBottom: '1px solid var(--vds-midnight-1000)' }} className="dark">
-        <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 19, color: C.white }}>
+        {/* Logo = home: jump back to the root node you signed in as (Melvin Industries). */}
+        <button type="button" title="Back to Melvin Industries"
+          onClick={() => { navigate([]); setPage('dashboard'); setOpenPortal(null) }}
+          style={{ display: 'flex', alignItems: 'center', paddingLeft: 19, color: C.white, background: 'transparent', border: 0, cursor: 'pointer' }}>
           <BrandLogo brand={brand} />
-        </span>
+        </button>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, paddingRight: 16 }}>
           <PersonaToggle persona={persona} onPick={switchPersona} />
           <BrandPicker brand={brand} onPick={setBrand} />
@@ -941,8 +979,14 @@ function ShellInner() {
                     <TitleIcon icon={iconOf('dashboard')} />
                     <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--vds-ink)' }}>Dashboard</span>
                   </div>
-                  {/* Blank canvas — the reseller dashboard content is TBD. */}
-                  <div style={{ flex: 1, minHeight: 0 }} />
+                  {/* Placeholder dashboard: a row of 4 KPI cards, then 3 full-width rows —
+                      mirrors the skeleton blocks the product pages use. */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0 }}>
+                    <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
+                      {[0, 1, 2, 3].map((i) => <div key={i} style={{ ...cardStyle, aspectRatio: '6 / 4' }} />)}
+                    </div>
+                    {[0, 1, 2].map((i) => <div key={i} style={{ ...cardStyle, flex: 1, minHeight: 96 }} />)}
+                  </div>
                 </div>
               ) : page === 'customers' ? (
                 <div className="shell-customers" style={{ flex: 1, minWidth: 0, background: C.content, padding: 32, display: 'flex', flexDirection: 'column', gap: 24, overflow: 'hidden' }}>
@@ -993,6 +1037,7 @@ function ShellInner() {
           "Open" drills the scope and populates the Customers surface with that entity's detail. */}
       <EntityDataDrawer
         entity={customerDrawer}
+        openLabel="Login"
         siblings={path.at(-1)?.children ?? mockData}
         onOpenEntity={(trail) => {
           // The drawer's trail (clicked row → drilled descendants) appends to the current
