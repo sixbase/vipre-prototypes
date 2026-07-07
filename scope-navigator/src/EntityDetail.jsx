@@ -761,7 +761,7 @@ function ComplianceDonut({ score }) {
 // How many list rows to mount per lazy-load page.
 const LIST_PAGE_SIZE = 40;
 
-export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, deep = false, labelOverrides, hideTypeBadge = false, statusAsDot = false, showManagementFilter = false, subtleUnmanaged = false, typeTitle = false, hideHeader = false, tileFor }) {
+export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, openLabel = 'Open', deep = false, labelOverrides, hideTypeBadge = false, statusAsDot = false, showManagementFilter = false, subtleUnmanaged = false, typeTitle = false, hideHeader = false, tileFor }) {
   const [search, setSearch] = useState('');
   // Managed / Unmanaged audience filter (opt-in via showManagementFilter).
   const [mgmtFilter, setMgmtFilter] = useState('all');
@@ -1020,7 +1020,7 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
                             onClick={(e) => { e.stopPropagation(); onOpen(child); }}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm hover:bg-zinc-100 dark:hover:bg-zinc-700"
                           >
-                            Open
+                            {openLabel}
                             <ArrowUpRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
