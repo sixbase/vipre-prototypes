@@ -17,6 +17,15 @@ const prototypes = [
     tags: ['React', 'Tailwind', 'Vite'],
   },
   {
+    name: 'MSP — side menu v2',
+    description: 'Iteration copy of the MSP Symphony side menu — the side nav evolves here while v1 stays frozen for reference.',
+    slug: 'scope-navigator',
+    view: 'msp2',
+    port: 5179,
+    status: 'active',
+    tags: ['React', 'Tailwind', 'Vite'],
+  },
+  {
     name: 'Symphony — top scope bar',
     description: 'Symphony × Scope shell with the scope selector as a horizontal bar across the top.',
     slug: 'scope-navigator',
