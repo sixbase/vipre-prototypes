@@ -929,8 +929,11 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
         </div>
       </div>
 
-      {/* Scrollable children list */}
-      <div className="flex-1 overflow-y-auto overscroll-contain" onScroll={handleListScroll}>
+      {/* Scrollable children list. The `entity-list-scroll` class forces a real space-taking
+          scrollbar (see shell.css) so it sits in its own lane beside the rows instead of an
+          overlay bar painting over each row's full-width bottom border — which otherwise reads
+          as a separate scrollbar on every row/group. */}
+      <div className="entity-list-scroll flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" onScroll={handleListScroll}>
         {filtered.length === 0 ? (
           <div className="flex items-center justify-center h-24">
             <span className="text-sm text-zinc-400 dark:text-zinc-500">No matching children</span>

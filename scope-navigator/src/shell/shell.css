@@ -43,6 +43,52 @@ button.ob-phead:hover .ob-chevc { color: var(--vds-white); }
 .msp-nav button.ob-phead--bare:not(.ob-phead--sel):hover,
 .msp-nav .stree-row--root:not(.stree-row--sel):hover { --nav-tile-bg: var(--vds-midnight-600); }
 
+/* ============================================================================
+   MSP v2 nav — hover & motion polish (scoped .msp-nav--v2; v1 keeps the old feel).
+   Principles: hovers land near-instantly (50ms) and release slowly (280ms) so the
+   pointer feels tracked, not chased; presses respond immediately; one emphasized-
+   decelerate curve everywhere; selected pills carry a whisper of top-light.
+   ========================================================================== */
+/* Rows + pills: slow fade at rest ... */
+.msp-nav--v2 .ob-mrow, .msp-nav--v2 .ob-phead { transition: background-color 280ms ease; }
+/* ... instant fill the moment you hover or press. */
+.msp-nav--v2 .ob-mrow:hover, .msp-nav--v2 button.ob-phead:hover { transition-duration: 50ms; }
+.msp-nav--v2 .ob-mrow:active, .msp-nav--v2 button.ob-phead:active { transition-duration: 0ms; }
+/* Pressed: one step brighter than the hover fill — tactile, not murky. */
+.msp-nav--v2 .ob-mrow:not(.ob-mrow--sel):active,
+.msp-nav--v2 button.ob-phead:not(.ob-phead--sel):active { background-color: var(--vds-midnight-700); }
+/* Selected: accent pill (moved out of inline so hover/press can layer on it),
+   plus a faint top-light gradient + inner hairline for depth. */
+.msp-nav--v2 .ob-mrow--sel { background-color: var(--nav-accent); }
+.msp-nav--v2 .ob-mrow--sel, .msp-nav--v2 .ob-phead--sel {
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 60%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.msp-nav--v2 .ob-mrow--sel:hover { background-color: color-mix(in srgb, var(--nav-accent), #000 10%); }
+/* Longhand (not `background:`) so the darkened hover keeps the top-light gradient —
+   the shared v1 rule above uses the shorthand, which would wipe background-image. */
+.msp-nav--v2 button.ob-phead--sel:hover {
+  background-color: color-mix(in srgb, var(--nav-accent), #000 10%);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 60%);
+}
+.msp-nav--v2 .ob-mrow--sel:active,
+.msp-nav--v2 button.ob-phead--sel:active { background-color: color-mix(in srgb, var(--nav-accent), #000 18%); }
+/* Tiles: a calmer lift than v1's 1.1 — grows on hover, settles under the press. */
+.msp-nav--v2 .ob-ptile { transition: transform 220ms cubic-bezier(0.2, 0, 0, 1); }
+.msp-nav--v2 button.ob-phead:hover .ob-ptile { transform: scale(1.05); }
+.msp-nav--v2 button.ob-phead:active .ob-ptile { transform: scale(0.97); transition-duration: 80ms; }
+/* Chevron + Full Portal icons ease their color instead of snapping. */
+.msp-nav--v2 .ob-chevc { transition: color 200ms ease; }
+/* Keyboard focus: a soft ring hugging the pill radius (mouse clicks stay clean). */
+.msp-nav--v2 button:focus-visible { outline: 2px solid color-mix(in srgb, var(--vds-white) 70%, var(--nav-accent)); outline-offset: -2px; }
+/* Collapsed-rail tooltip: quick fade + 4px slide out of the rail (re-keyed per row). */
+@keyframes msp-tip-in { from { opacity: 0; transform: translate(-4px, -50%); } to { opacity: 1; transform: translate(0, -50%); } }
+.msp-tip { animation: msp-tip-in 140ms cubic-bezier(0.2, 0, 0, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .msp-nav--v2 .ob-mrow, .msp-nav--v2 .ob-phead, .msp-nav--v2 .ob-ptile, .msp-nav--v2 .ob-chevc { transition: none; }
+  .msp-tip { animation: none; }
+}
+
 /* Placeholder page-header buttons (Figma 53:8072): primary accent, slight darken on hover. */
 .ob-hbtn { transition: background-color 120ms ease; }
 .ob-hbtn:hover { background: color-mix(in srgb, var(--nav-accent) 88%, black) !important; }
@@ -145,11 +191,15 @@ html.dark .shell-root { --shell-canvas: var(--vds-midnight-1000, #07101f); }
 .ob-scroll-dark::-webkit-scrollbar, .ob-scroll-light::-webkit-scrollbar { width: 0; height: 0; }
 
 /* Customers / Performance list cards — a tidy scrollbar that sits cleanly inside the
-   rounded card. The browser default is a translucent thumb flush to the card's right
-   edge: the rounded `overflow:hidden` corner clips its square track, and the row/header
-   rules bleed through the see-through thumb while scrolling — reading as a scroll artifact.
-   Here the thumb is opaque (no bleed-through) and inset via a transparent border so it
-   floats off the rounded corner. Theme-adaptive via ink/surface tokens. */
+   rounded card. On macOS the scrollbar is an OVERLAY (takes no layout space, per spec
+   `scrollbar-gutter` and `::-webkit-scrollbar` width can't force it wider), so it floats
+   ON TOP of each row's + group header's full-width bottom rule — the translucent thumb
+   lets the rules bleed through and chops it into one bar per row/group.
+   Fix: `padding-right` reserves a fixed gutter inside the card so the rows and their
+   rules stop short of the right edge, leaving the (overlay or classic) scrollbar a clean
+   lane of its own — one continuous bar for the whole table. The thumb is also styled
+   opaque + inset for the classic-scrollbar case. Theme-adaptive via ink/surface tokens. */
+.shell-customers .entity-list-scroll { padding-right: 12px; }
 .shell-customers .overflow-y-auto { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--vds-ink) 22%, var(--vds-surface)) transparent; }
 .shell-customers .overflow-y-auto::-webkit-scrollbar { width: 11px; height: 11px; }
 .shell-customers .overflow-y-auto::-webkit-scrollbar-track { background: transparent; }
