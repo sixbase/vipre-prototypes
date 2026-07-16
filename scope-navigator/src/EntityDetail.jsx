@@ -820,9 +820,8 @@ function MspMetaHeader() {
         <span className={`w-16 ${META_HEAD}`}>Lorem</span>
         <span className={`w-16 ${META_HEAD}`}>Lorem</span>
       </div>
-      <span className="w-3.5 flex-shrink-0" aria-hidden />
-      <span className="w-2.5 flex-shrink-0" aria-hidden />
-      <span className="w-3.5 flex-shrink-0" aria-hidden />
+      {/* Reserves the indicators + Login lane so the number labels stay over their columns. */}
+      <span className="w-32 flex-shrink-0" aria-hidden />
     </div>
   );
 }
@@ -1045,70 +1044,91 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
                         <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{child.name}</div>
                         {childCountLabel && <div className="text-xs text-zinc-400 dark:text-zinc-500">{childCountLabel}</div>}
                       </div>
-                      {/* Data columns — persistent (do NOT fade on hover) so the numbers stay
-                          visible while the Login action appears. */}
-                      {mspMeta && <MspMetaCells meta={mspMetaFor(child)} />}
-                      <div className={`flex items-center gap-3 flex-shrink-0 ${onOpen ? 'transition-opacity duration-100 group-hover:opacity-0' : ''}`}>
-                        {!hideTypeBadge && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px] font-medium leading-none dark:bg-zinc-800 dark:text-zinc-400 flex-shrink-0">{childLabel}</span>
-                        )}
-                        {isEntityUnmanaged(child) && (
-                          subtleUnmanaged ? (
-                            <span className="inline-flex items-center text-zinc-400 dark:text-zinc-500 flex-shrink-0" title="Unmanaged — outside the managed boundary">
-                              <CaptionsOff className="w-3.5 h-3.5" strokeWidth={2} />
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-700 text-white text-[10px] font-medium leading-none flex-shrink-0">
-                              <CaptionsOff className="w-2.5 h-2.5" />
-                              Unmanaged
-                            </span>
-                          )
-                        )}
-                        {/* Reserve the unmanaged-icon lane on managed rows so the meta
-                            columns stay aligned across managed/unmanaged rows. */}
-                        {mspMeta && subtleUnmanaged && !isEntityUnmanaged(child) && (
-                          <span className="hidden lg:block w-3.5 flex-shrink-0" aria-hidden />
-                        )}
-                        <span className="relative flex items-center flex-shrink-0 group/status">
-                          <span className={`w-2.5 h-2.5 rounded-full ${statusConfig[child.status].dot}`} />
-                          <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 z-20 hidden group-hover/status:block whitespace-nowrap rounded-md bg-zinc-900 dark:bg-zinc-700 text-white text-[11px] leading-none px-2 py-1.5 shadow-lg">
-                            <span className="font-medium">{statusConfig[child.status].label}</span>
-                            <span className="text-zinc-300"> — {statusConfig[child.status].desc}</span>
-                          </span>
-                        </span>
-                        <ChevronRight className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-400 dark:group-hover:text-zinc-400 transition-colors flex-shrink-0" />
-                      </div>
-                      {onOpen && (
-                        /* Hover cluster — the right-side meta fades out on hover, so its info
-                           is reintroduced here as legible labeled chips alongside Open. The
-                           status chip (Figma 91:1224) and Unmanaged chip (Figma 91:1220) give
-                           the status dot + unmanaged icon a readable, hover-stable form. */
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {/* In MSP mode the data columns stay visible, so the overlay is just
-                              the Login button — no re-shown status/unmanaged chips that would
-                              otherwise sit on top of the numbers. */}
-                          {!mspMeta && (
-                            <span className="inline-flex items-center gap-px pl-1 pr-2 py-1 rounded border border-[#cbd2dd] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 leading-none flex-shrink-0">
-                              <span className="w-4 h-4 flex items-center justify-center">
-                                <span className={`w-2 h-2 rounded-full ${statusConfig[child.status].dot}`} />
+                      {mspMeta ? (
+                        <>
+                          {/* Data columns — persistent (never fade). */}
+                          <MspMetaCells meta={mspMetaFor(child)} />
+                          {/* Indicators + action, in a fixed-width lane so the number columns
+                              stay aligned. Login is ALWAYS visible (not hover-only); the
+                              managed/unmanaged icon and the status dot carry hover tooltips. */}
+                          <div className="flex items-center justify-end gap-3 w-32 flex-shrink-0">
+                            <span className="relative flex items-center flex-shrink-0 group/mgmt">
+                              {isEntityUnmanaged(child)
+                                ? <CaptionsOff className="w-4 h-4 text-zinc-400 dark:text-zinc-500" strokeWidth={2} />
+                                : <ShieldCheck className="w-4 h-4 text-emerald-500/80 dark:text-emerald-400/80" strokeWidth={2} />}
+                              <span className="pointer-events-none absolute bottom-full mb-1.5 right-0 z-30 hidden group-hover/mgmt:block whitespace-nowrap rounded-md bg-zinc-900 dark:bg-zinc-700 text-white text-[11px] leading-none px-2 py-1.5 shadow-lg">
+                                {isEntityUnmanaged(child) ? 'Unmanaged — outside the managed boundary' : 'Managed — within the managed boundary'}
                               </span>
-                              {statusConfig[child.status].label}
                             </span>
-                          )}
-                          {!mspMeta && isEntityUnmanaged(child) && (
-                            <span className="inline-flex items-center gap-1 pl-1.5 pr-2 py-1 rounded border border-[#cbd2dd] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 leading-none flex-shrink-0">
-                              <CaptionsOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400" strokeWidth={2} />
-                              Unmanaged
+                            <span className="relative flex items-center flex-shrink-0 group/status">
+                              <span className={`w-2.5 h-2.5 rounded-full ${statusConfig[child.status].dot}`} />
+                              <span className="pointer-events-none absolute bottom-full mb-1.5 right-0 z-30 hidden group-hover/status:block whitespace-nowrap rounded-md bg-zinc-900 dark:bg-zinc-700 text-white text-[11px] leading-none px-2 py-1.5 shadow-lg">
+                                <span className="font-medium">{statusConfig[child.status].label}</span>
+                                <span className="text-zinc-300"> — {statusConfig[child.status].desc}</span>
+                              </span>
                             </span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onOpen(child); }}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 flex-shrink-0"
+                            >
+                              {openLabel}
+                              <ArrowUpRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className={`flex items-center gap-3 flex-shrink-0 ${onOpen ? 'transition-opacity duration-100 group-hover:opacity-0' : ''}`}>
+                            {!hideTypeBadge && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px] font-medium leading-none dark:bg-zinc-800 dark:text-zinc-400 flex-shrink-0">{childLabel}</span>
+                            )}
+                            {isEntityUnmanaged(child) && (
+                              subtleUnmanaged ? (
+                                <span className="inline-flex items-center text-zinc-400 dark:text-zinc-500 flex-shrink-0" title="Unmanaged — outside the managed boundary">
+                                  <CaptionsOff className="w-3.5 h-3.5" strokeWidth={2} />
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-700 text-white text-[10px] font-medium leading-none flex-shrink-0">
+                                  <CaptionsOff className="w-2.5 h-2.5" />
+                                  Unmanaged
+                                </span>
+                              )
+                            )}
+                            <span className="relative flex items-center flex-shrink-0 group/status">
+                              <span className={`w-2.5 h-2.5 rounded-full ${statusConfig[child.status].dot}`} />
+                              <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 z-20 hidden group-hover/status:block whitespace-nowrap rounded-md bg-zinc-900 dark:bg-zinc-700 text-white text-[11px] leading-none px-2 py-1.5 shadow-lg">
+                                <span className="font-medium">{statusConfig[child.status].label}</span>
+                                <span className="text-zinc-300"> — {statusConfig[child.status].desc}</span>
+                              </span>
+                            </span>
+                            <ChevronRight className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-400 dark:group-hover:text-zinc-400 transition-colors flex-shrink-0" />
+                          </div>
+                          {onOpen && (
+                            /* Hover cluster — the right-side meta fades out on hover, so its info
+                               is reintroduced here as legible labeled chips alongside Open. */
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <span className="inline-flex items-center gap-px pl-1 pr-2 py-1 rounded border border-[#cbd2dd] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 leading-none flex-shrink-0">
+                                <span className="w-4 h-4 flex items-center justify-center">
+                                  <span className={`w-2 h-2 rounded-full ${statusConfig[child.status].dot}`} />
+                                </span>
+                                {statusConfig[child.status].label}
+                              </span>
+                              {isEntityUnmanaged(child) && (
+                                <span className="inline-flex items-center gap-1 pl-1.5 pr-2 py-1 rounded border border-[#cbd2dd] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 leading-none flex-shrink-0">
+                                  <CaptionsOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400" strokeWidth={2} />
+                                  Unmanaged
+                                </span>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onOpen(child); }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                              >
+                                {openLabel}
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onOpen(child); }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm hover:bg-zinc-100 dark:hover:bg-zinc-700"
-                          >
-                            {openLabel}
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        </>
                       )}
                     </div>
                   );
