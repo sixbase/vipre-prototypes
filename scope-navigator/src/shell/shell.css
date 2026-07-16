@@ -77,6 +77,10 @@ button.ob-phead:hover .ob-chevc { color: var(--vds-white); }
 .msp-nav--v2 .ob-ptile { transition: transform 220ms cubic-bezier(0.2, 0, 0, 1); }
 .msp-nav--v2 button.ob-phead:hover .ob-ptile { transform: scale(1.05); }
 .msp-nav--v2 button.ob-phead:active .ob-ptile { transform: scale(0.97); transition-duration: 80ms; }
+/* Inactive bare buttons (Dashboard / Customers / Overview): keep the icon container at its
+   resting colour on hover — only the row highlights, the tile doesn't recolour. Overrides
+   the shared v1 rule above (which lifts --nav-tile-bg to midnight-600). */
+.msp-nav--v2 button.ob-phead--bare:not(.ob-phead--sel):hover { --nav-tile-bg: var(--vds-midnight-800); }
 /* Chevron + Full Portal icons ease their color instead of snapping. */
 .msp-nav--v2 .ob-chevc { transition: color 200ms ease; }
 /* Keyboard focus: a soft ring hugging the pill radius (mouse clicks stay clean). */
