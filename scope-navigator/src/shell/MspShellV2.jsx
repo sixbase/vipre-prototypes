@@ -6,6 +6,7 @@ import {
   Boxes, Store, Zap, ChevronLeft, ChevronRight, ChevronDown, Check, Search, X,
   ArrowLeft, ArrowRight,
 } from '@icons'
+import { Button } from '../vds/components/Button/Button.jsx'
 import { ScopeProvider, useScope } from '../ScopeContext'
 import { DistributorIcon, ResellerIcon, CustomerIcon } from '../entityIcons.jsx'
 import distributorTile from '../assets/entity/distributor.svg'
@@ -695,10 +696,7 @@ function HeaderButtons() {
   return (
     <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
       {HEADER_BUTTONS.map((label) => (
-        <button key={label} type="button" className="ob-hbtn"
-          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: 32, padding: '0 12px', borderRadius: 5, border: 0, background: C.selected, color: C.white, fontSize: 14, fontWeight: 500, lineHeight: 1, fontFamily: 'inherit', whiteSpace: 'nowrap', cursor: 'pointer' }}>
-          {label}
-        </button>
+        <Button key={label} size="sm">{label}</Button>
       ))}
     </div>
   )
