@@ -239,14 +239,19 @@ function AccountHeaderInner({ collapsed, account, chevron }) {
   return (
     <>
       <img src={account.tile} alt="" style={{ width: 32, height: 32, borderRadius: R_TILE, flexShrink: 0 }} />
-      <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 8, overflow: 'hidden', transition: labelFade(collapsed) }}>
+      {/* flex:1 lets the text fill the pill so the chevron is pushed to the right edge
+          (rather than floating next to the name). */}
+      <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flex: 1, minWidth: 0, maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 8, overflow: 'hidden', transition: labelFade(collapsed) }}>
         <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{account.name}</span>
         <span style={{ fontSize: 10, fontWeight: 400, lineHeight: 1.3, letterSpacing: '0.5px', color: C.inkDim, whiteSpace: 'nowrap' }}>{account.typeLabel}</span>
       </span>
       {chevron && (
-        /* Drop chevron — the dropdown affordance. Shrinks/fades with the label on collapse
-           so the pill never pops (mirrors the product-header chevron treatment). */
-        <ChevronDown size={16} aria-hidden style={{ flexShrink: 0, color: C.icon, maxWidth: collapsed ? 0 : 16, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 4, overflow: 'hidden', transform: chevron === 'open' ? 'rotate(180deg)' : 'none', transition: `${labelFade(collapsed)}, transform 200ms ${OB_EASE}` }} />
+        /* Drop chevron in a 24px box at the right edge — mirrors the product-header chevron
+           exactly (same padding/inset), so it aligns pixel-for-pixel with the product
+           accordion chevrons directly below. Shrinks/fades with the label on collapse. */
+        <span aria-hidden style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flexShrink: 0, color: C.icon, maxWidth: collapsed ? 0 : 24, opacity: collapsed ? 0 : 1, overflow: 'hidden', transition: labelFade(collapsed) }}>
+          <ChevronDown size={16} style={{ transform: chevron === 'open' ? 'rotate(180deg)' : 'none', transition: `transform 200ms ${OB_EASE}` }} />
+        </span>
       )}
     </>
   )
@@ -267,10 +272,12 @@ function AccountHeader({ collapsed, account }) {
 }
 
 // Interactive account header: a dropdown trigger that pops a scope switcher listing the
-// node's DIRECT CHILDREN (the customers/resellers under it). Picking one drills into it —
-// re-scopes, re-heads the nav, lands on its home page (same as "Login"). Only rendered
-// when the node actually has children; a customer leaf falls back to the static header.
-function AccountSwitcher({ collapsed, account, children, onPick }) {
+// PARENT's children — i.e. the current node PLUS its siblings (the list you drilled in
+// from). The current node is checked; picking a sibling switches laterally to it (re-heads
+// the nav, lands on its home page). At the root the "parent" is the signed-in distributor,
+// so its children are the top-level accounts. Falls back to the static header when there's
+// nothing to switch between (a lone child, or the end-customer lens).
+function AccountSwitcher({ collapsed, account, owner, currentId, children, onPick }) {
   const [open, setOpen] = useState(false)
   const [rect, setRect] = useState(null)       // trigger geometry, captured on open
   const [query, setQuery] = useState('')
@@ -342,12 +349,23 @@ function AccountSwitcher({ collapsed, account, children, onPick }) {
             borderRadius: 12, boxShadow: 'var(--vds-shadow-lg)', overflow: 'hidden',
             fontFamily: 'var(--vds-font-sans)',
           }}>
+            {/* owner header — names the parent whose accounts this list is, so it's obvious
+                you're switching among siblings (not drilling deeper). */}
+            {owner && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--vds-midnight-1000)' }}>
+                <img src={owner.tile} alt="" style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }} />
+                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.7px', textTransform: 'uppercase', color: C.inkDim, lineHeight: 1.5 }}>Accounts under</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.white, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{owner.name}</span>
+                </span>
+              </div>
+            )}
             {/* search */}
             <div style={{ padding: 8, borderBottom: '1px solid var(--vds-midnight-1000)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: '0 8px', borderRadius: 6, background: 'var(--vds-midnight-1000)', border: '1px solid var(--vds-midnight-800)' }}>
                 <Search size={15} style={{ color: C.icon, flexShrink: 0 }} />
                 <input ref={searchRef} type="text" value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search customers" aria-label="Search customers"
+                  placeholder="Search accounts" aria-label="Search accounts"
                   className="msp-acct-field"
                   style={{ flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: C.white, fontSize: 13, fontFamily: 'inherit' }} />
                 {query && (
@@ -379,16 +397,18 @@ function AccountSwitcher({ collapsed, account, children, onPick }) {
                 <p style={{ margin: 0, padding: '14px 10px', fontSize: 12, color: C.inkDim, textAlign: 'center' }}>No matches</p>
               ) : filtered.map((child) => {
                 const cfg = SCOPE_TYPE_CONFIG[child.type]
+                const isCur = child.id === currentId
                 return (
-                  <button key={child.id} type="button" role="menuitem"
-                    onClick={() => { setOpen(false); onPick(child) }}
-                    className="msp-acct-item"
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 6, border: 0, borderRadius: 8, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                  <button key={child.id} type="button" role="menuitemradio" aria-checked={isCur}
+                    onClick={() => { setOpen(false); if (!isCur) onPick(child) }}
+                    className={['msp-acct-item', isCur && 'msp-acct-item--cur'].filter(Boolean).join(' ')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 6, border: 0, borderRadius: 8, background: 'transparent', cursor: isCur ? 'default' : 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
                     <img src={cfg?.tile ?? distributorTile} alt="" style={{ width: 28, height: 28, borderRadius: 6, flexShrink: 0 }} />
                     <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                      <span style={{ fontSize: 13, fontWeight: 500, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{child.name}</span>
-                      <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: '0.4px', color: C.inkDim }}>{cfg?.label ?? 'Account'}</span>
+                      <span style={{ fontSize: 13, fontWeight: isCur ? 600 : 500, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{child.name}</span>
+                      <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: '0.4px', color: C.inkDim }}>{isCur ? `${cfg?.label ?? 'Account'} · current` : (cfg?.label ?? 'Account')}</span>
                     </span>
+                    {isCur && <Check size={16} style={{ color: C.selected, flexShrink: 0 }} />}
                   </button>
                 )
               })}
@@ -460,7 +480,7 @@ function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selec
 function ShellNav({
   collapsed, page, openIds, onToggleProduct, onSelectItem, onOpenPortal, onToggleCollapse, dark, onToggleDark,
   path, onBack, parentName, subscribed, loading, unmanaged, showAccount = true, showPartners = true,
-  switcherChildren = [], onPickChild,
+  switcherChildren = [], switcherOwner, currentId, onPickChild,
 }) {
   const px = NAV_PAD_X
   // Subscribed products keep their order at the top; unsubscribed sink to the bottom
@@ -510,10 +530,11 @@ function ShellNav({
             </div>
           )}
           <div style={{ padding: `0 ${NEST}px` }}>
-            {/* Node has children → interactive scope switcher; a customer leaf (none) →
-                the static header. */}
-            {switcherChildren.length > 0 && onPickChild ? (
+            {/* More than one peer in this list → interactive sibling switcher; otherwise
+                (a lone child, or the end-customer lens) → the static header. */}
+            {switcherChildren.length > 1 && onPickChild ? (
               <AccountSwitcher collapsed={collapsed} account={accountFor(path)}
+                owner={switcherOwner} currentId={currentId}
                 children={switcherChildren} onPick={onPickChild} />
             ) : (
               <AccountHeader collapsed={collapsed} account={accountFor(path)} />
@@ -1025,12 +1046,21 @@ function ShellInner() {
   // Back up one level to the parent scope. Parents always have children, so → Dashboard.
   const parentName = path.length >= 2 ? path.at(-2).name : LOGGED_IN_RESELLER.name
   const goBack = () => { if (path.length) { navigate(path.slice(0, -1)); setPage('dashboard') } }
-  // Direct children of the node currently logged into — powers the account-header scope
-  // switcher. At root that's the top-level list (mockData); a customer leaf has none, so
-  // the switcher falls back to the static header. Hidden entirely in the end-customer lens.
-  const switcherChildren = isCustomer ? [] : (path.at(-1)?.children ?? mockData)
-  // Picking a child drills into it — identical to the Customers-page "Login" action.
-  const drillInto = (child) => { navigate([...path, child]); setPage(landingFor(child)) }
+  // The account-header switcher lists the PARENT's children — the current node plus its
+  // siblings (the list you drilled in from) — so picking one hops laterally between peers.
+  // The "parent" of the current node is path[-2]; at root it's the signed-in distributor,
+  // whose children are the top-level accounts (mockData). Hidden in the end-customer lens.
+  const listOwnerEntity = isCustomer ? null : (path.at(-2) ?? null)
+  const switcherChildren = isCustomer ? [] : (listOwnerEntity?.children ?? mockData)
+  const switcherOwner = isCustomer
+    ? null
+    : listOwnerEntity
+      ? { name: listOwnerEntity.name, tile: SCOPE_TYPE_CONFIG[listOwnerEntity.type]?.tile ?? distributorTile }
+      : { name: LOGGED_IN_RESELLER.name, tile: distributorTile }
+  const currentId = path.at(-1)?.id ?? null
+  // Switch to a peer: replace the current leaf with the picked sibling (drills in from root,
+  // where there is no leaf to replace). Lands on that node's home page.
+  const switchTo = (child) => { navigate([...path.slice(0, -1), child]); setPage(landingFor(child)) }
 
   useEffect(() => { document.documentElement.classList.toggle('dark', dark) }, [dark])
 
@@ -1127,7 +1157,8 @@ function ShellInner() {
           subscribed={subscribed} loading={navLoading} unmanaged={leafUnmanaged}
           showAccount={!isCustomer}
           showPartners={!isCustomerNode}
-          switcherChildren={switcherChildren} onPickChild={drillInto}
+          switcherChildren={switcherChildren} switcherOwner={switcherOwner}
+          currentId={currentId} onPickChild={switchTo}
         />
 
         {/* content column (Figma 73:1278): an 8px navy frame, the white entity bar with
@@ -1169,7 +1200,7 @@ function ShellInner() {
                       onDrillDown={(child) => setCustomerDrawer(child)}
                       onOpen={(child) => { navigate([...path, child]); setPage(landingFor(child)) }}
                       openLabel="Login"
-                      hideHeader hideTypeBadge statusAsDot showManagementFilter subtleUnmanaged typeTitle
+                      hideHeader hideTypeBadge statusAsDot showManagementFilter subtleUnmanaged typeTitle mspMeta
                       labelOverrides={{ partner: 'Reseller' }}
                       tileFor={(type) => SCOPE_TYPE_CONFIG[type]?.tile}
                     />

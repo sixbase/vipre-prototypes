@@ -99,6 +99,8 @@ button.ob-phead:hover .ob-chevc { color: var(--vds-white); }
 .msp-acct-pop { animation: msp-acct-in 140ms cubic-bezier(0.2, 0, 0, 1); transform-origin: top left; }
 .msp-acct-item { transition: background-color 120ms ease; }
 .msp-acct-item:hover { background: var(--vds-midnight-800); }
+/* Current node: a quiet accent wash + check, so "you are here" reads at a glance. */
+.msp-acct-item--cur, .msp-acct-item--cur:hover { background: color-mix(in srgb, var(--nav-accent) 16%, transparent); }
 .msp-acct-field::placeholder { color: var(--vds-midnight-400); }
 /* Filter chips: muted by default, accent when active. */
 .msp-acct-chip { background: var(--vds-midnight-1000); color: var(--vds-midnight-300); transition: background-color 120ms ease, color 120ms ease; }

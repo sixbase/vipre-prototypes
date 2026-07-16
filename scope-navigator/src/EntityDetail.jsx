@@ -761,7 +761,73 @@ function ComplianceDonut({ score }) {
 // How many list rows to mount per lazy-load page.
 const LIST_PAGE_SIZE = 40;
 
-export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, openLabel = 'Open', deep = false, labelOverrides, hideTypeBadge = false, statusAsDot = false, showManagementFilter = false, subtleUnmanaged = false, typeTitle = false, hideHeader = false, tileFor }) {
+// ── Placeholder MSP columns ──────────────────────────────────────────────────
+// The list currently shows only name + status. An MSP would want at-a-glance
+// operational metrics per account. These are PLACEHOLDER stand-ins (deterministic
+// per entity so they stay stable), not real data — swap in real entitlement /
+// telemetry fields once we know what matters. Candidate columns an MSP tracks:
+//   • Seats        — licensed users
+//   • Endpoints    — protected devices
+//   • Open alerts  — unresolved security signals (the one that drives action)
+//   • Plan         — subscription tier
+const MSP_PLANS = ['Essentials', 'Advanced', 'Complete'];
+function mspMetaFor(entity) {
+  const h = Math.abs(hash(entity.id || entity.name || ''));
+  return {
+    seats: 20 + (h % 480),
+    endpoints: 12 + ((h >> 3) % 340),
+    alerts: (h >> 6) % 6,
+    plan: MSP_PLANS[(h >> 9) % MSP_PLANS.length],
+  };
+}
+const MSP_PLAN_STYLE = {
+  Essentials: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
+  Advanced: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300',
+  Complete: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
+};
+// Column geometry — shared by the header and the cells so they line up exactly.
+// Numeric lanes are right-aligned (digits line up by place value); the plan lane is
+// left-aligned. gap-8 gives the columns real breathing room.
+const META_NUM = 'w-16 text-right text-xs font-medium tabular-nums';
+const META_GROUP = 'hidden lg:flex items-center gap-8 flex-shrink-0';
+// One numeric cell — right-aligned, no icon.
+function MetaCell({ value, tone = 'text-zinc-600 dark:text-zinc-300' }) {
+  return <span className={`${META_NUM} ${tone}`}>{value}</span>;
+}
+function MspMetaCells({ meta }) {
+  return (
+    <div className={META_GROUP}>
+      <MetaCell value={meta.seats} />
+      <MetaCell value={meta.endpoints} />
+      <MetaCell
+        value={meta.alerts}
+        tone={meta.alerts > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-300 dark:text-zinc-600'}
+      />
+    </div>
+  );
+}
+// Column headers — titles LEFT-aligned; lane widths match the cells exactly. Labels are
+// placeholder ("Lorem") until the columns are defined. The trailing spacers reserve the
+// unmanaged-icon / status-dot / chevron lanes so the header sits squarely over the columns.
+const META_HEAD = 'text-left text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500';
+function MspMetaHeader() {
+  return (
+    <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-zinc-50/70 dark:bg-zinc-900/40 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0">
+      <div className="w-7 flex-shrink-0" aria-hidden />
+      <div className={`flex-1 min-w-0 ${META_HEAD}`}>Lorem</div>
+      <div className="flex items-center gap-8">
+        <span className={`w-16 ${META_HEAD}`}>Lorem</span>
+        <span className={`w-16 ${META_HEAD}`}>Lorem</span>
+        <span className={`w-16 ${META_HEAD}`}>Lorem</span>
+      </div>
+      <span className="w-3.5 flex-shrink-0" aria-hidden />
+      <span className="w-2.5 flex-shrink-0" aria-hidden />
+      <span className="w-3.5 flex-shrink-0" aria-hidden />
+    </div>
+  );
+}
+
+export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, openLabel = 'Open', deep = false, labelOverrides, hideTypeBadge = false, statusAsDot = false, showManagementFilter = false, subtleUnmanaged = false, typeTitle = false, hideHeader = false, tileFor, mspMeta = false }) {
   const [search, setSearch] = useState('');
   // Managed / Unmanaged audience filter (opt-in via showManagementFilter).
   const [mgmtFilter, setMgmtFilter] = useState('all');
@@ -929,6 +995,9 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
         </div>
       </div>
 
+      {/* Column headers for the placeholder MSP columns (only when enabled). */}
+      {mspMeta && <MspMetaHeader />}
+
       {/* Scrollable children list. The `entity-list-scroll` class forces a real space-taking
           scrollbar (see shell.css) so it sits in its own lane beside the rows instead of an
           overlay bar painting over each row's full-width bottom border — which otherwise reads
@@ -976,7 +1045,10 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
                         <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{child.name}</div>
                         {childCountLabel && <div className="text-xs text-zinc-400 dark:text-zinc-500">{childCountLabel}</div>}
                       </div>
-                      <div className={`flex items-center gap-2.5 flex-shrink-0 ${onOpen ? 'transition-opacity duration-100 group-hover:opacity-0' : ''}`}>
+                      {/* Data columns — persistent (do NOT fade on hover) so the numbers stay
+                          visible while the Login action appears. */}
+                      {mspMeta && <MspMetaCells meta={mspMetaFor(child)} />}
+                      <div className={`flex items-center gap-3 flex-shrink-0 ${onOpen ? 'transition-opacity duration-100 group-hover:opacity-0' : ''}`}>
                         {!hideTypeBadge && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[10px] font-medium leading-none dark:bg-zinc-800 dark:text-zinc-400 flex-shrink-0">{childLabel}</span>
                         )}
@@ -991,6 +1063,11 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
                               Unmanaged
                             </span>
                           )
+                        )}
+                        {/* Reserve the unmanaged-icon lane on managed rows so the meta
+                            columns stay aligned across managed/unmanaged rows. */}
+                        {mspMeta && subtleUnmanaged && !isEntityUnmanaged(child) && (
+                          <span className="hidden lg:block w-3.5 flex-shrink-0" aria-hidden />
                         )}
                         <span className="relative flex items-center flex-shrink-0 group/status">
                           <span className={`w-2.5 h-2.5 rounded-full ${statusConfig[child.status].dot}`} />
@@ -1007,13 +1084,18 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
                            status chip (Figma 91:1224) and Unmanaged chip (Figma 91:1220) give
                            the status dot + unmanaged icon a readable, hover-stable form. */
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="inline-flex items-center gap-px pl-1 pr-2 py-1 rounded border border-[#cbd2dd] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 leading-none flex-shrink-0">
-                            <span className="w-4 h-4 flex items-center justify-center">
-                              <span className={`w-2 h-2 rounded-full ${statusConfig[child.status].dot}`} />
+                          {/* In MSP mode the data columns stay visible, so the overlay is just
+                              the Login button — no re-shown status/unmanaged chips that would
+                              otherwise sit on top of the numbers. */}
+                          {!mspMeta && (
+                            <span className="inline-flex items-center gap-px pl-1 pr-2 py-1 rounded border border-[#cbd2dd] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 leading-none flex-shrink-0">
+                              <span className="w-4 h-4 flex items-center justify-center">
+                                <span className={`w-2 h-2 rounded-full ${statusConfig[child.status].dot}`} />
+                              </span>
+                              {statusConfig[child.status].label}
                             </span>
-                            {statusConfig[child.status].label}
-                          </span>
-                          {isEntityUnmanaged(child) && (
+                          )}
+                          {!mspMeta && isEntityUnmanaged(child) && (
                             <span className="inline-flex items-center gap-1 pl-1.5 pr-2 py-1 rounded border border-[#cbd2dd] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 leading-none flex-shrink-0">
                               <CaptionsOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400" strokeWidth={2} />
                               Unmanaged
