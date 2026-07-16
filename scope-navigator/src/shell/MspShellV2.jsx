@@ -4,16 +4,17 @@ import {
   FileText, ShieldCheck, Monitor, Bell, UserCog, User, Key, ArrowUpRight,
   PanelLeftClose, PanelLeftOpen, LayoutDashboard, Moon, Sun,
   Boxes, Store, Zap, ChevronLeft, ChevronRight, ChevronDown, Check, Search, X,
-  ArrowLeft, ArrowRight,
+  ArrowLeft, ArrowRight, Users, ShieldAlert, AlertTriangle, Rocket, UserCheck,
 } from '@icons'
 import { Button } from '../vds/components/Button/Button.jsx'
+import { StatTile } from '../vds/components/index.js'
 import { ScopeProvider, useScope } from '../ScopeContext'
 import { DistributorIcon, ResellerIcon, CustomerIcon } from '../entityIcons.jsx'
 import distributorTile from '../assets/entity/distributor.svg'
 import resellerTile from '../assets/entity/reseller.svg'
 import customerTile from '../assets/entity/customer.svg'
 import { useBrand, brandStyleVars, BrandLogo, BrandPicker } from './branding.jsx'
-import { mockData } from '../data'
+import { mockData, countDescendantsByType } from '../data'
 import { isEntityUnmanaged } from '../config'
 import { ProvisioningModal, SuccessToast } from '../ProvisioningModal'
 import { ChildrenListView } from '../EntityDetail.jsx'
@@ -1028,6 +1029,164 @@ function PersonaToggle({ persona, onPick }) {
 // subscription profile the reseller lens uses per-customer, so the products feel real.
 const CUSTOMER_TENANT = { id: 'acme-corp', name: 'Acme Corp' }
 
+/* ============================ Dashboard (placeholder data) ============================
+   Not real telemetry — deterministic stand-ins so the My-Accounts dashboard reads like a
+   real MSP console. Customers is derived from the actual mock hierarchy so the KPI matches
+   the Customers list; the rest are plausible fixed values. */
+const DASH_CUSTOMERS = countDescendantsByType(mockData).customer || 0
+const DASH_SEATS = DASH_CUSTOMERS * 34 + 812
+const DASH_ALERTS = 47
+const PKG_ADOPTION = [
+  { label: 'IES', pct: 86 },
+  { label: 'SafeSend', pct: 61 },
+  { label: 'EDR', pct: 48 },
+  { label: 'SAT', pct: 33 },
+  { label: 'Archive', pct: 24 },
+]
+const DASH_ADOPTION_AVG = Math.round(PKG_ADOPTION.reduce((s, p) => s + p.pct, 0) / PKG_ADOPTION.length)
+// Severity is a RESERVED status palette (danger/warning/neutral) — always paired with a
+// text label, never colour-alone.
+const SEV = {
+  critical: { color: 'var(--vds-danger)', soft: 'var(--vds-danger-soft)', label: 'Critical' },
+  warning: { color: 'var(--vds-warning)', soft: 'var(--vds-warning-soft)', label: 'Warning' },
+  info: { color: 'var(--vds-ink-subtle)', soft: 'var(--vds-surface-sunken)', label: 'Review' },
+}
+const NEEDS_ATTENTION = [
+  { customer: 'Granite Logistics Co', issue: 'Unresolved critical alerts', meta: '4 open', sev: 'critical' },
+  { customer: 'Orchard Manufacturing LLC', issue: 'Seat usage over license', meta: '224 / 200', sev: 'warning' },
+  { customer: 'Lakeside Aerospace Ltd', issue: 'EDR agents offline', meta: '7 devices', sev: 'warning' },
+  { customer: 'Atlas Financial Co', issue: 'Archive retention expiring', meta: '14 days', sev: 'warning' },
+  { customer: 'Bastion MSP', issue: 'SafeSend policy needs review', meta: '2 policies', sev: 'info' },
+]
+const ALERT_TREND = [8, 6, 11, 9, 7, 12, 5, 9, 14, 10, 7, 6, 13, 9] // last 14 days
+const ACT_TONE = {
+  primary: 'var(--nav-accent)', success: 'var(--vds-success)', warning: 'var(--vds-warning)', muted: 'var(--vds-ink-subtle)',
+}
+const RECENT_ACTIVITY = [
+  { icon: UserCheck, text: 'Provisioned Orchard Transit LLC', when: '12m ago', tone: 'primary' },
+  { icon: ShieldCheck, text: 'Resolved 3 critical alerts · Atlas Financial', when: '1h ago', tone: 'success' },
+  { icon: Rocket, text: 'Upgraded Bastion MSP to Complete', when: '3h ago', tone: 'primary' },
+  { icon: Users, text: 'Added 40 seats · Granite Logistics', when: 'Yesterday', tone: 'muted' },
+  { icon: AlertTriangle, text: 'New EDR incident · Lakeside Aerospace', when: 'Yesterday', tone: 'warning' },
+]
+
+// A titled dashboard panel on the content canvas.
+const DASH_CARD = { background: 'var(--vds-surface)', border: '1px solid var(--vds-line)', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 14, flexShrink: 0 }
+function DashHead({ title, sub }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--vds-ink)' }}>{title}</span>
+      {sub && <span style={{ fontSize: 12, color: 'var(--vds-ink-subtle)', whiteSpace: 'nowrap' }}>{sub}</span>}
+    </div>
+  )
+}
+
+// Row 1 — customers/items that need action, worst first, with a reserved severity chip.
+function NeedsAttentionCard() {
+  return (
+    <div style={DASH_CARD}>
+      <DashHead title="Needs attention" sub={`${NEEDS_ATTENTION.length} items`} />
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {NEEDS_ATTENTION.map((it, i) => {
+          const s = SEV[it.sev]
+          return (
+            <div key={it.customer} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '1px solid var(--vds-line)' : 0 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 999, background: s.color, flexShrink: 0 }} />
+              <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--vds-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.customer}</span>
+                <span style={{ fontSize: 12, color: 'var(--vds-ink-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.issue}</span>
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--vds-ink-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{it.meta}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: s.color, background: s.soft, padding: '3px 8px', borderRadius: 6, flexShrink: 0 }}>{s.label}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Row 2 — single-hue magnitude bars (one metric across products → one colour).
+function PackageAdoptionCard() {
+  return (
+    <div style={DASH_CARD}>
+      <DashHead title="Package adoption" sub={`${DASH_ADOPTION_AVG}% avg across products`} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {PKG_ADOPTION.map((p) => (
+          <div key={p.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ width: 76, fontSize: 13, color: 'var(--vds-ink)', flexShrink: 0 }}>{p.label}</span>
+            <span style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--vds-surface-sunken)', overflow: 'hidden' }}>
+              <span style={{ display: 'block', height: '100%', width: `${p.pct}%`, borderRadius: 999, background: 'var(--nav-accent)' }} />
+            </span>
+            <span style={{ width: 38, textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--vds-ink)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{p.pct}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Row 3 — a 14-day alert trend (single series bars, hover = native tooltip) beside a
+// recent-activity feed.
+function AlertTrendCard() {
+  const max = Math.max(...ALERT_TREND)
+  const total = ALERT_TREND.reduce((a, b) => a + b, 0)
+  return (
+    <div style={{ ...DASH_CARD, flex: 2, minWidth: 0 }}>
+      <DashHead title="Alerts — last 14 days" sub={`${total} total`} />
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: 120 }}>
+        {ALERT_TREND.map((v, i) => (
+          <span key={i} title={`Day ${i + 1}: ${v} alerts`} style={{ flex: 1, display: 'flex', alignItems: 'flex-end', height: '100%' }}>
+            <span className="dash-bar" style={{ width: '100%', height: `${(v / max) * 100}%`, minHeight: 4, background: 'var(--nav-accent)', borderRadius: '4px 4px 0 0' }} />
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+function RecentActivityCard() {
+  return (
+    <div style={{ ...DASH_CARD, flex: 3, minWidth: 0 }}>
+      <DashHead title="Recent activity" />
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {RECENT_ACTIVITY.map((a, i) => {
+          const tone = ACT_TONE[a.tone]
+          return (
+            <div key={a.text} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: i ? '1px solid var(--vds-line)' : 0 }}>
+              <span style={{ width: 26, height: 26, borderRadius: 999, flexShrink: 0, display: 'grid', placeItems: 'center', background: `color-mix(in srgb, ${tone} 14%, transparent)` }}>
+                <a.icon size={14} style={{ color: tone }} />
+              </span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--vds-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.text}</span>
+              <span style={{ fontSize: 11, color: 'var(--vds-ink-subtle)', flexShrink: 0 }}>{a.when}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// The full My-Accounts dashboard body: KPI row + the three content rows.
+function DashboardBody() {
+  return (
+    <>
+      {/* 4 KPI columns */}
+      <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
+        <StatTile className="flex-1 min-w-0" icon={Store} label="Customers" value={DASH_CUSTOMERS} delta="+6" trend={[52, 55, 58, 57, 61, 64, 68]} />
+        <StatTile className="flex-1 min-w-0" icon={Users} label="Seats" value={DASH_SEATS} delta="+3%" trend={[70, 72, 71, 74, 78, 80, 83]} />
+        <StatTile className="flex-1 min-w-0" icon={ShieldAlert} label="Active Alerts" value={DASH_ALERTS} tone="danger" delta="-8" invertDelta trend={[62, 58, 60, 55, 51, 49, 47]} />
+        <StatTile className="flex-1 min-w-0" icon={Boxes} label="Package Adoption" value={DASH_ADOPTION_AVG} suffix="%" tone="primary" delta="+4%" trend={[41, 43, 44, 46, 48, 49, 50]} />
+      </div>
+      <NeedsAttentionCard />
+      <PackageAdoptionCard />
+      <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
+        <AlertTrendCard />
+        <RecentActivityCard />
+      </div>
+    </>
+  )
+}
+
 function ShellInner() {
   const { path, navigate } = useScope()
 
@@ -1205,19 +1364,12 @@ function ShellInner() {
                 end-customer lens shows no scope bar. */}
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative', background: C.content, borderRadius: '32px 0 0 0', overflow: 'hidden' }}>
               {page === 'dashboard' ? (
-                <div className="shell-customers" style={{ flex: 1, minWidth: 0, background: C.content, padding: 32, display: 'flex', flexDirection: 'column', gap: 24, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="shell-customers" style={{ flex: 1, minWidth: 0, background: C.content, padding: 32, display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto', overflowX: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     <TitleIcon icon={iconOf('dashboard')} />
                     <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--vds-ink)' }}>Dashboard</span>
                   </div>
-                  {/* Placeholder dashboard: a row of 4 KPI cards, then 3 full-width rows —
-                      mirrors the skeleton blocks the product pages use. */}
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0 }}>
-                    <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
-                      {[0, 1, 2, 3].map((i) => <div key={i} style={{ ...cardStyle, aspectRatio: '6 / 4' }} />)}
-                    </div>
-                    {[0, 1, 2].map((i) => <div key={i} style={{ ...cardStyle, flex: 1, minHeight: 96 }} />)}
-                  </div>
+                  <DashboardBody />
                 </div>
               ) : page === 'customers' ? (
                 <div className="shell-customers" style={{ flex: 1, minWidth: 0, background: C.content, padding: 32, display: 'flex', flexDirection: 'column', gap: 24, overflow: 'hidden' }}>

@@ -112,9 +112,6 @@ button.ob-phead:hover .ob-chevc { color: var(--vds-white); }
 .msp-acct-chip--sel, .msp-acct-chip--sel:hover { background: var(--nav-accent); color: var(--vds-white); }
 @media (prefers-reduced-motion: reduce) { .msp-acct-pop { animation: none; } }
 
-/* Placeholder page-header buttons (Figma 53:8072): primary accent, slight darken on hover. */
-.ob-hbtn { transition: background-color 120ms ease; }
-.ob-hbtn:hover { background: color-mix(in srgb, var(--nav-accent) 88%, black) !important; }
 
 /* Reseller-theme dropdown rows (dark navy popover). */
 .ob-brand-item:hover { background: var(--vds-midnight-800) !important; }
@@ -348,3 +345,7 @@ html.dark .shell-root { --shell-canvas: var(--vds-midnight-1000, #07101f); }
    white ring, drop shadow; the ring + shadow deepen on hover so it lifts off the edge. */
 .msp-edge-handle:hover { box-shadow: 0 0 0 2px var(--vds-white), 0 6px 14px rgba(0,0,0,0.36); }
 .msp-edge-handle:active { transform: translate(-50%, -50%) scale(0.92); }
+
+/* Dashboard alert-trend bars — darken slightly on hover (native title carries the value). */
+.dash-bar { transition: background-color 120ms ease; }
+.dash-bar:hover { background: color-mix(in srgb, var(--nav-accent), #000 16%) !important; }
