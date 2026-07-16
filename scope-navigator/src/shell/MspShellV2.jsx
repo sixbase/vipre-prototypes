@@ -4,6 +4,7 @@ import {
   FileText, ShieldCheck, Monitor, Bell, UserCog, User, Key, ArrowUpRight,
   PanelLeftClose, PanelLeftOpen, LayoutDashboard, Moon, Sun,
   Boxes, Store, Zap, ChevronLeft, ChevronRight, ChevronDown, Check, Search, X,
+  ArrowLeft, ArrowRight,
 } from '@icons'
 import { ScopeProvider, useScope } from '../ScopeContext'
 import { DistributorIcon, ResellerIcon, CustomerIcon } from '../entityIcons.jsx'
@@ -159,6 +160,16 @@ function subscriptionFor(scopeKey) {
 function productOfPage(id) {
   for (const p of PRODUCTS) for (const it of p.items || []) if (it.id === id) return p.id
   return null
+}
+// Landing page for a leaf with no Dashboard (a customer / the end-customer lens): its first
+// subscribed product's first sub-page. There's no Products "Overview" nav item anymore, so
+// we land on real product content instead. Unmanaged (products hidden) → 'products-overview'
+// as a neutral fallback page (still rendered by ContentCard, just not in the nav).
+function firstProductPageFor(scopeKey, unmanaged) {
+  if (unmanaged) return 'products-overview'
+  const subs = subscriptionFor(scopeKey)
+  const p = PRODUCTS.find((prod) => subs.has(prod.id))
+  return p?.items?.[0]?.id ?? 'products-overview'
 }
 
 /* ---- nav rows (dark) ---- */
@@ -477,7 +488,7 @@ function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selec
 /* ====================== The persistent left nav (dark) ====================== */
 function ShellNav({
   collapsed, page, openIds, onToggleProduct, onSelectItem, onOpenPortal, onToggleCollapse, dark, onToggleDark,
-  path, onBack, parentName, subscribed, loading, unmanaged, showAccount = true, showPartners = true,
+  path, onBack, parentName, subscribed, loading, unmanaged, showAccount = true, showPartners = true, showOverview = false,
   switcherChildren = [], switcherOwner, currentId, onPickChild,
 }) {
   const px = NAV_PAD_X
@@ -548,7 +559,6 @@ function ShellNav({
         {showPartners && (
         <>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `10px ${px}px` }}>
-          <Eyebrow collapsed={collapsed}>PARTNERS</Eyebrow>
           {/* 2px inset matches the cards' padding so bare pills sit on the same x (and
               width) as carded ones; kept in both states so icons never shift x. */}
           <div style={{ padding: `0 ${NEST}px` }}>
@@ -577,11 +587,15 @@ function ShellNav({
             )
           ) : (
           <>
-          <div style={{ padding: `0 ${NEST}px` }}>
-            <ProductHeader product={PRODUCTS_OVERVIEW} collapsed={collapsed} bare
-              selected={page === PRODUCTS_OVERVIEW.id}
-              onOpen={() => onSelectItem(PRODUCTS_OVERVIEW.id)} />
-          </div>
+          {/* Overview — only in the End-customer lens (single tenant); the reseller/customer-
+              node views drop straight into the product accordions. */}
+          {showOverview && (
+            <div style={{ padding: `0 ${NEST}px` }}>
+              <ProductHeader product={PRODUCTS_OVERVIEW} collapsed={collapsed} bare
+                selected={page === PRODUCTS_OVERVIEW.id}
+                onOpen={() => onSelectItem(PRODUCTS_OVERVIEW.id)} />
+            </div>
+          )}
           {loading ? (
             <div key="skel" className="nav-products-anim" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[80, 96, 64, 84, 72].map((w, i) => (
@@ -1025,6 +1039,22 @@ function ShellInner() {
   // Clicking any row on the Customers page opens this entity-data drawer (dist/reseller/customer).
   const [customerDrawer, setCustomerDrawer] = useState(null)
 
+  // Edge collapse handle: a circular chevron that rides the seam between the nav and the
+  // content, following the cursor's Y and revealed only when the cursor is near the nav's
+  // right edge. `on` = shown; `y` = cursor Y within the nav row. (The bottom Collapse row
+  // stays too — this is an additional affordance.)
+  const rowRef = useRef(null)
+  const [edge, setEdge] = useState({ y: 0, on: false })
+  const onRowMove = (e) => {
+    const r = rowRef.current?.getBoundingClientRect()
+    if (!r) return
+    const x = e.clientX - r.left
+    const seam = collapsed ? SYM_W_COLLAPSED : SYM_W_EXPANDED
+    const near = x >= seam - 26 && x <= seam + 18
+    setEdge((prev) => (near ? { y: e.clientY - r.top, on: true } : (prev.on ? { ...prev, on: false } : prev)))
+  }
+  const onRowLeave = () => setEdge((p) => (p.on ? { ...p, on: false } : p))
+
   // The scoped entity drives the faked product subscriptions shown in the nav. In the
   // end-customer lens there's no hierarchy, so the fixed tenant id seeds the profile.
   const leafId = isCustomer ? CUSTOMER_TENANT.id : (path.at(-1)?.id ?? 'root')
@@ -1039,8 +1069,9 @@ function ShellInner() {
   // it's the signed-in distributor. Customer-type nodes are leaves with no sub-accounts, so
   // they get no Dashboard / Customers — just their products.
   const isCustomerNode = isCustomer || path.at(-1)?.type === 'customer'
-  // Logging into an entity lands you on its Dashboard; a customer node has none → Overview.
-  const landingFor = (entity) => (entity?.type === 'customer' ? 'products-overview' : 'dashboard')
+  // Logging into an entity lands you on its Dashboard; a customer node has none, so it lands
+  // on its first subscribed product page (there's no Products "Overview" nav item anymore).
+  const landingFor = (entity) => (entity?.type === 'customer' ? firstProductPageFor(entity.id, isEntityUnmanaged(entity)) : 'dashboard')
   // Back up one level to the parent scope. Parents always have children, so → Dashboard.
   const parentName = path.length >= 2 ? path.at(-2).name : LOGGED_IN_RESELLER.name
   const goBack = () => { if (path.length) { navigate(path.slice(0, -1)); setPage('dashboard') } }
@@ -1067,7 +1098,7 @@ function ShellInner() {
   // you never sit on a product that isn't shown.
   useEffect(() => {
     const owner = productOfPage(page)
-    if (owner && (leafUnmanaged || !subscriptionFor(leafId).has(owner))) setPage(isCustomerNode ? 'products-overview' : 'dashboard')
+    if (owner && (leafUnmanaged || !subscriptionFor(leafId).has(owner))) setPage(isCustomer ? 'products-overview' : isCustomerNode ? firstProductPageFor(leafId, leafUnmanaged) : 'dashboard')
   }, [leafId, page, leafUnmanaged, isCustomerNode])
 
   // Simulated "loading this customer's subscriptions": on a scope change, show the nav
@@ -1100,7 +1131,6 @@ function ShellInner() {
     if (next === persona) return
     setPersona(next)
     setOpenPortal(null)
-    setCustomerDetail(null)
     setCustomerDrawer(null)
     navigate([])
     setPage(next === 'customer' ? 'products-overview' : 'dashboard')
@@ -1136,7 +1166,8 @@ function ShellInner() {
             dark={dark} onToggleDark={() => setDark((d) => !d)}
           />
         ) : (
-        <>
+        <div ref={rowRef} onMouseMove={onRowMove} onMouseLeave={onRowLeave}
+          style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex' }}>
         <ShellNav
           collapsed={collapsed} page={page} openIds={openProducts}
           onToggleProduct={(id) => setOpenProducts((o) => ({ ...o, [id]: !o[id] }))}
@@ -1155,6 +1186,7 @@ function ShellInner() {
           subscribed={subscribed} loading={navLoading} unmanaged={leafUnmanaged}
           showAccount={!isCustomer}
           showPartners={!isCustomerNode}
+          showOverview={isCustomer}
           switcherChildren={switcherChildren} switcherOwner={switcherOwner}
           currentId={currentId} onPickChild={switchTo}
         />
@@ -1212,7 +1244,34 @@ function ShellInner() {
             </div>
           </div>
         </div>
-        </>
+
+        {/* Blue accent border literally on the nav's right edge (line hugs the nav's inner
+            edge) — fades in with the handle. */}
+        <div aria-hidden style={{
+          position: 'absolute', top: 0, bottom: 0, left: collapsed ? SYM_W_COLLAPSED : SYM_W_EXPANDED,
+          width: 2, transform: 'translateX(-100%)', background: 'var(--nav-accent)', pointerEvents: 'none', zIndex: 44,
+          opacity: edge.on ? 1 : 0, transition: `opacity 130ms ease, left 220ms ${OB_EASE}`,
+        }} />
+
+        {/* Edge collapse handle — a circular chevron straddling the nav/content seam. It
+            follows the cursor's Y and fades in only when the cursor is near the right edge
+            (see onRowMove). Blue chevron, white ring + drop shadow. Left chevron collapses;
+            right chevron expands. */}
+        <button type="button" onClick={() => setCollapsed((c) => !c)}
+          aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+          className="msp-edge-handle"
+          style={{
+            position: 'absolute', top: edge.y, left: collapsed ? SYM_W_COLLAPSED : SYM_W_EXPANDED,
+            transform: 'translate(-50%, -50%)', width: 24, height: 24, borderRadius: 999,
+            display: 'grid', placeItems: 'center', padding: 0, cursor: 'pointer', zIndex: 45,
+            background: 'var(--nav-accent)', border: 0, color: 'var(--vds-white)',
+            boxShadow: '0 0 0 2px var(--vds-white), 0 4px 10px rgba(0,0,0,0.30)',
+            opacity: edge.on ? 1 : 0, pointerEvents: edge.on ? 'auto' : 'none',
+            transition: `opacity 130ms ease, left 220ms ${OB_EASE}`,
+          }}>
+          {collapsed ? <ArrowRight size={15} strokeWidth={2.5} /> : <ArrowLeft size={15} strokeWidth={2.5} />}
+        </button>
+        </div>
         )}
       </div>
 

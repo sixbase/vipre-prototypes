@@ -339,3 +339,8 @@ html.dark .shell-root { --shell-canvas: var(--vds-midnight-1000, #07101f); }
    "View Relationship" toggle — so nothing pops while the rail width animates. */
 .vds-scope-tree--collapsed .stree-label,
 .vds-scope-tree--collapsed .stree-rel__label { max-width: 0; opacity: 0; }
+
+/* Edge collapse handle — the circular chevron riding the nav/content seam. Blue chevron,
+   white ring, drop shadow; the ring + shadow deepen on hover so it lifts off the edge. */
+.msp-edge-handle:hover { box-shadow: 0 0 0 2px var(--vds-white), 0 6px 14px rgba(0,0,0,0.36); }
+.msp-edge-handle:active { transform: translate(-50%, -50%) scale(0.92); }
