@@ -3,7 +3,7 @@ import {
   Mail, Send, Laptop, GraduationCap, Database, ScrollText, Radar, Settings,
   FileText, ShieldCheck, Monitor, Bell, UserCog, User, Key, ArrowUpRight,
   PanelLeftClose, PanelLeftOpen, LayoutDashboard, Moon, Sun,
-  Boxes, Store, Zap, ChevronLeft, ChevronRight, ChevronDown, Check,
+  Boxes, Store, Zap, ChevronLeft, ChevronRight, ChevronDown, Check, Search, X,
 } from '@icons'
 import { ScopeProvider, useScope } from '../ScopeContext'
 import { DistributorIcon, ResellerIcon, CustomerIcon } from '../entityIcons.jsx'
@@ -233,6 +233,27 @@ function BackRow({ collapsed, parentName, onBack }) {
     </button>
   )
 }
+// The inner content of the account header (tile + name/type) — shared by the static
+// and the interactive (switcher) variants so both render identically.
+function AccountHeaderInner({ collapsed, account, chevron }) {
+  return (
+    <>
+      <img src={account.tile} alt="" style={{ width: 32, height: 32, borderRadius: R_TILE, flexShrink: 0 }} />
+      <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 8, overflow: 'hidden', transition: labelFade(collapsed) }}>
+        <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{account.name}</span>
+        <span style={{ fontSize: 10, fontWeight: 400, lineHeight: 1.3, letterSpacing: '0.5px', color: C.inkDim, whiteSpace: 'nowrap' }}>{account.typeLabel}</span>
+      </span>
+      {chevron && (
+        /* Drop chevron — the dropdown affordance. Shrinks/fades with the label on collapse
+           so the pill never pops (mirrors the product-header chevron treatment). */
+        <ChevronDown size={16} aria-hidden style={{ flexShrink: 0, color: C.icon, maxWidth: collapsed ? 0 : 16, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 4, overflow: 'hidden', transform: chevron === 'open' ? 'rotate(180deg)' : 'none', transition: `${labelFade(collapsed)}, transform 200ms ${OB_EASE}` }} />
+      )}
+    </>
+  )
+}
+
+// Static (non-interactive) account header — used when the node has no children to switch
+// into (a customer leaf) or in the single-tenant end-customer lens.
 function AccountHeader({ collapsed, account }) {
   return (
     <div data-tip={collapsed ? `${account.name} · ${account.typeLabel}` : undefined}
@@ -240,12 +261,142 @@ function AccountHeader({ collapsed, account }) {
       // height; the text block fades/shrinks instead of unmounting so the pill (and
       // everything below it) holds its exact y through collapse/expand.
       style={{ display: 'flex', alignItems: 'center', height: 36, padding: NEST, borderRadius: R_PILL }}>
-      <img src={account.tile} alt="" style={{ width: 32, height: 32, borderRadius: R_TILE, flexShrink: 0 }} />
-      <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 8, overflow: 'hidden', transition: labelFade(collapsed) }}>
-        <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{account.name}</span>
-        <span style={{ fontSize: 10, fontWeight: 400, lineHeight: 1.3, letterSpacing: '0.5px', color: C.inkDim, whiteSpace: 'nowrap' }}>{account.typeLabel}</span>
-      </span>
+      <AccountHeaderInner collapsed={collapsed} account={account} />
     </div>
+  )
+}
+
+// Interactive account header: a dropdown trigger that pops a scope switcher listing the
+// node's DIRECT CHILDREN (the customers/resellers under it). Picking one drills into it —
+// re-scopes, re-heads the nav, lands on its home page (same as "Login"). Only rendered
+// when the node actually has children; a customer leaf falls back to the static header.
+function AccountSwitcher({ collapsed, account, children, onPick }) {
+  const [open, setOpen] = useState(false)
+  const [rect, setRect] = useState(null)       // trigger geometry, captured on open
+  const [query, setQuery] = useState('')
+  const [mgmt, setMgmt] = useState('all')       // all | managed | unmanaged
+  const btnRef = useRef(null)
+  const searchRef = useRef(null)
+
+  const toggle = () => {
+    if (open) { setOpen(false); return }
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setRect(r)
+    setQuery(''); setMgmt('all'); setOpen(true)
+  }
+  // Focus the search box once the popover mounts.
+  useEffect(() => { if (open) searchRef.current?.focus() }, [open])
+  // Escape closes.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
+  const managedCount = children.filter((c) => !isEntityUnmanaged(c)).length
+  const unmanagedCount = children.length - managedCount
+  const q = query.trim().toLowerCase()
+  const filtered = children.filter((c) => {
+    if (mgmt === 'managed' && isEntityUnmanaged(c)) return false
+    if (mgmt === 'unmanaged' && !isEntityUnmanaged(c)) return false
+    if (q && !c.name.toLowerCase().includes(q)) return false
+    return true
+  })
+
+  // Popover geometry: below the trigger when expanded, off the rail's right edge when
+  // collapsed (matches the collapsed-rail tooltip anchoring).
+  const POP_W = 264
+  const pos = rect
+    ? (collapsed
+      ? { left: rect.right + 10, top: rect.top }
+      : { left: rect.left, top: rect.bottom + 6 })
+    : { left: 0, top: 0 }
+
+  const chips = [
+    { id: 'all', label: 'All', count: children.length },
+    { id: 'managed', label: 'Managed', count: managedCount },
+    { id: 'unmanaged', label: 'Unmanaged', count: unmanagedCount },
+  ]
+
+  return (
+    <>
+      <button ref={btnRef} type="button" onClick={toggle}
+        aria-haspopup="menu" aria-expanded={open}
+        data-tip={collapsed && !open ? `${account.name} · ${account.typeLabel}` : undefined}
+        className="msp-acct-btn"
+        // Same 36px pill geometry as the static header so nothing shifts when a node gains
+        // or loses its switcher. gap 0 + animated margins keep the collapsed pill centered.
+        style={{ display: 'flex', alignItems: 'center', width: '100%', height: 36, padding: NEST, borderRadius: R_PILL, border: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+        <AccountHeaderInner collapsed={collapsed} account={account} chevron={open ? 'open' : true} />
+      </button>
+
+      {open && (
+        <>
+          {/* click-scrim closes the popover (same pattern as the product switcher) */}
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 70 }} />
+          <div role="menu" className="msp-acct-pop" style={{
+            position: 'fixed', left: pos.left, top: pos.top, width: POP_W, zIndex: 71,
+            display: 'flex', flexDirection: 'column', maxHeight: 'min(420px, calc(100vh - 120px))',
+            background: 'var(--vds-midnight-900)', border: '1px solid var(--vds-midnight-800)',
+            borderRadius: 12, boxShadow: 'var(--vds-shadow-lg)', overflow: 'hidden',
+            fontFamily: 'var(--vds-font-sans)',
+          }}>
+            {/* search */}
+            <div style={{ padding: 8, borderBottom: '1px solid var(--vds-midnight-1000)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: '0 8px', borderRadius: 6, background: 'var(--vds-midnight-1000)', border: '1px solid var(--vds-midnight-800)' }}>
+                <Search size={15} style={{ color: C.icon, flexShrink: 0 }} />
+                <input ref={searchRef} type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search customers" aria-label="Search customers"
+                  className="msp-acct-field"
+                  style={{ flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: C.white, fontSize: 13, fontFamily: 'inherit' }} />
+                {query && (
+                  <button type="button" onClick={() => { setQuery(''); searchRef.current?.focus() }} aria-label="Clear search"
+                    style={{ display: 'flex', border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: C.icon }}>
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              {/* managed / unmanaged filter chips */}
+              <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+                {chips.map((chip) => {
+                  const sel = mgmt === chip.id
+                  return (
+                    <button key={chip.id} type="button" onClick={() => setMgmt(chip.id)}
+                      className={['msp-acct-chip', sel && 'msp-acct-chip--sel'].filter(Boolean).join(' ')}
+                      aria-pressed={sel}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 24, padding: '0 8px', borderRadius: 6, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      {chip.label}
+                      <span style={{ fontSize: 10, opacity: 0.8 }}>{chip.count}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {/* children list */}
+            <div className="ob-scroll-dark" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 5 }}>
+              {filtered.length === 0 ? (
+                <p style={{ margin: 0, padding: '14px 10px', fontSize: 12, color: C.inkDim, textAlign: 'center' }}>No matches</p>
+              ) : filtered.map((child) => {
+                const cfg = SCOPE_TYPE_CONFIG[child.type]
+                return (
+                  <button key={child.id} type="button" role="menuitem"
+                    onClick={() => { setOpen(false); onPick(child) }}
+                    className="msp-acct-item"
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 6, border: 0, borderRadius: 8, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                    <img src={cfg?.tile ?? distributorTile} alt="" style={{ width: 28, height: 28, borderRadius: 6, flexShrink: 0 }} />
+                    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{child.name}</span>
+                      <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: '0.4px', color: C.inkDim }}>{cfg?.label ?? 'Account'}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </>
   )
 }
 
@@ -309,6 +460,7 @@ function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selec
 function ShellNav({
   collapsed, page, openIds, onToggleProduct, onSelectItem, onOpenPortal, onToggleCollapse, dark, onToggleDark,
   path, onBack, parentName, subscribed, loading, unmanaged, showAccount = true, showPartners = true,
+  switcherChildren = [], onPickChild,
 }) {
   const px = NAV_PAD_X
   // Subscribed products keep their order at the top; unsubscribed sink to the bottom
@@ -358,7 +510,14 @@ function ShellNav({
             </div>
           )}
           <div style={{ padding: `0 ${NEST}px` }}>
-            <AccountHeader collapsed={collapsed} account={accountFor(path)} />
+            {/* Node has children → interactive scope switcher; a customer leaf (none) →
+                the static header. */}
+            {switcherChildren.length > 0 && onPickChild ? (
+              <AccountSwitcher collapsed={collapsed} account={accountFor(path)}
+                children={switcherChildren} onPick={onPickChild} />
+            ) : (
+              <AccountHeader collapsed={collapsed} account={accountFor(path)} />
+            )}
           </div>
         </div>
         <MenuDivider />
@@ -866,6 +1025,12 @@ function ShellInner() {
   // Back up one level to the parent scope. Parents always have children, so → Dashboard.
   const parentName = path.length >= 2 ? path.at(-2).name : LOGGED_IN_RESELLER.name
   const goBack = () => { if (path.length) { navigate(path.slice(0, -1)); setPage('dashboard') } }
+  // Direct children of the node currently logged into — powers the account-header scope
+  // switcher. At root that's the top-level list (mockData); a customer leaf has none, so
+  // the switcher falls back to the static header. Hidden entirely in the end-customer lens.
+  const switcherChildren = isCustomer ? [] : (path.at(-1)?.children ?? mockData)
+  // Picking a child drills into it — identical to the Customers-page "Login" action.
+  const drillInto = (child) => { navigate([...path, child]); setPage(landingFor(child)) }
 
   useEffect(() => { document.documentElement.classList.toggle('dark', dark) }, [dark])
 
@@ -962,6 +1127,7 @@ function ShellInner() {
           subscribed={subscribed} loading={navLoading} unmanaged={leafUnmanaged}
           showAccount={!isCustomer}
           showPartners={!isCustomerNode}
+          switcherChildren={switcherChildren} onPickChild={drillInto}
         />
 
         {/* content column (Figma 73:1278): an 8px navy frame, the white entity bar with
