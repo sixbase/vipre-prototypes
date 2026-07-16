@@ -18,7 +18,6 @@ import { ProvisioningModal, SuccessToast } from '../ProvisioningModal'
 import { ChildrenListView } from '../EntityDetail.jsx'
 import { EntityDataDrawer } from '../DashboardPageB'
 import { PORTALS } from './portalData.js'
-import lockBadge from './assets/lock-badge.svg'
 import { PRODUCT_GLYPHS } from './productGlyphs.js'
 import { ProductTile, OverviewTile, CustomersTile, DashboardTile } from './ProductTile.jsx'
 import { DevicesGlyph, PoliciesGlyph, IncidentsGlyph } from './pageGlyphs.jsx'
@@ -468,7 +467,14 @@ function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selec
             : product.glyph
             ? <ProductTile glyph={product.glyph} muted={locked} />
             : <img src={product.tileAsset} alt="" style={{ width: 32, height: 32, display: 'block' }} />}
-          {locked && <img src={lockBadge} alt="" style={{ position: 'absolute', left: 20, top: 20, width: 16, height: 16 }} />}
+          {locked && (
+            /* Corner badge (replaces the lock badge) — the product isn't subscribed; the
+               "expand out" arrow reads as "add / go get this". Matches the lock badge's
+               grey disc + dark ring so it sits identically over the tile. */
+            <span style={{ position: 'absolute', left: 20, top: 20, width: 16, height: 16, borderRadius: 999, background: '#4D5666', border: '1.5px solid #0A192C', boxSizing: 'border-box', display: 'grid', placeItems: 'center', color: '#E2E6ED' }}>
+              <ArrowUpRight size={11} strokeWidth={2.5} />
+            </span>
+          )}
         </span>
         {/* Label fades + shrinks (not instant-removed) so nothing jumps on collapse/expand. */}
         <span style={{ fontSize: 14, fontWeight: 600, color: locked ? C.ink : C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 8, transition: labelFade(collapsed) }}>{product.label}</span>
