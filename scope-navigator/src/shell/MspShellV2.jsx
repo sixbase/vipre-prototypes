@@ -311,13 +311,11 @@ function AccountSwitcher({ collapsed, account, owner, currentId, children, onPic
     return true
   })
 
-  // Popover geometry: below the trigger when expanded, off the rail's right edge when
-  // collapsed (matches the collapsed-rail tooltip anchoring).
+  // Popover geometry: flies out to the RIGHT of the trigger (off the nav's right edge),
+  // top-aligned to the trigger — same anchoring whether the rail is expanded or collapsed.
   const POP_W = 264
   const pos = rect
-    ? (collapsed
-      ? { left: rect.right + 10, top: rect.top }
-      : { left: rect.left, top: rect.bottom + 6 })
+    ? { left: rect.right + 10, top: rect.top }
     : { left: 0, top: 0 }
 
   const chips = [
