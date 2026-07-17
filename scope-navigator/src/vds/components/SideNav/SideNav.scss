@@ -78,6 +78,7 @@
   --vds-sidenav-edge-lift: var(--vds-shadow-md);       // resting drop shadow
   --vds-sidenav-edge-lift-hover: var(--vds-shadow-lg); // …deepens so it lifts off the seam
   --vds-sidenav-edge-press-scale: 0.92;
+  --vds-sidenav-edge-stroke: 2px;                      // chevron weight — heavier than the nav's 1.5 chrome glyphs so it holds up at 16px on a saturated fill
   --vds-sidenav-dur-edge: 130ms;                       // fade in/out as the cursor nears
 
   // ---- sizes ----
@@ -512,6 +513,64 @@
     cursor: default;
     .vds-sidenav__label--pill {
       color: var(--vds-sidenav-ink); // muted vs the white of a live product
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Edge handle — the round collapse control riding the nav/content seam.
+  // Centred ON the rail's right edge (translateX(-50%)), so it is half navy-side
+  // and half page-side: it belongs to the boundary, not to either surface. Its y
+  // is set inline from the cursor, so it meets your hand where you reached.
+  // --------------------------------------------------------------------------
+  &__edge {
+    position: absolute;
+    // `left: 100%` rather than `right: 0` — the rail's width animates on
+    // collapse, and a percentage left tracks that animation for free instead of
+    // needing its own transition on `left`.
+    left: 100%;
+    transform: translate(-50%, -50%);
+    display: grid;
+    place-items: center;
+    width: var(--vds-sidenav-edge-size);
+    height: var(--vds-sidenav-edge-size);
+    padding: 0;
+    border: 0;
+    border-radius: var(--vds-radius-full);
+    background-color: var(--vds-sidenav-edge-bg);
+    color: var(--vds-sidenav-edge-ink);
+    box-shadow: var(--vds-sidenav-edge-ring), var(--vds-sidenav-edge-lift);
+    cursor: pointer;
+    // Hidden AND inert at rest: opacity alone would leave an invisible disc
+    // eating clicks meant for the content underneath.
+    opacity: 0;
+    pointer-events: none;
+    z-index: var(--vds-z-raised);
+    transition: opacity var(--vds-sidenav-dur-edge) ease;
+
+    svg {
+      display: block;
+      width: var(--vds-sidenav-edge-glyph);
+      height: var(--vds-sidenav-edge-glyph);
+      stroke-width: var(--vds-sidenav-edge-stroke);
+    }
+
+    &--on {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    &:hover {
+      box-shadow: var(--vds-sidenav-edge-ring), var(--vds-sidenav-edge-lift-hover);
+    }
+    &:active {
+      transform: translate(-50%, -50%) scale(var(--vds-sidenav-edge-press-scale));
+    }
+  }
+
+  // Cursor proximity is the whole point of the handle, and a reduced-motion user
+  // still gets that — we only drop the fade, never the control.
+  @media (prefers-reduced-motion: reduce) {
+    &__edge {
+      transition: none;
     }
   }
 

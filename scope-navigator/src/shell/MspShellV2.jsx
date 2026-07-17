@@ -78,6 +78,18 @@ const R_TILE = 8
 const NEST = 2
 const R_PILL = R_TILE + NEST   // 10
 const R_CARD = R_PILL + NEST   // 12
+
+// Brand-logo lockup: the nav-top logo strip (MSP view) and the Full Portal header put the
+// SAME wordmark at the SAME viewport coords, so switching views doesn't shift it. Keep the
+// strip height and left inset identical in both places or the logo jumps on the transition.
+const LOGO_STRIP_H = 48
+const LOGO_INSET = NAV_PAD_X + NEST   // 18
+// Pin the logo MARK on the nav's icon/tile column so collapsing the rail never slides it:
+// one constant left-pad in both rail states, and the letters simply fade away to its right.
+// The same pad feeds the Full Portal header too, so the mark holds its x across that swap.
+const LOGO_COL = NAV_PAD_X + NEST * 2 + 16     // 36 — the tile / icon column center
+const LOGO_MARK_W = (20 * 47) / 40             // 23.5 — VIPRE mark at BrandLogo's 20px height
+const LOGO_PAD_L = LOGO_COL - LOGO_MARK_W / 2  // 24.25 — centers the mark on that column
 const PRODUCT_CARD = { background: 'var(--vds-midnight-1000)', borderRadius: R_CARD, padding: NEST, display: 'flex', flexDirection: 'column', gap: 2 }
 // Full-portal nav widths (match the original Symphony workspace nav).
 const POR_PAD = 32
@@ -129,10 +141,10 @@ const FOOTER = [
 const PRODUCTS_OVERVIEW = { id: 'products-overview', label: 'Overview', icon: Boxes, Tile: OverviewTile }
 // PARTNERS Dashboard tile — bare button above the scope tree; opens the My Accounts
 // dashboard (the content the Customers scope-tree root used to host).
-const PARTNER_DASHBOARD = { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, Tile: (props) => <DashboardTile {...props} outline /> }
+const PARTNER_DASHBOARD = { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, Tile: DashboardTile }
 // Plain Customers link (replaces the old vertical scope tree). Clicking it lists the
 // customers of whatever node is currently logged into (shown in the account header).
-const PARTNER_CUSTOMERS = { id: 'customers', label: 'Customers', icon: Store, Tile: (props) => <CustomersTile {...props} /> }
+const PARTNER_CUSTOMERS = { id: 'customers', label: 'Customers', icon: Store, Tile: CustomersTile }
 
 // The signed-in reseller the shell mimics — their name heads the left nav so the
 // whole portal reads as "logged in as Melvin Industries".
@@ -175,17 +187,20 @@ function firstProductPageFor(scopeKey, unmanaged) {
 }
 
 /* ---- nav rows (dark) ---- */
-function MenuItem({ icon, label, labelSize = 12, labelWeight = 500, color, iconColor = C.icon, fp, selected, onClick, collapsed, centerCollapsed, ariaCurrent, title }) {
+function MenuItem({ icon, label, labelSize = 12, labelWeight = 500, color, iconColor = C.icon, fp, selected, onClick, collapsed, centerCollapsed, ariaCurrent, title, collapsedTip }) {
   const Tag = onClick ? 'button' : 'div'
   // Collapsed rail: expose the label as data-tip for the shell's right-anchored tooltip
   // and drop the native (cursor-following) title so the two don't both appear.
   const tipText = title || (typeof label === 'string' ? label : undefined)
+  // The floating rail tooltip can say more than the expanded native title — product links
+  // pass "<link> for <product>" here so a bare icon still names its product.
+  const railTip = collapsedTip || tipText
   return (
     <Tag
       {...(onClick ? { type: 'button', onClick } : {})}
       aria-current={ariaCurrent}
       title={collapsed ? undefined : tipText}
-      data-tip={collapsed ? tipText : undefined}
+      data-tip={collapsed ? railTip : undefined}
       className={['ob-mrow', selected && 'ob-mrow--sel'].filter(Boolean).join(' ')}
       style={{
         // Identical padding in both rail states — rows never shift on collapse/expand.
@@ -233,16 +248,22 @@ function accountFor(path) {
 // Shown above the account header when the logged-into node has a parent — steps the scope
 // back up one level so you can climb back out of an entity you drilled into.
 function BackRow({ collapsed, parentName, onBack }) {
+  // A plain full-width nav row (ob-mrow) — the hover fills the same width as the product
+  // rows for a uniform look. NO inline background (that would override the :hover) and a
+  // 16px chevron to match the other nav icons/chevrons.
   return (
     <button type="button" onClick={onBack}
       data-tip={collapsed ? `Back to ${parentName}` : undefined}
       title={collapsed ? undefined : `Back to ${parentName}`}
       className="ob-mrow"
-      // Fixed 24px row, same padding both states — the chevron holds x=36-center and the
-      // label fades/shrinks, so collapsing never nudges anything vertically.
-      style={{ display: 'flex', alignItems: 'center', width: '100%', height: 24, border: 0, borderRadius: R_PILL, padding: '4px 10px', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-      <ChevronLeft size={16} style={{ flexShrink: 0, color: C.inkDim }} />
-      <span style={{ fontSize: 12, fontWeight: 500, color: C.inkDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 6, transition: labelFade(collapsed) }}>Back to {parentName}</span>
+      // Mirrors the account row's [32px icon column][8px gap][label] so the back label lines
+      // up with the account name directly below (no stagger), and the chevron sits centered
+      // in the same x=36 icon column as the account tile.
+      style={{ display: 'flex', alignItems: 'center', width: '100%', height: 28, border: 0, borderRadius: R_PILL, padding: `4px ${NEST}px`, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+      <span style={{ width: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <ChevronLeft size={16} style={{ color: C.inkDim }} />
+      </span>
+      <span style={{ fontSize: 12, fontWeight: 500, color: C.inkDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 8, transition: labelFade(collapsed) }}>{parentName}</span>
     </button>
   )
 }
@@ -345,7 +366,9 @@ function AccountSwitcher({ collapsed, account, owner, currentId, children, onPic
         className="msp-acct-btn"
         // Same 36px pill geometry as the static header so nothing shifts when a node gains
         // or loses its switcher. gap 0 + animated margins keep the collapsed pill centered.
-        style={{ display: 'flex', alignItems: 'center', width: '100%', height: 36, padding: NEST, borderRadius: R_PILL, border: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+        // Background is set in shell.css (resting card fill + hover), NOT inline — an inline
+        // background would override the :hover rule.
+        style={{ display: 'flex', alignItems: 'center', width: '100%', height: 36, padding: NEST, borderRadius: R_PILL, border: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
         <AccountHeaderInner collapsed={collapsed} account={account} chevron={open ? 'open' : true} />
       </button>
 
@@ -419,7 +442,14 @@ function AccountSwitcher({ collapsed, account, owner, currentId, children, onPic
                       <span style={{ fontSize: 13, fontWeight: isCur ? 600 : 500, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{child.name}</span>
                       <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: '0.4px', color: C.inkDim }}>{isCur ? `${cfg?.label ?? 'Account'} · current` : (cfg?.label ?? 'Account')}</span>
                     </span>
-                    {isCur && <Check size={16} style={{ color: C.selected, flexShrink: 0 }} />}
+                    {isCur && (
+                      <span aria-hidden style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18,
+                        borderRadius: 999, background: C.selected, flexShrink: 0,
+                      }}>
+                        <Check size={12} style={{ color: C.white }} />
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -466,7 +496,7 @@ function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selec
       <span style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
         <span className="ob-ptile" style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
           {product.Tile
-            ? <product.Tile />
+            ? <product.Tile selected={bare && selected} />
             : product.glyph
             ? <ProductTile glyph={product.glyph} muted={locked} />
             : <img src={product.tileAsset} alt="" style={{ width: 32, height: 32, display: 'block' }} />}
@@ -496,6 +526,7 @@ function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selec
 
 /* ====================== The persistent left nav (dark) ====================== */
 function ShellNav({
+  brand, onHome,
   collapsed, page, openIds, onToggleProduct, onSelectItem, onOpenPortal, onToggleCollapse, dark, onToggleDark,
   path, onBack, parentName, subscribed, loading, unmanaged, showAccount = true, showPartners = true, showOverview = false,
   switcherChildren = [], switcherOwner, currentId, onPickChild,
@@ -535,13 +566,25 @@ function ShellNav({
         display: 'flex', flexDirection: 'column',
         fontFamily: 'var(--vds-font-sans)', transition: `width 220ms ${OB_EASE}`,
       }}>
+      {/* Brand logo = home (moved out of the removed top bar). Clicking jumps to the root node.
+          Pinned above the scroll so it stays put; collapses to just the mark on the rail. */}
+      <button type="button" onClick={onHome} title="Home" aria-label="Home"
+        style={{
+          // Constant left-pad in both states pins the mark on the x=36 column; BrandLogo
+          // fades the letters away rather than re-justifying, so the mark never slides.
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
+          flexShrink: 0, height: LOGO_STRIP_H, paddingLeft: LOGO_PAD_L, paddingRight: 0,
+          background: 'transparent', border: 0, cursor: 'pointer', overflow: 'hidden', color: C.white,
+        }}>
+        <BrandLogo brand={brand} collapsed={collapsed} />
+      </button>
       <div className="ob-scroll-dark" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0, padding: 0, overflowY: 'auto', overflowX: 'hidden' }}>
         {/* Account identity (+ Back to parent) — the node currently logged into. Shown for the
             whole reseller flow, including a customer leaf that has no Dashboard/Customers.
             The 4px inset mirrors the cards' padding so the tile column is one x everywhere. */}
         {showAccount && (
         <>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: `10px ${px}px` }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: `10px ${px}px` }}>
           {onBack && (
             <div style={{ padding: `0 ${NEST}px` }}>
               <BackRow collapsed={collapsed} parentName={parentName} onBack={onBack} />
@@ -635,10 +678,12 @@ function ShellNav({
                           quickly on close) — the reveal reads as two soft stages, not a pop. */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 2, opacity: open ? 1 : 0, transition: open ? 'opacity 200ms ease 60ms' : 'opacity 110ms ease' }}>
                         {p.items.map((it) => (
-                          <MenuItem key={it.id} collapsed={collapsed} icon={<it.icon size={16} />} label={it.label} labelSize={13} color={C.ink}
+                          // Collapsed rail: tooltip reads "<link> for <product>" (e.g. "Message
+                          // Logs for IES") so a bare icon still says which product it belongs to.
+                          <MenuItem key={it.id} collapsed={collapsed} icon={<it.icon size={16} />} label={it.label} collapsedTip={`${it.label} for ${p.label}`} labelSize={13} color={C.ink}
                             selected={page === it.id} ariaCurrent={page === it.id ? 'page' : undefined} onClick={() => onSelectItem(it.id)} />
                         ))}
-                        <MenuItem collapsed={collapsed} icon={<ArrowUpRight size={16} />} label="Full Portal" labelSize={11} labelWeight={400} color={C.inkDim} fp
+                        <MenuItem collapsed={collapsed} icon={<ArrowUpRight size={16} />} label="Full Portal" collapsedTip={`Full Portal for ${p.label}`} labelSize={11} labelWeight={400} color={C.inkDim} fp
                           onClick={() => onOpenPortal(p.id)} />
                       </div>
                     </div>
@@ -1002,26 +1047,86 @@ const PERSONAS = [
   { id: 'customer', label: 'End customer' },
 ]
 function PersonaToggle({ persona, onPick }) {
+  // A single accent "thumb" glides between the two options instead of the active
+  // background hard-swapping. It's measured off the live button geometry (the two
+  // labels differ in width), so the thumb morphs its width as it slides — the CSS
+  // transition on .msp-persona-thumb does the easing.
+  const btnRefs = useRef({})
+  const [thumb, setThumb] = useState(null)
+  useLayoutEffect(() => {
+    const el = btnRefs.current[persona]
+    if (el) setThumb({ left: el.offsetLeft, width: el.offsetWidth })
+  }, [persona])
   return (
-    <div role="radiogroup" aria-label="Demo persona" style={{
-      display: 'flex', alignItems: 'center', gap: 2, height: 32, padding: 2, borderRadius: 8,
+    <div role="radiogroup" aria-label="Demo persona" className="msp-persona" style={{
+      position: 'relative', display: 'flex', alignItems: 'center', gap: 2, height: 32, padding: 2, borderRadius: 8,
       border: '1px solid var(--vds-midnight-700)', background: 'var(--vds-midnight-900)',
     }}>
+      {thumb && (
+        <span aria-hidden className="msp-persona-thumb" style={{
+          position: 'absolute', top: 2, bottom: 2, left: 0, width: thumb.width,
+          transform: `translateX(${thumb.left}px)`, borderRadius: 6, background: 'var(--nav-accent)',
+          // faint top-light so the pill reads as raised, matching the nav's selected rows
+          backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0) 60%)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.10)',
+        }} />
+      )}
       {PERSONAS.map((p) => {
         const cur = p.id === persona
         return (
-          <button key={p.id} type="button" role="radio" aria-checked={cur}
+          <button key={p.id} ref={(el) => { btnRefs.current[p.id] = el }} type="button" role="radio" aria-checked={cur}
+            className="msp-persona-opt"
             onClick={() => { if (!cur) onPick(p.id) }}
             style={{
-              height: 26, padding: '0 12px', borderRadius: 6, border: 0, cursor: cur ? 'default' : 'pointer',
-              background: cur ? 'var(--nav-accent)' : 'transparent',
+              position: 'relative', zIndex: 1, height: 26, padding: '0 12px', borderRadius: 6, border: 0,
+              cursor: cur ? 'default' : 'pointer', background: 'transparent',
               color: cur ? 'var(--vds-white)' : 'var(--vds-midnight-300)',
-              fontFamily: 'inherit', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', transition: 'background-color 120ms ease, color 120ms ease',
+              fontFamily: 'inherit', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', transition: 'color 180ms ease',
             }}>
             {p.label}
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/* ---- Demo controls FAB ----
+   A floating pill, bottom-right, holding the three PROTOTYPE-ONLY switches that used to sit
+   in the top chrome: the reseller/end-customer lens, dark mode, and the reseller brand. These
+   aren't real product controls — they let a reviewer flip the demo's framing. Kept as one navy
+   pill (same midnight ramp as the nav) so the dark-styled controls sit natively; the brand
+   menu opens upward since the pill hugs the bottom edge. */
+function DemoFab({ persona, onPickPersona, dark, onToggleDark, brand, onPickBrand }) {
+  // Entrance is CSS, not GSAP: this is a persistent, interactive control, so it must
+  // never be left mid-tween-invisible if a frame is dropped. CSS animations run to
+  // completion off the document timeline regardless of frame timing. The pill rises
+  // in, then its three groups stagger just behind it via per-item animation-delay.
+  const divider = <span aria-hidden className="msp-fab-div" style={{ width: 1, alignSelf: 'stretch', margin: '4px 0', background: 'var(--vds-midnight-700)' }} />
+  return (
+    <div className="msp-demo-fab" role="group" aria-label="Demo controls"
+      style={{
+        position: 'fixed', bottom: 20, right: 20, zIndex: 200,
+        display: 'flex', alignItems: 'center', gap: 8, height: 48, padding: '0 10px',
+        borderRadius: 12, background: 'var(--vds-midnight-950)', border: '1px solid var(--vds-midnight-700)',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.35)', fontFamily: 'var(--vds-font-sans)',
+      }}>
+      <span className="msp-fab-item" style={{ display: 'flex', animationDelay: '0.16s' }}><PersonaToggle persona={persona} onPick={onPickPersona} /></span>
+      {divider}
+      <button type="button" onClick={onToggleDark} title={dark ? 'Light mode' : 'Dark mode'}
+        aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+        className="msp-fab-btn msp-fab-item" style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8,
+          border: '1px solid var(--vds-midnight-700)', background: 'var(--vds-midnight-900)',
+          color: 'var(--vds-midnight-200)', cursor: 'pointer', animationDelay: '0.24s',
+        }}>
+        {/* key on `dark` so the icon re-mounts and plays the rotate-in swap each toggle */}
+        <span key={dark ? 'sun' : 'moon'} className="msp-fab-icon" style={{ display: 'flex' }}>
+          {dark ? <Sun size={16} /> : <Moon size={16} />}
+        </span>
+      </button>
+      {divider}
+      <span className="msp-fab-item" style={{ display: 'flex', animationDelay: '0.32s' }}><BrandPicker brand={brand} onPick={onPickBrand} openUp animated /></span>
     </div>
   )
 }
@@ -1283,8 +1388,9 @@ function DashboardBody() {
     // key on the scope: a new node is new data, so the cards remount and the count-ups
     // run again from 0 instead of holding the previous node's figures.
     <div key={d.scopeId} ref={scope} style={{ display: 'contents' }}>
-      {/* 4 KPI columns — design-system MetricCard (minimal: header + hero value + delta) */}
-      <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
+      {/* 4 KPI columns — design-system MetricCard (minimal: header + hero value + delta).
+          Auto-fit grid: 4-across on wide, 2×2 on tablet, single column on phone. */}
+      <div className="msp-dash-kpis">
         <MetricCard data-reveal className="flex-1 min-w-0" icon={Store} iconTone="primary" title="Customers" period={d.scopeLabel} value={d.customers} delta="+6" deltaCaption="vs last month" />
         <MetricCard data-reveal className="flex-1 min-w-0" icon={Users} iconTone="azure" title="Seats" period="Licensed" value={d.seats} delta="+3%" deltaCaption="vs last month" />
         <MetricCard data-reveal className="flex-1 min-w-0" icon={ShieldAlert} iconTone="danger" title="Active Alerts" period="Live" value={d.alerts} delta="-8" invertDelta deltaCaption="vs yesterday" />
@@ -1292,7 +1398,8 @@ function DashboardBody() {
       </div>
       <NeedsAttentionCard items={d.needsAttention} />
       <PackageAdoptionCard adoption={d.adoption} adoptionAvg={d.adoptionAvg} />
-      <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
+      {/* Alert trend (2fr) + activity feed (3fr); stacks to one column under 720px. */}
+      <div className="msp-dash-split">
         <AlertTrendCard trend={d.alertTrend} />
         <RecentActivityCard items={d.recentActivity} />
       </div>
@@ -1416,21 +1523,35 @@ function ShellInner() {
 
   return (
     <div className="shell-root" style={{ ...brandStyleVars(brand), height: '100vh', display: 'flex', flexDirection: 'column', background: C.topbar, overflow: 'hidden', fontFamily: 'var(--vds-font-sans)' }}>
-      {/* Top chrome: the brand logo strip + reseller theme switcher — the scope navigator lives in the nav. */}
-      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, height: 48, background: 'var(--vds-canvas)', borderBottom: '1px solid var(--vds-midnight-1000)' }} className="dark">
-        {/* Logo = home: jump back to the root node you signed in as (Melvin Industries). */}
-        <button type="button" title="Back to Melvin Industries"
-          onClick={() => { navigate([]); setPage('dashboard'); setOpenPortal(null) }}
-          style={{ display: 'flex', alignItems: 'center', paddingLeft: 19, color: C.white, background: 'transparent', border: 0, cursor: 'pointer' }}>
-          <BrandLogo brand={brand} />
-        </button>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, paddingRight: 16 }}>
-          <PersonaToggle persona={persona} onPick={switchPersona} />
-          <BrandPicker brand={brand} onPick={setBrand} />
+      {/* Full Portal keeps a slim horizontal header — just the brand logo/home. All the demo
+          switches (lens, dark, brand) live in the DemoFab, which now floats in BOTH views, so
+          the controls have one consistent home and never duplicate the header. */}
+      {openPortal && (
+        <div className="dark" style={{ display: 'flex', alignItems: 'center', flexShrink: 0, height: LOGO_STRIP_H, background: 'var(--vds-canvas)', borderBottom: '1px solid var(--vds-midnight-1000)' }}>
+          {/* Logo = home: exits the portal and jumps back to the root node. Same height +
+              mark column (LOGO_PAD_L) as the nav-top logo so it doesn't shift when switching views. */}
+          <button type="button" title="Back to Melvin Industries"
+            onClick={() => { navigate([]); setPage('dashboard'); setOpenPortal(null) }}
+            style={{ display: 'flex', alignItems: 'center', paddingLeft: LOGO_PAD_L, color: C.white, background: 'transparent', border: 0, cursor: 'pointer' }}>
+            <BrandLogo brand={brand} />
+          </button>
         </div>
-      </div>
+      )}
+
+      {/* Demo-only floating controls (prototype framing) — present in every view. */}
+      <DemoFab
+        persona={persona} onPickPersona={switchPersona}
+        dark={dark} onToggleDark={() => setDark((d) => !d)}
+        brand={brand} onPickBrand={setBrand}
+      />
 
       <div style={{ flex: 1, display: 'flex', minHeight: 0, background: C.topbar }}>
+        {/* Page transition: keying on the view identity remounts this wrapper when you enter or
+            leave a portal, replaying the CSS fade/scale-in — so the swap glides instead of cutting.
+            The conditional below already remounts its subtree on toggle; this just adds the
+            page-level motion on top. */}
+        <div key={openPortal ? `portal-${openPortal}` : 'msp'} className="msp-page-swap"
+          style={{ flex: 1, minWidth: 0, display: 'flex' }}>
         {openPortal ? (
           <PortalView
             product={openPortal} page={portalPage} collapsed={portalCollapsed}
@@ -1445,6 +1566,8 @@ function ShellInner() {
         <div ref={rowRef} onMouseMove={onRowMove} onMouseLeave={onRowLeave}
           style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex' }}>
         <ShellNav
+          brand={brand}
+          onHome={() => { navigate([]); setPage('dashboard'); setOpenPortal(null) }}
           collapsed={collapsed} page={page} openIds={openProducts}
           onToggleProduct={(id) => setOpenProducts((o) => ({ ...o, [id]: !o[id] }))}
           onSelectItem={(id) => {
@@ -1475,9 +1598,9 @@ function ShellInner() {
                 scope/entity bar + divider live INSIDE the panel above the page title (Figma
                 91:1135); Dashboard/Customers carry their own header; the single-tenant
                 end-customer lens shows no scope bar. */}
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative', background: C.content, borderRadius: '32px 0 0 0', overflow: 'hidden' }}>
+            <div className="msp-dash-frame" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative', background: C.content, borderRadius: '32px 0 0 0', overflow: 'hidden' }}>
               {page === 'dashboard' ? (
-                <div className="shell-customers" style={{ flex: 1, minWidth: 0, background: C.content, padding: 32, display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto', overflowX: 'hidden' }}>
+                <div className="shell-customers msp-dash-canvas" style={{ flex: 1, minWidth: 0, minHeight: 0, background: C.content, display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto', overflowX: 'hidden' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     <TitleIcon icon={iconOf('dashboard')} />
                     <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--vds-ink)' }}>Dashboard</span>
@@ -1547,6 +1670,7 @@ function ShellInner() {
         </button>
         </div>
         )}
+        </div>
       </div>
 
       {provModal && (

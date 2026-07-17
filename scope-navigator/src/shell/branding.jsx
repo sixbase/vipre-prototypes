@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import gsap from 'gsap'
 import { VipreMark, VipreWordmark } from '../config'
 import { ChevronDown, Check } from '@icons'
 
@@ -102,30 +103,106 @@ export function useBrand() {
 }
 
 /* ---- Logo lockup (mark + wordmark), rendered white on the navy chrome. Vipre keeps its
-        real mark + wordmark; resellers get their geometric mark + name. ---- */
-export function BrandLogo({ brand }) {
-  if (brand.vipre) {
-    // VipreWordmark already includes the angular-V mark + the letters, so it IS the full
-    // lockup — rendering VipreMark alongside it would show the mark twice.
-    return (
-      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--vds-white)' }}>
-        <VipreWordmark height={20} style={{ display: 'block' }} />
-      </span>
-    )
-  }
-  const M = brand.Mark
+        real mark + wordmark; resellers get their geometric mark + name.
+
+        `collapsed` (opt-in) drives the rail-collapse treatment: the wordmark reduces to the
+        mark alone. The VIPRE mark occupies the SAME x-region (0–47) in the wordmark SVG as
+        the standalone mark, so we overlay them and cross-fade — the mark holds its exact
+        position while the letters dissolve, never sliding. GSAP runs the cross-fade and the
+        box's width tween on one curve so they land together. Resellers fade + collapse the
+        name beside a fixed mark. v1 shells (?view=msp / ?view=shell) pass no `collapsed`, so
+        they keep the old static lockup untouched. ---- */
+const LOGO_H = 20
+const VIPRE_WORD_W = (LOGO_H * 220) / 40 // wordmark viewBox aspect at LOGO_H tall
+const VIPRE_MARK_W = (LOGO_H * 47) / 40  // mark viewBox aspect — the collapsed width
+
+function prefersReducedMotion() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+}
+
+// Animate only on a real collapse toggle — never on mount (which would play an unwanted
+// entrance), and never under StrictMode's double-invoked effect. We compare against the
+// previous value and set (not tween) on the first pass.
+function useCollapseTween(collapsed, apply) {
+  const prev = useRef(undefined)
+  useLayoutEffect(() => {
+    const first = prev.current === undefined
+    const changed = prev.current !== collapsed
+    prev.current = collapsed
+    if (first || prefersReducedMotion()) return apply(collapsed, false)
+    if (changed) return apply(collapsed, true)
+  }, [collapsed, apply])
+}
+
+function VipreLogo({ collapsed }) {
+  const word = useRef(null)
+  const mark = useRef(null)
+  const box = useRef(null)
+  const apply = useRef((next, animate) => {
+    const to = next
+      ? { boxW: VIPRE_MARK_W, word: 0, mark: 1 }
+      : { boxW: VIPRE_WORD_W, word: 1, mark: 0 }
+    if (!animate) {
+      gsap.set(box.current, { width: to.boxW })
+      gsap.set(word.current, { opacity: to.word })
+      gsap.set(mark.current, { opacity: to.mark })
+      return
+    }
+    // Letters lead out, mark leads in — the collapse reads as the words peeling away to
+    // leave the mark, not two things dissolving at once.
+    const tl = gsap.timeline({ defaults: { ease: 'power2.out' } })
+    tl.to(box.current, { width: to.boxW, duration: 0.28 }, 0)
+      .to(word.current, { opacity: to.word, duration: next ? 0.14 : 0.26 }, 0)
+      .to(mark.current, { opacity: to.mark, duration: next ? 0.26 : 0.14 }, 0)
+    return () => tl.kill()
+  }).current
+  useCollapseTween(collapsed, apply)
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--vds-white)' }}>
-      <M width={24} height={24} style={{ display: 'block' }} />
-      <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '0.2px', whiteSpace: 'nowrap' }}>{brand.name}</span>
+    <span ref={box} style={{ position: 'relative', display: 'block', height: LOGO_H, width: VIPRE_WORD_W, overflow: 'hidden', color: 'var(--vds-white)' }}>
+      <span ref={word} style={{ display: 'block', width: VIPRE_WORD_W, height: LOGO_H }}>
+        {/* width AND height, so the wordmark renders at the same height-20 scale as the
+            overlay mark (its default width=90 would shrink it and shorten its mark, making
+            the mark grow during the cross-fade instead of holding still). */}
+        <VipreWordmark width={VIPRE_WORD_W} height={LOGO_H} style={{ display: 'block' }} />
+      </span>
+      {/* Overlaid at left:0 so its mark sits exactly over the wordmark's mark. */}
+      <span ref={mark} style={{ position: 'absolute', left: 0, top: 0, height: LOGO_H, opacity: 0 }}>
+        <VipreMark height={LOGO_H} style={{ display: 'block' }} />
+      </span>
     </span>
   )
 }
 
+function ResellerLogo({ brand, collapsed }) {
+  const M = brand.Mark
+  const label = useRef(null)
+  const apply = useRef((next, animate) => {
+    const to = next ? { opacity: 0, maxWidth: 0, marginLeft: 0 } : { opacity: 1, maxWidth: 160, marginLeft: 9 }
+    if (!animate) return void gsap.set(label.current, to)
+    const tl = gsap.timeline()
+    tl.to(label.current, { ...to, duration: 0.26, ease: 'power2.out' })
+    return () => tl.kill()
+  }).current
+  useCollapseTween(collapsed, apply)
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--vds-white)' }}>
+      <M width={24} height={24} style={{ display: 'block', flexShrink: 0 }} />
+      <span ref={label} style={{ overflow: 'hidden', whiteSpace: 'nowrap', fontSize: 16, fontWeight: 700, letterSpacing: '0.2px' }}>{brand.name}</span>
+    </span>
+  )
+}
+
+export function BrandLogo({ brand, collapsed = false }) {
+  return brand.vipre ? <VipreLogo collapsed={collapsed} /> : <ResellerLogo brand={brand} collapsed={collapsed} />
+}
+
 /* ---- Header dropdown to pick a reseller theme. Styled for the dark (navy) top strip;
         each row shows a swatch of the brand's accent so the palette is legible. ---- */
-export function BrandPicker({ brand, onPick }) {
+export function BrandPicker({ brand, onPick, openUp = false, animated = false }) {
   const [open, setOpen] = useState(false)
+  // Opt-in (animated): the menu scales/fades up from the trigger corner and its rows
+  // stagger in — driven by CSS (see .brand-menu--anim) so it always completes even if
+  // a frame drops. Gated so the frozen v1 / Symphony shells keep their instant menu.
   return (
     <div style={{ position: 'relative', flexShrink: 0 }}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open}
@@ -142,13 +219,17 @@ export function BrandPicker({ brand, onPick }) {
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} />
-          <div role="menu" style={{
-            position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 61, minWidth: 224,
+          <div role="menu" className={animated ? 'brand-menu--anim' : undefined} style={{
+            // openUp: anchor above the trigger (for a bottom-of-screen FAB, where a
+            // downward menu would fall off the viewport).
+            position: 'absolute', right: 0, zIndex: 61, minWidth: 224,
+            transformOrigin: openUp ? 'bottom right' : 'top right',
+            ...(openUp ? { bottom: 'calc(100% + 6px)' } : { top: 'calc(100% + 6px)' }),
             background: 'var(--vds-midnight-900)', border: '1px solid var(--vds-midnight-700)',
             borderRadius: 10, boxShadow: 'var(--vds-shadow-lg, 0 10px 30px rgba(0,0,0,0.45))', padding: 6,
           }}>
             <p style={{ margin: '4px 8px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '1px', color: 'var(--vds-midnight-400)' }}>RESELLER THEME</p>
-            {BRANDS.map((b) => {
+            {BRANDS.map((b, i) => {
               const cur = b.id === brand.id
               const M = b.Mark
               return (
@@ -159,6 +240,8 @@ export function BrandPicker({ brand, onPick }) {
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 8px', border: 0,
                     borderRadius: 6, background: cur ? 'var(--vds-midnight-800)' : 'transparent', cursor: 'pointer',
                     fontFamily: 'inherit', fontSize: 13, color: 'var(--vds-white)', textAlign: 'left',
+                    // CSS stagger index (consumed by .brand-menu--anim rows).
+                    ...(animated ? { animationDelay: `${0.04 + i * 0.028}s` } : null),
                   }}>
                   <span aria-hidden style={{ width: 14, height: 14, borderRadius: 4, background: b.accent, flexShrink: 0, boxShadow: '0 0 0 1px rgba(255,255,255,0.18)' }} />
                   <span aria-hidden style={{ width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--vds-white)' }}>
