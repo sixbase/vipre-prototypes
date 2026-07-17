@@ -37,9 +37,13 @@
   }
 
   // ---- header ----
+  // Top-align, not center: when the title wraps to two lines (e.g. "Package
+  // Adoption") a centered icon floats to the middle of the taller block and
+  // reads as misaligned against its single-line neighbours. Anchoring to the
+  // top keeps the icon on the title's first line at any title length.
   &__header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--vds-space-3);
   }
   &__icon {
