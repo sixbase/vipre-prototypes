@@ -54,7 +54,8 @@ const C = {
   line: 'var(--vds-line)',
   // Full-portal (focus mode) — a LIGHT product nav that flips with the theme.
   portalBg: 'var(--vds-surface)',
-  portalInk: 'var(--vds-ink-muted)',
+  portalInk: 'var(--vds-ink-muted)',   // row labels
+  portalIcon: 'var(--vds-ink-subtle)', // resting row icons — a step dimmer than labels (mirrors the dark rail)
   portalEyebrow: 'var(--vds-ink-subtle)',
 }
 
@@ -91,10 +92,12 @@ const LOGO_COL = NAV_PAD_X + NEST * 2 + 16     // 36 — the tile / icon column 
 const LOGO_MARK_W = (20 * 47) / 40             // 23.5 — VIPRE mark at BrandLogo's 20px height
 const LOGO_PAD_L = LOGO_COL - LOGO_MARK_W / 2  // 24.25 — centers the mark on that column
 const PRODUCT_CARD = { background: 'var(--vds-midnight-1000)', borderRadius: R_CARD, padding: NEST, display: 'flex', flexDirection: 'column', gap: 2 }
-// Full-portal nav widths (match the original Symphony workspace nav).
-const POR_PAD = 32
-const POR_W_COLLAPSED = 80
-const POR_W_EXPANDED = 200
+// Full-portal nav geometry — CLONED from the dark rail so the two navs read as one family:
+// same 242/72 widths, same 16px section pad-x, and the same 36px icon column
+// (section 16 + inset 2 + row pad 10 + half a 16px icon), so 72 = 2 × 36 stays centered.
+const POR_PAD = NAV_PAD_X               // 16 — section horizontal padding (was 32)
+const POR_W_COLLAPSED = SYM_W_COLLAPSED // 72 — 2 × the 36px icon column (was 80)
+const POR_W_EXPANDED = SYM_W_EXPANDED   // 242 (was 200)
 
 // How ScopeTree renders each tenancy type (mirrors the main app + the mock data types).
 const SCOPE_TYPE_CONFIG = {
@@ -311,7 +314,7 @@ function AccountHeader({ collapsed, account }) {
 // the nav, lands on its home page). At the root the "parent" is the signed-in distributor,
 // so its children are the top-level accounts. Falls back to the static header when there's
 // nothing to switch between (a lone child, or the end-customer lens).
-function AccountSwitcher({ collapsed, account, owner, currentId, children, onPick }) {
+function AccountSwitcher({ collapsed, account, owner, currentId, children, onPick, placement = 'right' }) {
   const [open, setOpen] = useState(false)
   const [rect, setRect] = useState(null)       // trigger geometry, captured on open
   const [query, setQuery] = useState('')
@@ -345,11 +348,14 @@ function AccountSwitcher({ collapsed, account, owner, currentId, children, onPic
     return true
   })
 
-  // Popover geometry: flies out to the RIGHT of the trigger (off the nav's right edge),
-  // top-aligned to the trigger — same anchoring whether the rail is expanded or collapsed.
+  // Popover geometry. 'right' (nav default): flies off the nav's right edge, top-aligned to
+  // the trigger. 'below' (the Full Portal header): drops straight down under the trigger,
+  // left-aligned but clamped so it can't run off the right edge.
   const POP_W = 264
   const pos = rect
-    ? { left: rect.right + 10, top: rect.top }
+    ? (placement === 'below'
+        ? { left: Math.min(rect.left, window.innerWidth - POP_W - 12), top: rect.bottom + 8 }
+        : { left: rect.right + 10, top: rect.top })
     : { left: 0, top: 0 }
 
   const chips = [
@@ -874,38 +880,46 @@ function portalDef(pid) {
   return { label: p?.label || 'Portal', defaultPage: p?.items?.[0]?.id, sections: [{ label: 'Pages', items: p?.items || [] }] }
 }
 
-/* One light portal-nav row. */
-function PortalRow({ icon, label, labelSize = 12, labelWeight = 500, selected, collapsed, onClick, ariaLabel }) {
-  const pillPad = 8
-  const base = POR_PAD
+/* One light portal-nav row — a SINGLE-LAYER pill cloned from the dark rail's MenuItem:
+   radius 10, 6/10 padding, 16px icon, and an animated 8px label lead-margin (labelFade,
+   fast-out / late-in). Background + hover/press/selected live in shell.css
+   (.por-nav .obrow--light) so the fill timing can be asymmetric — an inline background
+   would beat the :hover rule. Icons never shift x on collapse (padding is identical in
+   both states; only the label's max-width + margin collapse). */
+function PortalRow({ icon, label, labelSize = 13, labelWeight = 500, selected, collapsed, onClick, ariaLabel }) {
   const Tag = onClick ? 'button' : 'div'
+  const tip = (typeof label === 'string' && label) ? label : ariaLabel
   return (
     <Tag
       {...(onClick ? { type: 'button', onClick } : {})}
-      className={onClick ? 'obrow obrow--light' : undefined}
+      className={['obrow', 'obrow--light', selected && 'obrow--sel'].filter(Boolean).join(' ')}
       aria-current={selected ? 'page' : undefined} aria-label={ariaLabel}
+      data-tip={collapsed ? tip : undefined}
       style={{
-        display: 'flex', alignItems: 'center', width: '100%', minHeight: 24,
-        paddingLeft: base - pillPad, paddingRight: base - pillPad, border: 0, background: 'transparent',
-        cursor: onClick ? 'pointer' : 'default', color: selected ? C.onSelected : C.portalInk,
-        fontFamily: 'inherit', textAlign: 'left', transition: `padding 220ms ${OB_EASE}`,
+        display: 'flex', alignItems: 'center', width: '100%', borderRadius: R_PILL, border: 0,
+        padding: '6px 10px', cursor: onClick ? 'pointer' : 'default', fontFamily: 'inherit',
+        textAlign: 'left', color: selected ? C.onSelected : C.portalInk,
       }}
     >
-      <span className="obrow-pill" style={{
-        display: 'flex', flex: 1, minWidth: 0, alignItems: 'center', borderRadius: 5,
-        paddingTop: 8, paddingBottom: 8, paddingLeft: pillPad, paddingRight: collapsed ? pillPad : 8,
-        transition: `padding 220ms ${OB_EASE}, background-color 120ms ease`,
-        ...(selected ? { background: C.selected } : {}),
-      }}>
-        <span style={{ width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{icon}</span>
-        <span style={{
-          maxWidth: collapsed ? 0 : 150, marginLeft: collapsed ? 0 : 8, opacity: collapsed ? 0 : 1, minWidth: 0,
-          overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: labelSize, fontWeight: labelWeight,
-          transition: `max-width 220ms ${OB_EASE}, margin-left 220ms ${OB_EASE}, opacity 150ms ease`,
-        }}>{label}</span>
-      </span>
+      <span style={{ width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: selected ? C.onSelected : C.portalIcon, transition: 'color 200ms ease' }}>{icon}</span>
+      <span style={{
+        maxWidth: collapsed ? 0 : 200, marginLeft: collapsed ? 0 : 8, opacity: collapsed ? 0 : 1, minWidth: 0,
+        overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: labelSize, fontWeight: labelWeight,
+        transition: labelFade(collapsed),
+      }}>{label}</span>
     </Tag>
   )
+}
+
+/* Section eyebrow — cloned from the dark rail's Eyebrow (paddingLeft 4 lands the label on
+   the tile column; fades but never unmounts, so section heights are identical collapsed). */
+function PortalEyebrow({ collapsed, children }) {
+  return <p style={{ margin: 0, paddingLeft: 4, fontSize: 10, fontWeight: 500, letterSpacing: '1.2px', textTransform: 'uppercase', color: C.portalEyebrow, whiteSpace: 'nowrap', overflow: 'hidden', opacity: collapsed ? 0 : 1, transition: collapsed ? 'opacity 90ms ease' : 'opacity 200ms ease 70ms' }}>{children}</p>
+}
+
+/* Inset hairline — the light-nav twin of the dark rail's MenuDivider (var(--vds-line)). */
+function PortalDivider() {
+  return <div style={{ height: 1, margin: '0 12px', background: 'var(--vds-line)', flexShrink: 0 }} />
 }
 
 /* The full-portal left nav (light): exit-to-shell, a WORKING-IN customer banner (the
@@ -915,89 +929,85 @@ function WorkspaceNav({ product, page, collapsed, scope, products, showScope = t
   const ProductGlyph = (PRODUCTS.find((p) => p.id === product) || {}).icon || Laptop
   const [switcherOpen, setSwitcherOpen] = useState(false)
   return (
-    <div style={{
+    <div className="por-nav" style={{
       width: collapsed ? POR_W_COLLAPSED : POR_W_EXPANDED, flexShrink: 0, background: C.portalBg,
       display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'visible',
       transition: `width 220ms ${OB_EASE}`, ...style,
     }}>
-      <div className="ob-scroll-light" style={{ padding: '12px 0 8px', overflowY: 'auto', overflowX: 'visible', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <PortalRow collapsed={collapsed} label="Exit portal" labelWeight={500}
-          onClick={onExit} ariaLabel="Exit portal" icon={<ChevronLeft size={16} />} />
-
-        {/* WORKING IN — the customer reference point, shown when a reseller is operating
-            inside a customer. The end customer is in its own portal, so it's omitted. */}
-        {showScope && !collapsed && (
-          <div style={{ padding: `0 ${POR_PAD - 8}px` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, borderRadius: 8, background: 'color-mix(in srgb, var(--vds-ink) 5%, transparent)', border: `1px solid ${C.line}` }}>
-              {scope.tile ? <img src={scope.tile} alt="" style={{ width: 28, height: 28, display: 'block', flexShrink: 0 }} />
-                : <span style={{ width: 28, height: 28, borderRadius: 6, background: 'color-mix(in srgb, var(--vds-ink) 10%, transparent)', flexShrink: 0 }} />}
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: C.portalEyebrow, lineHeight: 1.5 }}>Working in</span>
-                <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--vds-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{scope.name}</span>
-              </span>
-            </div>
+      <div className="ob-scroll-light" style={{ padding: 0, overflowY: 'auto', overflowX: 'visible', display: 'flex', flexDirection: 'column' }}>
+        {/* Exit-to-shell + product switcher — the nav's chrome, sitting on the same 36px
+            icon column as every row (section pad 16 + inset 2 + row pad 10 + half a 16px icon). */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `10px ${POR_PAD}px` }}>
+          <div style={{ padding: `0 ${NEST}px` }}>
+            <PortalRow collapsed={collapsed} label="Symphony" onClick={onExit}
+              ariaLabel="Symphony" icon={<ChevronLeft size={16} />} />
           </div>
-        )}
-
-        {/* product switcher */}
-        <div style={{ position: 'relative' }}>
-          <button type="button" className="obrow obrow--light ob-switcher" onClick={() => setSwitcherOpen((o) => !o)}
-            aria-label="Switch product" aria-expanded={switcherOpen}
-            style={{
-              display: 'flex', alignItems: 'center', width: '100%', minHeight: 24, textAlign: 'left',
-              paddingLeft: collapsed ? (POR_W_COLLAPSED - 16) / 2 - 4 : POR_PAD - 6,
-              paddingRight: collapsed ? (POR_W_COLLAPSED - 16) / 2 - 4 : POR_PAD - 6,
-              border: 0, background: 'transparent', cursor: 'pointer', color: C.portalInk, fontFamily: 'inherit',
-              transition: `padding 220ms ${OB_EASE}`,
-            }}>
-            <span className="obrow-pill" style={{ display: 'flex', flex: 1, minWidth: 0, alignItems: 'center', borderRadius: 5, padding: collapsed ? '8px' : '8px 8px 8px 6px' }}>
+          <div style={{ padding: `0 ${NEST}px`, position: 'relative' }}>
+            <button type="button" className="obrow obrow--light ob-switcher"
+              onClick={() => setSwitcherOpen((o) => !o)}
+              aria-label="Switch product" aria-expanded={switcherOpen}
+              style={{
+                display: 'flex', alignItems: 'center', width: '100%', borderRadius: R_PILL, border: 0,
+                padding: '6px 10px', background: 'transparent', cursor: 'pointer', color: C.portalInk,
+                fontFamily: 'inherit', textAlign: 'left',
+              }}>
               <span style={{ width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <ProductGlyph size={16} style={{ color: C.portalInk }} />
+                <ProductGlyph size={16} style={{ color: C.portalIcon }} />
               </span>
               {!collapsed && <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--vds-ink)' }}>{def.label}</span>}
               {!collapsed && <ChevronDown size={14} style={{ opacity: 0.55, flexShrink: 0, transform: switcherOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms ease' }} />}
-            </span>
-          </button>
-          {switcherOpen && (
-            <>
-              <div onClick={() => setSwitcherOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
-              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 17, zIndex: 31, minWidth: 174, background: C.portalBg, borderRadius: 10, border: `1px solid ${C.line}`, boxShadow: 'var(--vds-shadow-lg)', padding: 5 }}>
-                {products.map((p) => {
-                  const G = p.icon
-                  const cur = p.id === product
-                  return (
-                    <button key={p.id} type="button" onClick={() => { setSwitcherOpen(false); if (!cur) onSwitchProduct(p.id) }}
-                      className="ob-switch-item"
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', border: 0, borderRadius: 6, background: cur ? 'color-mix(in srgb, var(--nav-accent) 12%, transparent)' : 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: cur ? 'var(--vds-ink)' : C.portalInk, textAlign: 'left' }}>
-                      <G size={16} style={{ flexShrink: 0, color: cur ? C.selected : C.portalInk }} />
-                      <span style={{ flex: 1, fontWeight: cur ? 500 : 400 }}>{p.label}</span>
-                      {cur && <Check size={15} style={{ color: C.selected }} />}
-                    </button>
-                  )
-                })}
-              </div>
-            </>
-          )}
+            </button>
+            {switcherOpen && (
+              <>
+                <div onClick={() => setSwitcherOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
+                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 17, zIndex: 31, minWidth: 174, background: C.portalBg, borderRadius: 10, border: `1px solid ${C.line}`, boxShadow: 'var(--vds-shadow-lg)', padding: 5 }}>
+                  {products.map((p) => {
+                    const G = p.icon
+                    const cur = p.id === product
+                    return (
+                      <button key={p.id} type="button" onClick={() => { setSwitcherOpen(false); if (!cur) onSwitchProduct(p.id) }}
+                        className="ob-switch-item"
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', border: 0, borderRadius: 6, background: cur ? 'color-mix(in srgb, var(--nav-accent) 12%, transparent)' : 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: cur ? 'var(--vds-ink)' : C.portalInk, textAlign: 'left' }}>
+                        <G size={16} style={{ flexShrink: 0, color: cur ? C.selected : C.portalInk }} />
+                        <span style={{ flex: 1, fontWeight: cur ? 500 : 400 }}>{p.label}</span>
+                        {cur && <Check size={15} style={{ color: C.selected }} />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
+        <PortalDivider />
+
         {def.sections.map((sec) => (
-          <div key={sec.label} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <div style={{ fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: C.portalEyebrow, overflow: 'hidden', whiteSpace: 'nowrap', paddingLeft: POR_PAD, marginBottom: 8, opacity: collapsed ? 0 : 1, transition: 'opacity 150ms ease' }}>{sec.label}</div>
-            {sec.items.map((it) => {
-              const ItemIcon = it.icon
-              return (
-                <PortalRow key={it.id} collapsed={collapsed} label={it.label}
-                  selected={page === it.id} onClick={() => onSelectPage(it.id)} icon={<ItemIcon size={16} />} />
-              )
-            })}
+          <div key={sec.label} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `10px ${POR_PAD}px` }}>
+            <PortalEyebrow collapsed={collapsed}>{sec.label}</PortalEyebrow>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `0 ${NEST}px` }}>
+              {sec.items.map((it) => {
+                const ItemIcon = it.icon
+                return (
+                  <PortalRow key={it.id} collapsed={collapsed} label={it.label}
+                    selected={page === it.id} onClick={() => onSelectPage(it.id)} icon={<ItemIcon size={16} />} />
+                )
+              })}
+            </div>
           </div>
         ))}
       </div>
-      <div style={{ flexShrink: 0, padding: '8px 0 24px' }}>
-        <PortalRow collapsed={collapsed} label={dark ? 'Light mode' : 'Dark mode'}
-          onClick={onToggleDark} icon={dark ? <Sun size={16} /> : <Moon size={16} />} />
-        <PortalRow collapsed={collapsed} label="" onClick={onToggleCollapse} ariaLabel={collapsed ? 'Expand menu' : 'Collapse menu'}
-          icon={collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />} />
+      <div style={{ flexShrink: 0 }}>
+        <PortalDivider />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `10px ${POR_PAD}px 24px` }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `0 ${NEST}px` }}>
+            <PortalRow collapsed={collapsed} label={dark ? 'Light mode' : 'Dark mode'}
+              onClick={onToggleDark} icon={dark ? <Sun size={16} /> : <Moon size={16} />} />
+            <PortalRow collapsed={collapsed} label={collapsed ? 'Expand' : 'Collapse'}
+              onClick={onToggleCollapse} ariaLabel={collapsed ? 'Expand menu' : 'Collapse menu'}
+              icon={collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />} />
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1006,8 +1016,6 @@ function WorkspaceNav({ product, page, collapsed, scope, products, showScope = t
 /* The focus-mode portal: the product's deep nav + content, scoped to the current
    customer (shown in the nav banner AND the content reference header). */
 function PortalView({ product, page, collapsed, scope, products, showScope = true, onExit, onSelectPage, onSwitchProduct, onToggleCollapse, dark, onToggleDark }) {
-  const def = portalDef(product)
-  const ProductGlyph = (PRODUCTS.find((p) => p.id === product) || {}).icon || Laptop
   return (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', background: C.topbar, padding: 8 }}>
       <WorkspaceNav
@@ -1017,18 +1025,8 @@ function PortalView({ product, page, collapsed, scope, products, showScope = tru
         style={{ borderRadius: '16px 0 0 16px' }}
       />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: C.content, borderRadius: '0 16px 16px 0', overflow: 'hidden' }}>
-        {/* customer + product reference header — the "which customer am I working for" cue.
-            The end customer is in its own portal, so only the product is shown. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 32px', flexShrink: 0, background: 'var(--vds-surface)', borderBottom: `1px solid ${C.line}` }}>
-          {showScope && (scope.tile ? <img src={scope.tile} alt="" style={{ width: 24, height: 24, display: 'block', flexShrink: 0 }} />
-            : <span style={{ width: 24, height: 24, borderRadius: 6, background: 'color-mix(in srgb, var(--vds-ink) 10%, transparent)', flexShrink: 0 }} />)}
-          {showScope && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vds-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{scope.name}</span>}
-          {showScope && <span style={{ color: C.portalEyebrow, fontSize: 14 }}>›</span>}
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: C.portalInk, flexShrink: 0 }}>
-            <ProductGlyph size={15} />
-            <span style={{ fontSize: 13, fontWeight: 500 }}>{def.label} Full Portal</span>
-          </span>
-        </div>
+        {/* The customer/product reference breadcrumb was removed — the scope switcher now lives
+            in the top header, so the portal content starts straight at the page. */}
         <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
           <ContentCard page={page} />
           <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)' }} />
@@ -1535,6 +1533,22 @@ function ShellInner() {
             style={{ display: 'flex', alignItems: 'center', paddingLeft: LOGO_PAD_L, color: C.white, background: 'transparent', border: 0, cursor: 'pointer' }}>
             <BrandLogo brand={brand} />
           </button>
+          {/* Scope switcher, to the right of the logo — the same account-header dropdown as the
+              nav's, so you can hop between accounts without leaving the portal. Opens downward
+              here (placement="below"). Hidden in the single-tenant end-customer lens. */}
+          {!isCustomer && (
+            <>
+              <span aria-hidden style={{ width: 1, height: 24, background: 'var(--vds-midnight-800)', margin: '0 6px 0 14px', flexShrink: 0 }} />
+              <div style={{ width: 232, flexShrink: 0 }}>
+                {switcherChildren.length > 1 ? (
+                  <AccountSwitcher collapsed={false} account={accountFor(path)} owner={switcherOwner}
+                    currentId={currentId} children={switcherChildren} onPick={switchTo} placement="below" />
+                ) : (
+                  <AccountHeader collapsed={false} account={accountFor(path)} />
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
