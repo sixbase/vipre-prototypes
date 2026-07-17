@@ -10,6 +10,34 @@
 .obrow:not(.obrow--name):not(.obrow--light):not([aria-current]):hover .obrow-pill { background: color-mix(in srgb, var(--vds-white) 10%, transparent); }
 .obrow--light:not([aria-current="page"]):hover .obrow-pill { background: color-mix(in srgb, var(--vds-ink) 7%, transparent); }
 
+/* ---------------------------------------------------------------------------
+   Full-portal (focus-mode) LIGHT nav — .por-nav. CLONED from the dark rail's
+   .msp-nav--v2 .ob-mrow so both navs share one motion + selection language:
+   slow fade at rest (280ms), near-instant on hover (50ms), immediate on press;
+   the selected pill carries the brand accent + a whisper of top-light + an inner
+   hairline. Fills are ink-alpha so they still read if the portal flips to dark.
+   Scoped to .por-nav so the v1 / Symphony light navs (two-layer .obrow-pill) are
+   untouched — those keep the rules above. Single-layer here: the row IS the pill. */
+.por-nav .obrow--light { transition: background-color 280ms ease; }
+.por-nav .obrow--light:not(.obrow--sel):hover { background-color: color-mix(in srgb, var(--vds-ink) 6%, transparent); transition-duration: 50ms; }
+.por-nav .obrow--light:active { transition-duration: 0ms; }
+/* Pressed: one step stronger than the hover fill — tactile, not murky. */
+.por-nav .obrow--light:not(.obrow--sel):active { background-color: color-mix(in srgb, var(--vds-ink) 12%, transparent); }
+/* Selected: brand-accent pill + white ink (set inline) + top-light gradient + inner hairline. */
+.por-nav .obrow--light.obrow--sel {
+  background-color: var(--nav-accent);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 60%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.por-nav .obrow--light.obrow--sel:hover { background-color: color-mix(in srgb, var(--nav-accent), #000 10%); }
+.por-nav .obrow--light.obrow--sel:active { background-color: color-mix(in srgb, var(--nav-accent), #000 18%); }
+/* The product switcher shares the row motion; a touch stronger when open. */
+.por-nav .ob-switcher:hover,
+.por-nav .ob-switcher[aria-expanded="true"] { background-color: color-mix(in srgb, var(--vds-ink) 8%, transparent); transition-duration: 50ms; }
+/* Keyboard focus: the standard light focus ring, hugging the pill radius. */
+.por-nav button:focus-visible { outline: var(--vds-control-ring-w, 2px) solid var(--vds-focus-ring); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) { .por-nav .obrow--light { transition: none; } }
+
 /* Symphony nav rows (Figma 48:6476). Base rules give a transparent rest bg (also
    kills the native <button> face) so the :hover rules can actually win — the row bg
    must NOT be set inline, or inline would override :hover. The active state owns its
