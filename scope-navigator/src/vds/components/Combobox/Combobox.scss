@@ -1,0 +1,114 @@
+// ============================================================================
+// Combobox — a searchable single-select composed on Input (field chrome) and
+// Popover (anchored panel + canonical `__menu` / `__item` option look, see
+// Popover.scss). This file owns only what those two don't: the anchor layout,
+// the clear/caret trailing actions, the virtual-cursor highlight, and the
+// two-line (label + description) option body.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-combobox {
+  display: inline-flex;
+  width: 100%;
+
+  // The Input inside already dims itself when disabled — the root only blocks
+  // pointers (so the anchor can't toggle the list), avoiding a double fade.
+  &--disabled {
+    pointer-events: none;
+  }
+
+  // The anchor spans the whole Input shell — Popover measures it, so the panel
+  // aligns to (and matches the width of) the visible field, not the inner input.
+  &__anchor {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+  }
+
+  // ---- trailing actions (clear × + caret) ----
+  &__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vds-space-1);
+  }
+
+  &__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: calc(var(--vds-space-1) / 2);
+    border: 0;
+    border-radius: var(--vds-radius-sm);
+    background: transparent;
+    color: var(--vds-ink-subtle);
+    cursor: pointer;
+    transition:
+      color var(--vds-dur-fast) var(--vds-ease-out),
+      background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      color: var(--vds-ink);
+      background-color: var(--vds-surface-hover);
+    }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: 1px;
+    }
+  }
+
+  &__caret {
+    color: var(--vds-ink-subtle);
+
+    @include bp.motion-ok {
+      transition: transform var(--vds-dur-fast) var(--vds-ease-out);
+    }
+
+    &--open {
+      transform: rotate(180deg);
+    }
+  }
+
+  // ---- option rows (extends the canonical vds-popover__item) ----
+  // The keyboard highlight is a *virtual* cursor (aria-activedescendant) —
+  // real focus never leaves the input — so it paints the same wash as hover.
+  &__option--highlighted {
+    background-color: var(--vds-popover-item-hover);
+  }
+
+  &__option-icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--vds-ink-subtle);
+  }
+
+  &__option-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__option-desc {
+    color: var(--vds-ink-subtle);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    @include type.step(detail);
+  }
+
+  // ---- empty state ----
+  &__empty {
+    padding: var(--vds-space-3);
+    color: var(--vds-ink-subtle);
+    @include type.step(body);
+  }
+}
+
+// The open list reuses the canonical Popover menu (`vds-popover__menu` /
+// `__item`) — hover, active fill, check affix, and the coarse-pointer tap
+// target all come from Popover.scss. The panel also caps its own width at
+// the viewport (max-width + JS clamp), so it stays on-screen at 320px.
+// No .dark override — everything resolves through semantic tokens.

@@ -14,7 +14,7 @@
 .vds-clnav {
   // ---- the shipped palette, exposed as overridable knobs ----
   --vds-clnav-w: 13.625rem; // 218px
-  --vds-clnav-bg: #0b192d; // == --vds-midnight-950
+  --vds-clnav-bg: var(--vds-midnight-950);
   --vds-clnav-card-bg: rgba(0, 0, 0, 0.3);
   --vds-clnav-card-line: #1a2734; // fallback solid card border
   // Gradient stroke on each product card — lit from above. NOTE: stops are a
@@ -27,9 +27,9 @@
   --vds-clnav-escape: #8fa4b9; // "full portal" italic link
   --vds-clnav-muted: #5b6b7d;
   --vds-clnav-accent: #1f6feb; // active product toggle fill
-  --vds-clnav-selected: #0068cb; // selected nav item background
-  --vds-clnav-selected-ink: #ffffff; // selected nav item text / icon
-  --vds-clnav-footer-label: #ffffff;
+  --vds-clnav-selected: var(--vds-cobalt-600); // selected nav item background
+  --vds-clnav-selected-ink: var(--vds-white); // selected nav item text / icon
+  --vds-clnav-footer-label: var(--vds-white);
   --vds-clnav-hover: rgba(255, 255, 255, 0.06);
   --vds-clnav-connector: rgba(255, 255, 255, 0.4); // the dotted vertical rail threading sub-item nodes
   --vds-clnav-node-bg: #081220; // card bg, flattened — opaque so the rail breaks at each node
@@ -55,7 +55,7 @@
     justify-content: center;
     flex-shrink: 0;
     padding: 0 var(--vds-space-4) var(--vds-space-6);
-    color: #ffffff;
+    color: var(--vds-white);
   }
 
   // ---- scrollable middle ----
@@ -70,14 +70,14 @@
     gap: var(--vds-space-4);
 
     scrollbar-width: thin;
-    scrollbar-color: color-mix(in oklab, #ffffff 16%, transparent) transparent;
+    scrollbar-color: color-mix(in oklab, var(--vds-white) 16%, transparent) transparent;
     &::-webkit-scrollbar { width: 4px; height: 4px; }
     &::-webkit-scrollbar-track { background: transparent; }
     &::-webkit-scrollbar-thumb {
-      background: color-mix(in oklab, #ffffff 16%, transparent);
-      border-radius: 9999px;
+      background: color-mix(in oklab, var(--vds-white) 16%, transparent);
+      border-radius: var(--vds-radius-full);
     }
-    &::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, #ffffff 28%, transparent); }
+    &::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, var(--vds-white) 28%, transparent); }
   }
 
   // ---- standalone Overview entry ----
@@ -188,14 +188,14 @@
     width: 1rem;
     height: 1rem;
     border: 1px solid var(--vds-clnav-toggle-ring);
-    border-radius: 9999px;
+    border-radius: var(--vds-radius-full);
     color: var(--vds-clnav-muted);
     // Active product: the toggle becomes a filled accent chip so you can see
     // which product the current page lives inside.
     &--active {
       border-color: transparent;
       background-color: var(--vds-clnav-accent);
-      color: #ffffff;
+      color: var(--vds-white);
     }
   }
 
@@ -223,7 +223,7 @@
     &--active {
       background-color: var(--vds-clnav-selected);
       color: var(--vds-clnav-selected-ink);
-      font-weight: 500;
+      font-weight: var(--vds-weight-medium);
     }
     &--active:hover { background-color: var(--vds-clnav-selected); }
   }
@@ -275,7 +275,7 @@
   &__item-glyph svg {
     position: relative;
     z-index: 1;
-    border-radius: 9999px;
+    border-radius: var(--vds-radius-full);
     background-color: var(--vds-clnav-node-bg);
   }
 
@@ -300,7 +300,7 @@
     color: var(--vds-clnav-item-label);
     background-color: var(--vds-clnav-hover);
     padding: 0 var(--vds-space-2);
-    border-radius: 9999px;
+    border-radius: var(--vds-radius-full);
   }
 
   // ---- "full portal" escape link ----
@@ -316,7 +316,7 @@
     color: var(--vds-clnav-escape);
     cursor: pointer;
     transition: color var(--vds-dur-fast) var(--vds-ease-out);
-    &:hover { color: color-mix(in oklab, var(--vds-clnav-escape) 70%, #ffffff); }
+    &:hover { color: color-mix(in oklab, var(--vds-clnav-escape) 70%, var(--vds-white)); }
   }
   &__escape-icon {
     flex-shrink: 0;
@@ -325,8 +325,8 @@
     justify-content: center;
     width: 1rem;
     height: 1rem;
-    border: 1px solid #344250;
-    border-radius: 9999px;
+    border: 1px solid var(--vds-clnav-node-ring);
+    border-radius: var(--vds-radius-full);
     color: currentColor;
   }
   &__escape-label {
@@ -367,7 +367,7 @@
     padding: var(--vds-space-2) 0 var(--vds-space-3);
     display: flex;
     flex-direction: column;
-    gap: 0.375rem; // 6px
+    gap: var(--vds-space-1-5);
   }
   &__footer-item {
     display: flex;
@@ -425,8 +425,8 @@
 
   // ---- focus ----
   & button:focus-visible {
-    outline: 2px solid var(--vds-focus-ring);
-    outline-offset: 2px;
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
   }
 
   // ==========================================================================
@@ -464,8 +464,8 @@
     .vds-clnav__card--active .vds-clnav__card-toggle {
       display: flex;
       position: absolute;
-      top: 0.25rem;
-      right: -0.375rem;
+      top: var(--vds-space-1);
+      right: calc(var(--vds-space-1-5) * -1);
       width: 1.125rem;
       height: 1.125rem;
       box-shadow: 0 0 0 2px var(--vds-clnav-card-bg);

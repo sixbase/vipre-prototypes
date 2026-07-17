@@ -1,0 +1,86 @@
+// ============================================================================
+// TagsInput — a field shell holding dismissible Tag chips + a borderless input
+// that grows. The shell IS an input dressed up, so its chrome mirrors Input's
+// field-class recipe: neutral border + hover darken, the soft box-shadow focus
+// ring on :focus-within. Input's --vds-input-* vars are scoped to .vds-input,
+// so the same recipe is re-declared here against foundation tokens.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-tags {
+  // ---- public tokens (bind to foundation only; mirror the Input field recipe) ----
+  --vds-tags-radius: var(--vds-radius-sm);
+  --vds-tags-border-w: var(--vds-border-w);       // 1px
+  --vds-tags-fill: var(--vds-surface-sunken);
+  --vds-tags-border: var(--vds-line-strong);
+  --vds-tags-border-hover: color-mix(in oklab, var(--vds-tags-border), var(--vds-ink) var(--vds-control-hover-mix));
+  --vds-tags-border-focus: var(--vds-focus-ring);
+  --vds-tags-ring: color-mix(in oklab, var(--vds-focus-ring) var(--vds-control-ring-tint), transparent);
+  --vds-tags-ink-muted: var(--vds-ink-subtle);
+  --vds-tags-gap: var(--vds-space-1-5);           // chip↔chip / chip↔input gap
+  --vds-tags-pad-y: var(--vds-space-1);
+  --vds-tags-pad-x-sm: var(--vds-space-2);        // 8px
+  --vds-tags-pad-x-md: var(--vds-space-2-5);      // 10px
+  --vds-tags-pad-x-lg: var(--vds-space-3);        // 12px
+  --vds-tags-min-h-sm: var(--vds-control-h-sm);
+  --vds-tags-min-h-md: var(--vds-control-h-md);
+  --vds-tags-min-h-lg: var(--vds-control-h-lg);
+  --vds-tags-dur: var(--vds-dur-fast);
+  --vds-tags-ease: var(--vds-ease-out);
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vds-tags-gap);
+  width: 100%;
+  background-color: var(--vds-tags-fill);
+  border: var(--vds-tags-border-w) solid var(--vds-tags-border);
+  border-radius: var(--vds-tags-radius);
+  color: var(--vds-ink);
+  cursor: text;
+
+  @include bp.motion-ok {
+    transition:
+      border-color var(--vds-tags-dur) var(--vds-tags-ease),
+      box-shadow var(--vds-tags-dur) var(--vds-tags-ease);
+  }
+
+  &:hover:not(:focus-within):not(.vds-tags--disabled) {
+    border-color: var(--vds-tags-border-hover);
+  }
+
+  &:focus-within {
+    border-color: var(--vds-tags-border-focus);
+    box-shadow: 0 0 0 var(--vds-control-ring-w) var(--vds-tags-ring);
+  }
+
+  &--disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  &__input {
+    // grows to fill the row; a few chars min so it never collapses to nothing.
+    // 6ch is text geometry (character advance), not a spacing-scale value.
+    flex: 1 1 6ch;
+    min-width: 6ch;
+    height: auto;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    outline: none;
+
+    &::placeholder { color: var(--vds-tags-ink-muted); }
+  }
+
+  // ---- sizes — min-height keeps a chip-less field the height of an Input ----
+  &--sm { min-height: var(--vds-tags-min-h-sm); padding: var(--vds-tags-pad-y) var(--vds-tags-pad-x-sm); @include type.step(detail); }
+  &--md { min-height: var(--vds-tags-min-h-md); padding: var(--vds-tags-pad-y) var(--vds-tags-pad-x-md); @include type.step(body); }
+  &--lg { min-height: var(--vds-tags-min-h-lg); padding: var(--vds-tags-pad-y) var(--vds-tags-pad-x-lg); @include type.step(body-lg); }
+}
+// No .dark override needed — every chrome var resolves through a semantic token
+// that already flips to the Midnight ramp in dark mode.

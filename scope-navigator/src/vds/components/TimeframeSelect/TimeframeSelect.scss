@@ -6,22 +6,27 @@
 // fill + focus-ring) so it sits naturally beside other controls.
 // ============================================================================
 @use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
 
 .vds-timeframe {
   --vds-tf-hover: color-mix(in oklab, var(--vds-ink) 6%, transparent);
+  // Segmented track inset. The segment's height and radius are derived from it
+  // (a segment sits inside the track by exactly this much), so it lives here.
+  --vds-tf-seg-pad: 2px;
 
-  // ---- shared sizing ----
-  &--sm { --vds-tf-h: 2rem; }
-  &--md { --vds-tf-h: 2.25rem; }
+  // ---- shared sizing (bound to the control-metric tokens) ----
+  &--sm { --vds-tf-h: var(--vds-control-h-sm); }
+  &--md { --vds-tf-h: var(--vds-control-h-md); }
 
   // ====================================================================
   // Dropdown trigger pill
   // ====================================================================
   &__trigger {
+    position: relative; // anchors the coarse-pointer ::after hit-area overlay
     display: inline-flex;
     align-items: center;
     gap: var(--vds-space-2);
-    height: var(--vds-tf-h, 2.25rem);
+    height: var(--vds-tf-h, var(--vds-control-h-md));
     padding: 0 var(--vds-space-2) 0 var(--vds-space-3);
     border: 1px solid var(--vds-line);
     border-radius: var(--vds-radius-sm);
@@ -39,7 +44,8 @@
     &:focus-visible {
       outline: none;
       border-color: var(--vds-focus-ring);
-      box-shadow: 0 0 0 2px color-mix(in oklab, var(--vds-focus-ring) 35%, transparent);
+      box-shadow: 0 0 0 var(--vds-control-ring-w)
+        color-mix(in oklab, var(--vds-focus-ring) var(--vds-control-ring-tint), transparent);
     }
     &[aria-expanded='true'] {
       border-color: var(--vds-focus-ring);
@@ -48,7 +54,7 @@
   &--sm.vds-timeframe__trigger { @include type.step(detail); }
 
   &__lead { color: var(--vds-ink-subtle); }
-  &__value { font-weight: 500; white-space: nowrap; }
+  &__value { font-weight: var(--vds-weight-medium); white-space: nowrap; }
   &__caret { color: var(--vds-ink-subtle); margin-left: var(--vds-space-1); }
 
   // ====================================================================
@@ -82,11 +88,12 @@
     &:hover { background-color: var(--vds-tf-hover); }
     &:focus-visible {
       outline: none;
-      box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--vds-focus-ring) 45%, transparent);
+      box-shadow: inset 0 0 0 var(--vds-control-ring-w)
+        color-mix(in oklab, var(--vds-focus-ring) 45%, transparent);
     }
     &--active {
       color: var(--vds-primary);
-      font-weight: 500;
+      font-weight: var(--vds-weight-medium);
       background-color: var(--vds-primary-soft);
     }
   }
@@ -111,27 +118,37 @@
     display: flex;
     align-items: center;
     gap: var(--vds-space-2);
+
+    // Narrow screens: the two date inputs stack instead of crushing each other
+    // inside the ~300px popover; the connecting dash reads as noise, drop it.
+    @include bp.down(sm) {
+      flex-direction: column;
+      align-items: stretch;
+
+      .vds-timeframe__custom-dash { display: none; }
+    }
   }
   &__custom-dash { color: var(--vds-ink-subtle); }
   &__apply {
     width: 100%;
     margin-top: var(--vds-space-2);
     padding: var(--vds-space-1) var(--vds-space-2);
-    height: 2rem;
+    height: var(--vds-control-h-sm);
     border: 0;
     border-radius: var(--vds-radius-sm);
     background-color: var(--vds-primary);
-    color: var(--vds-on-primary, #fff);
+    color: var(--vds-on-primary, var(--vds-white));
     font-family: var(--vds-font-sans);
     @include type.step(detail);
-    font-weight: 500;
+    font-weight: var(--vds-weight-medium);
     cursor: pointer;
     transition: opacity var(--vds-dur-fast) var(--vds-ease-out);
 
     &:hover { opacity: 0.92; }
     &:focus-visible {
       outline: none;
-      box-shadow: 0 0 0 2px color-mix(in oklab, var(--vds-focus-ring) 45%, transparent);
+      box-shadow: 0 0 0 var(--vds-control-ring-w)
+        color-mix(in oklab, var(--vds-focus-ring) 45%, transparent);
     }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
   }
@@ -142,21 +159,28 @@
   &--segmented {
     display: inline-flex;
     align-items: stretch;
-    padding: 2px;
+    padding: var(--vds-tf-seg-pad);
     border: 1px solid var(--vds-line);
     border-radius: var(--vds-radius-md);
     background-color: color-mix(in oklab, var(--vds-ink) 4%, transparent);
+    // Narrow containers: the track scrolls sideways instead of wrapping — a
+    // two-row segmented control stops reading as one choice.
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   &__seg {
-    height: calc(var(--vds-tf-h, 2.25rem) - 4px);
+    position: relative; // anchors the coarse-pointer ::after hit-area overlay
+    flex-shrink: 0;     // segments keep their size; the track scrolls instead
+    height: calc(var(--vds-tf-h, var(--vds-control-h-md)) - var(--vds-tf-seg-pad) * 2);
     padding: 0 var(--vds-space-3);
     border: 0;
-    border-radius: calc(var(--vds-radius-md) - 2px);
+    border-radius: calc(var(--vds-radius-md) - var(--vds-tf-seg-pad));
     background: transparent;
     color: var(--vds-ink-muted);
     font-family: var(--vds-font-sans);
     @include type.step(detail);
-    font-weight: 500;
+    font-weight: var(--vds-weight-medium);
     white-space: nowrap;
     cursor: pointer;
     transition:
@@ -167,13 +191,38 @@
     &:hover { color: var(--vds-ink); }
     &:focus-visible {
       outline: none;
-      box-shadow: 0 0 0 2px color-mix(in oklab, var(--vds-focus-ring) 45%, transparent);
+      box-shadow: 0 0 0 var(--vds-control-ring-w)
+        color-mix(in oklab, var(--vds-focus-ring) 45%, transparent);
     }
     &--active {
       background-color: var(--vds-surface);
       color: var(--vds-ink);
       box-shadow: var(--vds-shadow-xs);
     }
+  }
+
+  // ---- touch (coarse pointer) — tap targets without visual bloat ----
+  @include bp.coarse {
+    // menu rows reach the minimum tap height
+    &__option { min-height: var(--vds-tap-target); }
+
+    // trigger pill + segments grow an invisible, centered hit-area overlay
+    &__trigger::after,
+    &__seg::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: max(100%, var(--vds-tap-target));
+      height: max(100%, var(--vds-tap-target));
+    }
+    // adjacent segments would overlap each other's overlays sideways — keep the
+    // segment overlay vertical-only so every segment stays individually hittable
+    &__seg::after { width: 100%; }
+
+    // the Apply button in the custom-range editor
+    &__apply { min-height: var(--vds-tap-target); }
   }
 }
 

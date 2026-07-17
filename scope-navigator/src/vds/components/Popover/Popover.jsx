@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { cx } from '../../lib/cx.js'
 import { Surface } from '../Surface/Surface.jsx'
 
@@ -129,7 +130,6 @@ export const Popover = forwardRef(function Popover(
       if (!wrap || !panel || !trig) return
       const t = trig.getBoundingClientRect()
       const p = panel.getBoundingClientRect()
-      const w = wrap.getBoundingClientRect()
       const m = 8 // viewport margin
       const vw = window.innerWidth
       const vh = window.innerHeight
@@ -146,7 +146,10 @@ export const Popover = forwardRef(function Popover(
       let left = align === 'end' ? t.right - p.width : t.left
       left = Math.min(Math.max(left, m), Math.max(m, vw - m - p.width))
 
-      setPos({ top: top - w.top, left: left - w.left, up, maxHeight })
+      // Viewport coordinates — the panel is portaled to <body> and positioned
+      // with `position: fixed`, so it never enlarges (or gets clipped by) a
+      // scrolling ancestor like a table's overflow-x body.
+      setPos({ top, left, up, maxHeight })
     }
     compute()
     window.addEventListener('resize', compute)
@@ -170,7 +173,11 @@ export const Popover = forwardRef(function Popover(
       }
     }
     const onPointer = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+      // The panel lives in a body-level portal, so it's outside wrapRef — check
+      // it too, or a click on a panel item would read as an outside click.
+      const inWrap = wrapRef.current?.contains(e.target)
+      const inPanel = panelRef.current?.contains(e.target)
+      if (!inWrap && !inPanel) setOpen(false)
     }
     document.addEventListener('keydown', onKey, true)
     document.addEventListener('mousedown', onPointer)
@@ -191,39 +198,43 @@ export const Popover = forwardRef(function Popover(
     'aria-controls': open ? panelId : undefined,
   })
 
+  const panel = open && (
+    <Surface
+      ref={panelRef}
+      id={panelId}
+      role={role}
+      aria-label={ariaLabel}
+      tabIndex={-1}
+      elevation="overlay"
+      padding={null}
+      radius="md"
+      {...surfaceProps}
+      className={cx(
+        'vds-popover__panel',
+        pos?.up && 'vds-popover__panel--up',
+        panelClassName,
+        surfaceProps.className,
+      )}
+      style={{
+        position: 'fixed',
+        top: pos ? pos.top : 0,
+        left: pos ? pos.left : 0,
+        maxHeight: pos?.maxHeight,
+        minWidth: matchWidth ? triggerRef.current?.offsetWidth : undefined,
+        visibility: pos ? 'visible' : 'hidden',
+        ...surfaceProps.style,
+      }}
+    >
+      {typeof children === 'function' ? children({ close: closeAndReturnFocus }) : children}
+    </Surface>
+  )
+
   return (
     <div ref={mergeRefs(ref, wrapRef)} className={cx('vds-popover', className)} {...props}>
       {triggerEl}
-      {open && (
-        <Surface
-          ref={panelRef}
-          id={panelId}
-          role={role}
-          aria-label={ariaLabel}
-          tabIndex={-1}
-          elevation="overlay"
-          padding={null}
-          radius="md"
-          {...surfaceProps}
-          className={cx(
-            'vds-popover__panel',
-            pos?.up && 'vds-popover__panel--up',
-            panelClassName,
-            surfaceProps.className,
-          )}
-          style={{
-            position: 'absolute',
-            top: pos ? pos.top : 0,
-            left: pos ? pos.left : 0,
-            maxHeight: pos?.maxHeight,
-            minWidth: matchWidth ? triggerRef.current?.offsetWidth : undefined,
-            visibility: pos ? 'visible' : 'hidden',
-            ...surfaceProps.style,
-          }}
-        >
-          {typeof children === 'function' ? children({ close: closeAndReturnFocus }) : children}
-        </Surface>
-      )}
+      {/* Portal the panel to <body> so it's positioned against the viewport,
+          not trapped inside (and distorting) a scrolling ancestor. */}
+      {panel && typeof document !== 'undefined' && createPortal(panel, document.body)}
     </div>
   )
 })

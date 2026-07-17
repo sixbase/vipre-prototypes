@@ -5,6 +5,7 @@ import { Surface } from '../Surface/Surface.jsx'
 import { Icon } from '../Icon/Icon.jsx'
 import { Badge } from '../Badge/Badge.jsx'
 import { Divider } from '../Divider/Divider.jsx'
+import { Progress } from '../Progress/Progress.jsx'
 
 /* Number → locale string, wrapped by prefix/suffix. Strings pass through. */
 function formatValue(value, prefix, suffix) {
@@ -157,7 +158,7 @@ function resolveDelta(delta, invert) {
  * A flagship KPI card — the rich counterpart to StatTile. It stacks a header
  * (soft icon chip + title + period), a hero value with a signed delta badge,
  * an optional target progress bar, and an optional breakdown list. Composes
- * Surface + Icon + Badge + Divider.
+ * Surface + Icon + Badge + Progress + Divider.
  *
  * For a dense one-line KPI use StatTile; reach for MetricCard when a single
  * metric is the hero of a panel and deserves context (target, breakdown).
@@ -259,7 +260,10 @@ export const MetricCard = forwardRef(function MetricCard(
       type={isInteractive ? 'button' : undefined}
       onClick={onClick}
       elevation="resting"
-      padding={6}
+      // Padding lives on the inner wrapper (__in): the root is the container
+      // for the narrow-card query below, and a container query can't restyle
+      // the container itself — same pattern as StatTile.
+      padding={null}
       className={cx(
         'vds-metric',
         `vds-metric--icon-${iconTone}`,
@@ -268,72 +272,69 @@ export const MetricCard = forwardRef(function MetricCard(
       )}
       {...props}
     >
-      {hasHeader && (
-        <div className="vds-metric__header">
-          {icon && (
-            <span className="vds-metric__icon" aria-hidden="true">
-              <Icon as={icon} size="md" />
-            </span>
-          )}
-          <div className="vds-metric__heading">
-            {title && <h3 className="vds-metric__title">{title}</h3>}
-            {period && <span className="vds-metric__period">{period}</span>}
-          </div>
-        </div>
-      )}
-
-      <div className="vds-metric__figure">
-        <AnimatedValue className="vds-metric__value" value={formatValue(value, prefix, suffix)} active={inView} />
-        {(deltaEl || deltaCaption) && (
-          <div className="vds-metric__delta">
-            {deltaEl}
-            {deltaCaption && <span className="vds-metric__delta-caption">{deltaCaption}</span>}
+      <div className="vds-metric__in">
+        {hasHeader && (
+          <div className="vds-metric__header">
+            {icon && (
+              <span className="vds-metric__icon" aria-hidden="true">
+                <Icon as={icon} size="md" />
+              </span>
+            )}
+            <div className="vds-metric__heading">
+              {title && <h3 className="vds-metric__title">{title}</h3>}
+              {period && <span className="vds-metric__period">{period}</span>}
+            </div>
           </div>
         )}
-      </div>
 
-      {hasProgress && (
-        <div className="vds-metric__progress">
-          {(progress.label != null || progress.value != null) && (
-            <div className="vds-metric__progress-head">
-              {progress.label != null && <span className="vds-metric__progress-label">{progress.label}</span>}
-              <AnimatedValue className="vds-metric__progress-pct" value={`${progress.value}%`} active={inView} />
+        <div className="vds-metric__figure">
+          <AnimatedValue className="vds-metric__value" value={formatValue(value, prefix, suffix)} active={inView} />
+          {(deltaEl || deltaCaption) && (
+            <div className="vds-metric__delta">
+              {deltaEl}
+              {deltaCaption && <span className="vds-metric__delta-caption">{deltaCaption}</span>}
             </div>
           )}
-          <div
-            className="vds-metric__bar"
-            role="progressbar"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={progress.caption || progress.label || 'Progress'}
-          >
-            <div
-              className={cx('vds-metric__bar-fill', `vds-metric__bar-fill--${barTone}`)}
-              style={{ width: inView ? `${pct}%` : '0%' }}
-            />
-          </div>
-          {progress.caption && <span className="vds-metric__progress-caption">{progress.caption}</span>}
         </div>
-      )}
 
-      {hasBreakdown && (
-        <>
-          <Divider />
-          <dl className="vds-metric__breakdown">
-            {breakdown.map((row, i) => (
-              <div className="vds-metric__breakdown-row" key={i}>
-                <dt className="vds-metric__breakdown-label">{row.label}</dt>
-                <dd className="vds-metric__breakdown-value">
-                  <AnimatedValue value={row.value} active={inView} />
-                </dd>
+        {hasProgress && (
+          <div className="vds-metric__progress">
+            {(progress.label != null || progress.value != null) && (
+              <div className="vds-metric__progress-head">
+                {progress.label != null && <span className="vds-metric__progress-label">{progress.label}</span>}
+                <AnimatedValue className="vds-metric__progress-pct" value={`${progress.value}%`} active={inView} />
               </div>
-            ))}
-          </dl>
-        </>
-      )}
+            )}
+            {/* Grows from 0 the first time the card scrolls in, matching the
+                count-up: inView flips once, then Progress transitions the width. */}
+            <Progress
+              value={inView ? pct : 0}
+              tone={barTone}
+              size="md"
+              aria-label={progress.caption || progress.label || 'Progress'}
+            />
+            {progress.caption && <span className="vds-metric__progress-caption">{progress.caption}</span>}
+          </div>
+        )}
 
-      {children}
+        {hasBreakdown && (
+          <>
+            <Divider />
+            <dl className="vds-metric__breakdown">
+              {breakdown.map((row, i) => (
+                <div className="vds-metric__breakdown-row" key={i}>
+                  <dt className="vds-metric__breakdown-label">{row.label}</dt>
+                  <dd className="vds-metric__breakdown-value">
+                    <AnimatedValue value={row.value} active={inView} />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
+
+        {children}
+      </div>
     </Surface>
   )
 })

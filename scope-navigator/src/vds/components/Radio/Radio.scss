@@ -1,0 +1,101 @@
+// ============================================================================
+// Radio — real <input type="radio"> visually replaced by a styled circle.
+// Mirrors Checkbox: neutral graphite when off, brand fill + white dot when on.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-radio {
+  // 18px circle — deliberately smaller than any --vds-control-h-* step (a radio
+  // isn't a text control); the tap target is restored on coarse pointers below.
+  --vds-radio-size: 1.125rem;
+  // Selected dot diameter. Glyph geometry, NOT spacing — it must not ride the
+  // --vds-space-* scale even though 0.375rem currently matches the 1-5 step.
+  --vds-radio-dot: 0.375rem;
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vds-space-2);
+  cursor: pointer;
+  position: relative;
+  // Align by circle, not text baseline — same stability fix as Checkbox: the
+  // checked ::after appearing must not shift the line box.
+  vertical-align: middle;
+  @include type.step(body);
+
+  &--disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  // the real input sits over the circle, invisible but focusable/clickable
+  &__input {
+    position: absolute;
+    width: var(--vds-radio-size);
+    height: var(--vds-radio-size);
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  &__circle {
+    flex-shrink: 0;
+    width: var(--vds-radio-size);
+    height: var(--vds-radio-size);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    // semantic chrome: same resting border as form inputs, recessed fill.
+    border: 1px solid var(--vds-line-strong);
+    border-radius: var(--vds-radius-full);
+    background-color: var(--vds-surface-sunken);
+    transition:
+      background-color var(--vds-dur-fast) var(--vds-ease-out),
+      border-color var(--vds-dur-fast) var(--vds-ease-out);
+  }
+
+  &__label {
+    color: var(--vds-ink);
+    user-select: none;
+  }
+
+  // hover (unchecked, enabled) — border darkens toward ink
+  &:hover:not(&--disabled) &__input:not(:checked) ~ &__circle {
+    border-color: color-mix(in oklab, var(--vds-line-strong), var(--vds-ink) var(--vds-control-hover-mix));
+  }
+
+  // focus ring (driven by the input's focus state)
+  &__input:focus-visible ~ &__circle {
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
+  }
+
+  // checked → brand fill with an on-primary dot
+  &__input:checked ~ &__circle {
+    background-color: var(--vds-primary);
+    border-color: var(--vds-primary);
+  }
+
+  &__input:checked ~ &__circle::after {
+    content: '';
+    width: var(--vds-radio-dot);
+    height: var(--vds-radio-dot);
+    border-radius: var(--vds-radius-full);
+    background-color: var(--vds-on-primary);
+  }
+
+  // Touch: the invisible input (the real hit area) grows to the minimum tap
+  // target, centered on the 18px circle — the visual design doesn't change.
+  // (Same rule as Checkbox.)
+  @include bp.coarse {
+    &__input {
+      width: var(--vds-tap-target);
+      height: var(--vds-tap-target);
+      top: 50%;
+      left: calc((var(--vds-radio-size) - var(--vds-tap-target)) / 2);
+      transform: translateY(-50%);
+    }
+  }
+}
+
+// No .dark override — line-strong + surface-sunken already flip in dark mode.

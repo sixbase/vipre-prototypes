@@ -1,0 +1,150 @@
+// ============================================================================
+// Modal — scrim + centered dialog panel. The panel is a Surface at overlay
+// elevation; this file owns layout, sizing, the enter/exit animation, and the
+// header/body/footer anatomy. Token-bound only.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--vds-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--vds-space-6);
+}
+
+.vds-modal__scrim {
+  position: absolute;
+  inset: 0;
+  background-color: var(--vds-scrim);
+  animation: vds-modal-fade-in var(--vds-dur-base) var(--vds-ease-out);
+}
+
+.vds-modal__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 35rem; // md default
+  max-height: 100%;
+  animation: vds-modal-pop-in var(--vds-dur-base) var(--vds-ease-out);
+
+  &:focus-visible {
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
+  }
+}
+
+// ---- sizes ----
+.vds-modal--sm .vds-modal__panel { max-width: 26rem; }
+.vds-modal--lg .vds-modal__panel { max-width: 45rem; }
+.vds-modal--full .vds-modal__panel {
+  max-width: none;
+  height: 100%;
+}
+
+// ---- anatomy ----
+.vds-modal__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vds-space-4);
+  padding: var(--vds-space-5) var(--vds-space-5) 0;
+}
+
+.vds-modal__heading {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--vds-space-1);
+}
+
+.vds-modal__close {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--vds-icon-btn-md);
+  height: var(--vds-icon-btn-md);
+  border: 0;
+  border-radius: var(--vds-radius-sm);
+  background: transparent;
+  color: var(--vds-ink-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--vds-dur-fast) var(--vds-ease-out),
+    color var(--vds-dur-fast) var(--vds-ease-out);
+
+  &:hover {
+    background-color: var(--vds-surface-hover);
+    color: var(--vds-ink);
+  }
+  &:focus-visible {
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
+  }
+}
+
+.vds-modal__body {
+  flex: 1 1 auto;
+  padding: var(--vds-space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.vds-modal__footer {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: var(--vds-space-2);
+  padding: var(--vds-space-4) var(--vds-space-5);
+  border-top: 1px solid var(--vds-line);
+}
+
+// ---- exit (usePresence keeps the node mounted while --closing plays) ----
+.vds-modal--closing .vds-modal__scrim {
+  animation: vds-modal-fade-in var(--vds-dur-base) var(--vds-ease-out) reverse forwards;
+}
+.vds-modal--closing .vds-modal__panel {
+  animation: vds-modal-pop-in var(--vds-dur-base) var(--vds-ease-out) reverse forwards;
+}
+
+// ---- responsive: near-full-width with small margins below sm ----
+@include bp.down(sm) {
+  .vds-modal {
+    padding: var(--vds-space-3);
+  }
+  .vds-modal__panel {
+    max-width: none;
+  }
+}
+
+@keyframes vds-modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes vds-modal-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-modal__scrim,
+  .vds-modal__panel {
+    animation: none;
+  }
+  // No exit animation to play — hide immediately; unmount follows right after.
+  .vds-modal--closing {
+    display: none;
+  }
+}

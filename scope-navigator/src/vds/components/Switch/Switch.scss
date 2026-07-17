@@ -2,11 +2,21 @@
 // Switch — track + sliding thumb. Off = neutral graphite track; on = brand.
 // ============================================================================
 @use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
 
 .vds-switch {
+  // Track + thumb geometry. Glyph geometry, NOT spacing or a control height —
+  // it must not ride --vds-space-* / --vds-control-h-* even where a step
+  // currently matches (track-w = -h-md's 2.25rem, track-h = space-5's 1.25rem).
+  --vds-switch-track-w: 2.25rem; // 36px
+  --vds-switch-track-h: 1.25rem; // 20px
+  --vds-switch-thumb: 1rem;      // 16px
+  // Gap between track edge and thumb. Off the 4px space grid — no token matches.
+  --vds-switch-pad: 2px;
+
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--vds-space-2);
   cursor: pointer;
   position: relative;
   @include type.step(body);
@@ -18,8 +28,8 @@
 
   &__input {
     position: absolute;
-    width: 2.25rem;
-    height: 1.25rem;
+    width: var(--vds-switch-track-w);
+    height: var(--vds-switch-track-h);
     margin: 0;
     opacity: 0;
     cursor: pointer;
@@ -27,10 +37,10 @@
 
   &__track {
     flex-shrink: 0;
-    width: 2.25rem; // 36px
-    height: 1.25rem; // 20px
-    padding: 2px;
-    border-radius: 999px;
+    width: var(--vds-switch-track-w);
+    height: var(--vds-switch-track-h);
+    padding: var(--vds-switch-pad);
+    border-radius: var(--vds-radius-full);
     // off track: the same neutral as the form-control resting border (flips in dark)
     background-color: var(--vds-line-strong);
     transition: background-color var(--vds-dur-base) var(--vds-ease-out);
@@ -38,9 +48,9 @@
 
   &__thumb {
     display: block;
-    width: 1rem;
-    height: 1rem;
-    border-radius: 999px;
+    width: var(--vds-switch-thumb);
+    height: var(--vds-switch-thumb);
+    border-radius: var(--vds-radius-full);
     background-color: var(--vds-white);
     box-shadow: var(--vds-shadow-sm);
     transition: transform var(--vds-dur-base) var(--vds-ease-out);
@@ -53,7 +63,7 @@
 
   // hover (off, enabled) — track darkens toward ink
   &:hover:not(&--disabled) &__input:not(:checked) ~ &__track {
-    background-color: color-mix(in oklab, var(--vds-line-strong), var(--vds-ink) 30%);
+    background-color: color-mix(in oklab, var(--vds-line-strong), var(--vds-ink) var(--vds-control-hover-mix));
   }
   // hover (on, enabled) — brand track deepens
   &:hover:not(&--disabled) &__input:checked ~ &__track {
@@ -61,8 +71,8 @@
   }
 
   &__input:focus-visible ~ &__track {
-    outline: 2px solid var(--vds-focus-ring);
-    outline-offset: 2px;
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
   }
 
   &__input:checked ~ &__track {
@@ -70,7 +80,21 @@
   }
 
   &__input:checked ~ &__track .vds-switch__thumb {
+    // Travel = track-w - 2*pad - thumb (36 - 4 - 16). Kept literal, not a calc:
+    // pad is px while the rest are rem, so a calc would drift off a 16px root.
     transform: translateX(1rem);
+  }
+
+  // Touch: the invisible input (the real hit area) grows to the minimum tap
+  // target, centered on the 36×20 track — the visual design doesn't change.
+  @include bp.coarse {
+    &__input {
+      width: max(var(--vds-switch-track-w), var(--vds-tap-target));
+      height: var(--vds-tap-target);
+      top: 50%;
+      left: calc((var(--vds-switch-track-w) - max(var(--vds-switch-track-w), var(--vds-tap-target))) / 2);
+      transform: translateY(-50%);
+    }
   }
 }
 // No .dark override — line-strong flips to the Midnight ramp automatically.

@@ -1,0 +1,95 @@
+// ============================================================================
+// Progress — linear bar. Track/fill geometry matches the MetricCard target bar
+// (pill track on --vds-line, tone-solid fill) so bars read as one family
+// everywhere. Tones set a local --_bar-fill; the fill consumes it.
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vds-space-2);
+  width: 100%;
+  font-family: var(--vds-font-sans);
+
+  --_bar-fill: var(--vds-primary);
+
+  // ---- optional head row: label left, value right ----
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--vds-space-3);
+  }
+  &__label {
+    @include type.step(detail);
+    color: var(--vds-ink-muted);
+  }
+  &__value {
+    @include type.step(detail);
+    font-weight: var(--vds-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--vds-ink);
+  }
+
+  // ---- track + fill (MetricCard geometry) ----
+  &__track {
+    width: 100%;
+    border-radius: var(--vds-radius-full);
+    background-color: var(--vds-line);
+    overflow: hidden;
+  }
+  &__fill {
+    height: 100%;
+    border-radius: var(--vds-radius-full);
+    background-color: var(--_bar-fill);
+    // Emphatic settle when the value changes; falls back to ease-out until the
+    // foundation tokens land.
+    transition: width var(--vds-dur-slow) var(--vds-ease-emphatic, var(--vds-ease-out));
+  }
+
+  // ---- sizes (track height) ----
+  &--sm .vds-progress__track { height: 0.25rem; }   // 4px
+  &--md .vds-progress__track { height: 0.5rem; }    // 8px — MetricCard's bar
+  &--lg .vds-progress__track { height: 0.75rem; }   // 12px
+
+  // ---- status tones ----
+  &--primary { --_bar-fill: var(--vds-primary); }
+  &--success { --_bar-fill: var(--vds-success); }
+  &--warning { --_bar-fill: var(--vds-warning); }
+  &--danger  { --_bar-fill: var(--vds-danger); }
+
+  // ---- chromatic families (categorical, no good/bad) — same set StatTile
+  // supports. Accent tokens already flip 600→400 in dark. ----
+  @each $fam in "azure", harbor, emerald, amber, rose, "orchid", clay {
+    &--#{$fam} { --_bar-fill: var(--vds-accent-#{$fam}); }
+  }
+
+  // ---- indeterminate: a 40%-wide runner sweeps the track ----
+  &--indeterminate .vds-progress__fill {
+    width: 40%;
+    transition: none;
+    animation: vds-progress-sweep 1.4s var(--vds-ease-emphatic, ease) infinite;
+  }
+}
+
+@keyframes vds-progress-sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(250%); } // 250% of 40% = clears the far edge
+}
+
+@keyframes vds-progress-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.8; }
+}
+
+// Reduced motion: the fill snaps to its width; the indeterminate sweep becomes
+// a full-width, slow opacity pulse (still signals "working", without travel).
+@media (prefers-reduced-motion: reduce) {
+  .vds-progress__fill { transition: none; }
+  .vds-progress--indeterminate .vds-progress__fill {
+    width: 100%;
+    transform: none;
+    animation: vds-progress-pulse 2s ease-in-out infinite;
+  }
+}

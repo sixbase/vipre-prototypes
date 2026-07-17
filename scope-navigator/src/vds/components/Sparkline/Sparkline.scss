@@ -5,6 +5,11 @@
 .vds-sparkline {
   display: block;
   overflow: visible;
+  // Shrink, never overflow: the width/height attributes set the natural size,
+  // but in a tight flex/grid cell the SVG scales down with its container —
+  // height: auto keeps the aspect ratio via the viewBox.
+  max-width: 100%;
+  height: auto;
   color: var(--vds-primary);
 
   &--success { color: var(--vds-success); }

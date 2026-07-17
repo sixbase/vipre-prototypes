@@ -1,0 +1,176 @@
+/* Provisioning modal — vanilla CSS, token-bound. No Tailwind by design.
+ *
+ * The Vipre DS is plain CSS + --vds-* custom properties (no Tailwind, no framework),
+ * and the Vipre team consumes it from BOTH React and Angular. Keeping this file to
+ * vanilla CSS + DS tokens means the markup ports to Angular by copying classes —
+ * nothing here depends on a build step or a utility framework.
+ *
+ * Division of labour: static layout lives in inline styles on the JSX; this file owns
+ * what inline styles CANNOT express — :hover, :focus-visible, and the per-mode
+ * (light/dark) accent flip.
+ *
+ * Gotcha (same one shell.css documents): never set a `background` inline on an element
+ * that has a :hover background here — an inline style always wins and the hover dies.
+ */
+
+/* ---- layout ------------------------------------------------------------------ */
+
+.prov-stack { display: flex; flex-direction: column; gap: var(--vds-space-4); }
+.prov-stack--tight { gap: var(--vds-space-2); }
+.prov-stack--sm { gap: var(--vds-space-3); }
+.prov-stack--loose { gap: var(--vds-space-5); }
+.prov-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--vds-space-4); }
+.prov-grid2--addons { gap: var(--vds-space-2) var(--vds-space-4); }
+
+/* ---- tall arrow-row ----------------------------------------------------------
+ * DS GAP: no ActionRow/ActionList exists. Used by the confirmation screens and the
+ * account-type picker. Hand-built but token-bound so it can't drift on colour.
+ */
+
+.prov-actionrow {
+  display: flex;
+  align-items: center;
+  gap: var(--vds-space-4);
+  width: 100%;
+  padding: 0 var(--vds-space-4);
+  border: 1px solid var(--vds-line);
+  border-radius: var(--vds-radius-lg);
+  background: var(--vds-surface);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.prov-actionrow:hover { background: var(--vds-canvas); border-color: var(--vds-line-strong); }
+.prov-actionrow:focus-visible { outline: 2px solid var(--vds-focus-ring); outline-offset: 2px; }
+.prov-actionrow__body { flex: 1; min-width: 0; }
+.prov-actionrow__chev { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--vds-ink-subtle); }
+
+/* ---- product card ------------------------------------------------------------
+ * The accent is passed in per product as a --prov-accent-light / --prov-accent-dark
+ * pair (inline, from the PRODUCTS table), and this rule picks the right one per mode.
+ * That's the one thing inline styles can't do, so it lives here — and it means the
+ * selected border / fill / ring all derive from ONE value instead of three classes.
+ */
+
+.prov-product {
+  --prov-accent: var(--prov-accent-light);
+  display: flex;
+  align-items: center;
+  gap: var(--vds-space-4);
+  width: 100%;
+  height: 4rem;
+  padding: 0 var(--vds-space-4);
+  border: 1px solid var(--vds-line);
+  border-radius: var(--vds-radius-lg);
+  background: var(--vds-surface);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.dark .prov-product { --prov-accent: var(--prov-accent-dark); }
+.prov-product:not(.prov-product--sel):hover { background: var(--vds-canvas); border-color: var(--vds-line-strong); }
+.prov-product:focus-visible { outline: 2px solid var(--vds-focus-ring); outline-offset: 2px; }
+.prov-product--sel {
+  border-color: var(--prov-accent);
+  box-shadow: 0 0 0 1px var(--prov-accent);
+  background: color-mix(in srgb, var(--prov-accent) 8%, var(--vds-surface));
+}
+.prov-product__icon { width: 1.25rem; height: 1.25rem; flex-shrink: 0; color: var(--prov-accent); }
+.prov-product__body { flex: 1; min-width: 0; }
+.prov-product__desc { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Selection mark — a radio dot. DS RadioGroup owns its own row layout, so it can't
+   drive these cards; the mark is rebuilt here on tokens. */
+.prov-product__mark {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  border-radius: var(--vds-radius-full);
+  border: 2px solid var(--vds-line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.prov-product--sel .prov-product__mark {
+  background: var(--vds-primary);
+  border-color: var(--vds-primary);
+  color: var(--vds-on-primary);
+}
+
+/* ---- account-type chip (type picker) -----------------------------------------
+ * A neutral ring + DS-toned glyph — the same treatment EntityTypeIcon established for
+ * d/r/c entities. Local because the shared typeConfig still hands back Tailwind classes
+ * and is consumed by 18 un-converted files.
+ */
+
+.prov-typechip {
+  --prov-accent: var(--prov-accent-light);
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: var(--vds-radius-full);
+  border: 1px solid var(--vds-line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dark .prov-typechip { --prov-accent: var(--prov-accent-dark); }
+.prov-typechip__glyph { width: 1rem; height: 1rem; color: var(--prov-accent); }
+
+/* ---- permission card (reseller / distributor product grants) ------------------ */
+
+.prov-permcard {
+  padding: var(--vds-space-4);
+  border: 1px solid var(--vds-line);
+  border-radius: var(--vds-radius-lg);
+  background: var(--vds-surface);
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+.prov-permcard--off { background: var(--vds-canvas); opacity: 0.6; }
+.prov-permicon { --prov-accent: var(--prov-accent-light); width: 1rem; height: 1rem; flex-shrink: 0; color: var(--prov-accent); }
+.dark .prov-permicon { --prov-accent: var(--prov-accent-dark); }
+
+/* ---- success toast -----------------------------------------------------------
+ * DS GAP: the DS ships Toast, but it expects a provider/queue this prototype doesn't
+ * mount and the shells own toast state themselves. Kept local, token-bound.
+ */
+
+.prov-toast {
+  position: fixed;
+  bottom: var(--vds-space-5);
+  right: var(--vds-space-5);
+  z-index: var(--vds-z-toast);
+}
+.prov-toast__box {
+  display: flex;
+  align-items: center;
+  gap: var(--vds-space-3);
+  padding: var(--vds-space-3) var(--vds-space-4) var(--vds-space-3) 0;
+  max-width: 24rem;
+  background: var(--vds-surface);
+  border: 1px solid var(--vds-line);
+  border-left: 4px solid var(--vds-success);
+  border-radius: var(--vds-radius-lg);
+  box-shadow: var(--vds-shadow-lg);
+}
+.prov-toast__icon { width: 1rem; height: 1rem; flex-shrink: 0; margin-left: var(--vds-space-4); color: var(--vds-success); }
+.prov-toast__close {
+  margin-left: var(--vds-space-1);
+  flex-shrink: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--vds-ink-subtle);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.prov-toast__close:hover { color: var(--vds-ink); }
+
+/* ---- misc -------------------------------------------------------------------- */
+
+.prov-center { display: flex; flex-direction: column; align-items: center; }
+.prov-optional { margin-left: var(--vds-space-2); }
+.prov-eyebrow-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--vds-space-2); }

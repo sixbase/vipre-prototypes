@@ -1,20 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import gsap from 'gsap'
 import {
   Mail, Send, Laptop, GraduationCap, Database, ScrollText, Radar, Settings,
   FileText, ShieldCheck, Monitor, Bell, UserCog, User, Key, ArrowUpRight,
   PanelLeftClose, PanelLeftOpen, LayoutDashboard, Moon, Sun,
   Boxes, Store, Zap, ChevronLeft, ChevronRight, ChevronDown, Check, Search, X,
-  ArrowLeft, ArrowRight, Users, ShieldAlert, AlertTriangle, Rocket, UserCheck,
+  ArrowLeft, ArrowRight, Users, ShieldAlert, AlertTriangle, Rocket, UserCheck, Plus,
 } from '@icons'
 import { Button } from '../vds/components/Button/Button.jsx'
-import { StatTile } from '../vds/components/index.js'
+import { MetricCard } from '../vds/components/index.js'
 import { ScopeProvider, useScope } from '../ScopeContext'
 import { DistributorIcon, ResellerIcon, CustomerIcon } from '../entityIcons.jsx'
 import distributorTile from '../assets/entity/distributor.svg'
 import resellerTile from '../assets/entity/reseller.svg'
 import customerTile from '../assets/entity/customer.svg'
 import { useBrand, brandStyleVars, BrandLogo, BrandPicker } from './branding.jsx'
-import { mockData, countDescendantsByType } from '../data'
+import { mockData, flattenFrom, hash } from '../data'
 import { isEntityUnmanaged } from '../config'
 import { ProvisioningModal, SuccessToast } from '../ProvisioningModal'
 import { ChildrenListView } from '../EntityDetail.jsx'
@@ -1029,21 +1030,105 @@ function PersonaToggle({ persona, onPick }) {
 // subscription profile the reseller lens uses per-customer, so the products feel real.
 const CUSTOMER_TENANT = { id: 'acme-corp', name: 'Acme Corp' }
 
-/* ============================ Dashboard (placeholder data) ============================
-   Not real telemetry — deterministic stand-ins so the My-Accounts dashboard reads like a
-   real MSP console. Customers is derived from the actual mock hierarchy so the KPI matches
-   the Customers list; the rest are plausible fixed values. */
-const DASH_CUSTOMERS = countDescendantsByType(mockData).customer || 0
-const DASH_SEATS = DASH_CUSTOMERS * 34 + 812
-const DASH_ALERTS = 47
-const PKG_ADOPTION = [
-  { label: 'IES', pct: 86 },
-  { label: 'SafeSend', pct: 61 },
-  { label: 'EDR', pct: 48 },
-  { label: 'SAT', pct: 33 },
-  { label: 'Archive', pct: 24 },
+/* ============================ Dashboard (per-scope data) ============================
+   The dashboard describes the node you're scoped into, so everything here is derived from
+   the current scope rather than fixed. Two kinds of number:
+
+   REAL   — read straight off the mock hierarchy under the scope (customer count, seat
+            totals, the customer names in the lists). These agree with the Customers list.
+   SEEDED — no telemetry exists in the mock for alerts/adoption, so they're generated from
+            a hash of the scope's id. Not real, but deterministic: a given node always shows
+            the same figures, and two nodes never show the same ones. */
+
+// Deterministic 0→1 stream from a seed string (mulberry32 over data.js's `hash`).
+// Same seed → same sequence, so a node's numbers are stable across renders and reloads.
+function rng(seed) {
+  let h = hash(seed)
+  return function next() {
+    h = (h + 0x6d2b79f5) | 0
+    let t = Math.imul(h ^ (h >>> 15), 1 | h)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// Adoption is charted across all five products, including the two (SAT, Archive) that the
+// nav's PRODUCTS list treats as locked external portals — hence a separate list.
+const DASH_PRODUCTS = ['IES', 'SafeSend', 'EDR', 'SAT', 'Archive']
+// Resting adoption shape (IES widest, Archive narrowest). Each node jitters around it,
+// so the card keeps its recognisable descending profile while still being node-specific.
+const ADOPTION_BASE = [86, 61, 48, 33, 24]
+
+const ATTENTION_ISSUES = [
+  { issue: 'Unresolved critical alerts', sev: 'critical', meta: (r) => `${1 + Math.floor(r * 6)} open` },
+  { issue: 'Seat usage over license', sev: 'warning', meta: (r, e) => `${e.licenses + 1 + Math.floor(r * 40)} / ${e.licenses}` },
+  { issue: 'EDR agents offline', sev: 'warning', meta: (r) => `${2 + Math.floor(r * 12)} devices` },
+  { issue: 'Archive retention expiring', sev: 'warning', meta: (r) => `${3 + Math.floor(r * 25)} days` },
+  { issue: 'SafeSend policy needs review', sev: 'info', meta: (r) => `${1 + Math.floor(r * 4)} policies` },
 ]
-const DASH_ADOPTION_AVG = Math.round(PKG_ADOPTION.reduce((s, p) => s + p.pct, 0) / PKG_ADOPTION.length)
+
+const ACTIVITY_TEMPLATES = [
+  { icon: UserCheck, tone: 'primary', text: (n) => `Provisioned ${n}`, when: '12m ago' },
+  { icon: ShieldCheck, tone: 'success', text: (n, r) => `Resolved ${1 + Math.floor(r * 4)} critical alerts · ${n}`, when: '1h ago' },
+  { icon: Rocket, tone: 'primary', text: (n) => `Upgraded ${n} to Complete`, when: '3h ago' },
+  { icon: Users, tone: 'muted', text: (n, r) => `Added ${10 + Math.floor(r * 50)} seats · ${n}`, when: 'Yesterday' },
+  { icon: AlertTriangle, tone: 'warning', text: (n) => `New EDR incident · ${n}`, when: 'Yesterday' },
+]
+
+/* Everything the dashboard renders, for the node currently scoped into.
+   Scoping into a customer aggregates that customer itself (so a leaf still reads "1"),
+   while a partner/distributor aggregates its whole subtree. */
+function useDashboardData() {
+  const { currentEntity } = useScope()
+  return useMemo(() => {
+    const seed = currentEntity?.id ?? 'root'
+    const scopeRoots = currentEntity ? [currentEntity] : mockData
+
+    // ---- REAL: straight off the hierarchy ----
+    const customerEntities = flattenFrom(scopeRoots)
+      .map((f) => f.entity)
+      .filter((e) => e.type === 'customer')
+    const customers = customerEntities.length
+    const seats = customerEntities.reduce((sum, e) => sum + (e.licenses || 0), 0)
+
+    // ---- SEEDED: no telemetry in the mock, so derive from the scope's id ----
+    const rand = rng(seed)
+    // Alerts scale with the book so a big distributor never reads quieter than one customer.
+    const alerts = customers ? Math.max(1, Math.round(customers * (0.06 + rand() * 0.22))) : 0
+    const adoption = DASH_PRODUCTS.map((label, i) => {
+      const jitter = Math.round((rng(seed + label)() - 0.5) * 24) // ±12pts around the base
+      return { label, pct: Math.min(99, Math.max(5, ADOPTION_BASE[i] + jitter)) }
+    })
+    const adoptionAvg = Math.round(adoption.reduce((s, p) => s + p.pct, 0) / adoption.length)
+    const alertTrend = Array.from({ length: 14 }, (_, i) => {
+      const r = rng(seed + 'trend' + i)()
+      const ceiling = Math.max(4, Math.round(alerts / 3))
+      return Math.max(1, Math.round(r * ceiling))
+    })
+
+    // ---- REAL names, SEEDED issues: pick stable stand-ins from the scope's own customers ----
+    const ranked = customerEntities
+      .map((e) => ({ e, k: rng(seed + e.id)() }))
+      .sort((a, b) => a.k - b.k)
+      .map((x) => x.e)
+
+    const needsAttention = ranked.slice(0, 5).map((e, i) => {
+      const spec = ATTENTION_ISSUES[i % ATTENTION_ISSUES.length]
+      return { customer: e.name, issue: spec.issue, sev: spec.sev, meta: spec.meta(rng(seed + e.id + 'm')(), e) }
+    })
+
+    const recentActivity = ranked.slice(0, 5).map((e, i) => {
+      const t = ACTIVITY_TEMPLATES[i % ACTIVITY_TEMPLATES.length]
+      return { icon: t.icon, tone: t.tone, when: t.when, text: t.text(e.name, rng(seed + e.id + 'a')()) }
+    })
+
+    return {
+      scopeId: seed,
+      scopeLabel: currentEntity ? currentEntity.name : 'All accounts',
+      customers, seats, alerts, adoption, adoptionAvg, alertTrend, needsAttention, recentActivity,
+    }
+  }, [currentEntity])
+}
 // Severity is a RESERVED status palette (danger/warning/neutral) — always paired with a
 // text label, never colour-alone.
 const SEV = {
@@ -1051,24 +1136,9 @@ const SEV = {
   warning: { color: 'var(--vds-warning)', soft: 'var(--vds-warning-soft)', label: 'Warning' },
   info: { color: 'var(--vds-ink-subtle)', soft: 'var(--vds-surface-sunken)', label: 'Review' },
 }
-const NEEDS_ATTENTION = [
-  { customer: 'Granite Logistics Co', issue: 'Unresolved critical alerts', meta: '4 open', sev: 'critical' },
-  { customer: 'Orchard Manufacturing LLC', issue: 'Seat usage over license', meta: '224 / 200', sev: 'warning' },
-  { customer: 'Lakeside Aerospace Ltd', issue: 'EDR agents offline', meta: '7 devices', sev: 'warning' },
-  { customer: 'Atlas Financial Co', issue: 'Archive retention expiring', meta: '14 days', sev: 'warning' },
-  { customer: 'Bastion MSP', issue: 'SafeSend policy needs review', meta: '2 policies', sev: 'info' },
-]
-const ALERT_TREND = [8, 6, 11, 9, 7, 12, 5, 9, 14, 10, 7, 6, 13, 9] // last 14 days
 const ACT_TONE = {
   primary: 'var(--nav-accent)', success: 'var(--vds-success)', warning: 'var(--vds-warning)', muted: 'var(--vds-ink-subtle)',
 }
-const RECENT_ACTIVITY = [
-  { icon: UserCheck, text: 'Provisioned Orchard Transit LLC', when: '12m ago', tone: 'primary' },
-  { icon: ShieldCheck, text: 'Resolved 3 critical alerts · Atlas Financial', when: '1h ago', tone: 'success' },
-  { icon: Rocket, text: 'Upgraded Bastion MSP to Complete', when: '3h ago', tone: 'primary' },
-  { icon: Users, text: 'Added 40 seats · Granite Logistics', when: 'Yesterday', tone: 'muted' },
-  { icon: AlertTriangle, text: 'New EDR incident · Lakeside Aerospace', when: 'Yesterday', tone: 'warning' },
-]
 
 // A titled dashboard panel on the content canvas.
 const DASH_CARD = { background: 'var(--vds-surface)', border: '1px solid var(--vds-line)', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 14, flexShrink: 0 }
@@ -1082,12 +1152,12 @@ function DashHead({ title, sub }) {
 }
 
 // Row 1 — customers/items that need action, worst first, with a reserved severity chip.
-function NeedsAttentionCard() {
+function NeedsAttentionCard({ items }) {
   return (
-    <div style={DASH_CARD}>
-      <DashHead title="Needs attention" sub={`${NEEDS_ATTENTION.length} items`} />
+    <div data-reveal style={DASH_CARD}>
+      <DashHead title="Needs attention" sub={`${items.length} items`} />
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {NEEDS_ATTENTION.map((it, i) => {
+        {items.map((it, i) => {
           const s = SEV[it.sev]
           return (
             <div key={it.customer} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '1px solid var(--vds-line)' : 0 }}>
@@ -1107,12 +1177,12 @@ function NeedsAttentionCard() {
 }
 
 // Row 2 — single-hue magnitude bars (one metric across products → one colour).
-function PackageAdoptionCard() {
+function PackageAdoptionCard({ adoption, adoptionAvg }) {
   return (
-    <div style={DASH_CARD}>
-      <DashHead title="Package adoption" sub={`${DASH_ADOPTION_AVG}% avg across products`} />
+    <div data-reveal style={DASH_CARD}>
+      <DashHead title="Package adoption" sub={`${adoptionAvg}% avg across products`} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {PKG_ADOPTION.map((p) => (
+        {adoption.map((p) => (
           <div key={p.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ width: 76, fontSize: 13, color: 'var(--vds-ink)', flexShrink: 0 }}>{p.label}</span>
             <span style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--vds-surface-sunken)', overflow: 'hidden' }}>
@@ -1128,14 +1198,14 @@ function PackageAdoptionCard() {
 
 // Row 3 — a 14-day alert trend (single series bars, hover = native tooltip) beside a
 // recent-activity feed.
-function AlertTrendCard() {
-  const max = Math.max(...ALERT_TREND)
-  const total = ALERT_TREND.reduce((a, b) => a + b, 0)
+function AlertTrendCard({ trend }) {
+  const max = Math.max(...trend)
+  const total = trend.reduce((a, b) => a + b, 0)
   return (
-    <div style={{ ...DASH_CARD, flex: 2, minWidth: 0 }}>
+    <div data-reveal style={{ ...DASH_CARD, flex: 2, minWidth: 0 }}>
       <DashHead title="Alerts — last 14 days" sub={`${total} total`} />
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: 120 }}>
-        {ALERT_TREND.map((v, i) => (
+        {trend.map((v, i) => (
           <span key={i} title={`Day ${i + 1}: ${v} alerts`} style={{ flex: 1, display: 'flex', alignItems: 'flex-end', height: '100%' }}>
             <span className="dash-bar" style={{ width: '100%', height: `${(v / max) * 100}%`, minHeight: 4, background: 'var(--nav-accent)', borderRadius: '4px 4px 0 0' }} />
           </span>
@@ -1144,12 +1214,12 @@ function AlertTrendCard() {
     </div>
   )
 }
-function RecentActivityCard() {
+function RecentActivityCard({ items }) {
   return (
-    <div style={{ ...DASH_CARD, flex: 3, minWidth: 0 }}>
+    <div data-reveal style={{ ...DASH_CARD, flex: 3, minWidth: 0 }}>
       <DashHead title="Recent activity" />
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {RECENT_ACTIVITY.map((a, i) => {
+        {items.map((a, i) => {
           const tone = ACT_TONE[a.tone]
           return (
             <div key={a.text} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: i ? '1px solid var(--vds-line)' : 0 }}>
@@ -1166,24 +1236,67 @@ function RecentActivityCard() {
   )
 }
 
+/* Cards rise into place once, on first paint, in DOM order. Deliberately quiet:
+   10px of travel and a 60ms stagger — enough to read as "the page settled", not
+   as an entrance. The whole set lands in ~0.9s.
+
+   useLayoutEffect (not useEffect) sets the from-state before the browser paints,
+   so the cards never flash at full opacity first. clearProps hands opacity and
+   transform back to CSS afterwards, leaving MetricCard's hover lift untouched. */
+function useCardReveal(scopeRef, replayKey) {
+  useLayoutEffect(() => {
+    const root = scopeRef.current
+    if (!root) return
+    // Reduced motion: leave the cards exactly as CSS renders them.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const ctx = gsap.context(() => {
+      // fromTo, never from: `from` infers its destination from the element's
+      // current state, so under StrictMode's double-invoked effect the second
+      // pass reads a card still sitting at opacity 0 and animates 0 → 0,
+      // stranding it invisible. An explicit `to` can't be poisoned that way.
+      gsap.fromTo(
+        '[data-reveal]',
+        { opacity: 0, y: 10 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.5,
+          ease: 'power2.out',
+          stagger: 0.06,
+          overwrite: 'auto',
+          clearProps: 'opacity,transform',
+        },
+      )
+    }, root)
+    return () => ctx.revert()
+    // replayKey = the scoped node's id: scoping somewhere new swaps every figure on the
+    // page, so the cards re-reveal to show the data landed rather than silently mutating.
+  }, [scopeRef, replayKey])
+}
+
 // The full My-Accounts dashboard body: KPI row + the three content rows.
 function DashboardBody() {
+  const d = useDashboardData()
+  const scope = useRef(null)
+  useCardReveal(scope, d.scopeId)
   return (
-    <>
-      {/* 4 KPI columns */}
+    // key on the scope: a new node is new data, so the cards remount and the count-ups
+    // run again from 0 instead of holding the previous node's figures.
+    <div key={d.scopeId} ref={scope} style={{ display: 'contents' }}>
+      {/* 4 KPI columns — design-system MetricCard (minimal: header + hero value + delta) */}
       <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
-        <StatTile className="flex-1 min-w-0" icon={Store} label="Customers" value={DASH_CUSTOMERS} delta="+6" trend={[52, 55, 58, 57, 61, 64, 68]} />
-        <StatTile className="flex-1 min-w-0" icon={Users} label="Seats" value={DASH_SEATS} delta="+3%" trend={[70, 72, 71, 74, 78, 80, 83]} />
-        <StatTile className="flex-1 min-w-0" icon={ShieldAlert} label="Active Alerts" value={DASH_ALERTS} tone="danger" delta="-8" invertDelta trend={[62, 58, 60, 55, 51, 49, 47]} />
-        <StatTile className="flex-1 min-w-0" icon={Boxes} label="Package Adoption" value={DASH_ADOPTION_AVG} suffix="%" tone="primary" delta="+4%" trend={[41, 43, 44, 46, 48, 49, 50]} />
+        <MetricCard data-reveal className="flex-1 min-w-0" icon={Store} iconTone="primary" title="Customers" period={d.scopeLabel} value={d.customers} delta="+6" deltaCaption="vs last month" />
+        <MetricCard data-reveal className="flex-1 min-w-0" icon={Users} iconTone="azure" title="Seats" period="Licensed" value={d.seats} delta="+3%" deltaCaption="vs last month" />
+        <MetricCard data-reveal className="flex-1 min-w-0" icon={ShieldAlert} iconTone="danger" title="Active Alerts" period="Live" value={d.alerts} delta="-8" invertDelta deltaCaption="vs yesterday" />
+        <MetricCard data-reveal className="flex-1 min-w-0" icon={Boxes} iconTone="emerald" title="Package Adoption" period="Across products" value={d.adoptionAvg} suffix="%" delta="+4%" deltaCaption="vs last quarter" />
       </div>
-      <NeedsAttentionCard />
-      <PackageAdoptionCard />
+      <NeedsAttentionCard items={d.needsAttention} />
+      <PackageAdoptionCard adoption={d.adoption} adoptionAvg={d.adoptionAvg} />
       <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
-        <AlertTrendCard />
-        <RecentActivityCard />
+        <AlertTrendCard trend={d.alertTrend} />
+        <RecentActivityCard items={d.recentActivity} />
       </div>
-    </>
+    </div>
   )
 }
 
@@ -1376,6 +1489,11 @@ function ShellInner() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <TitleIcon icon={iconOf('customers')} />
                     <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--vds-ink)' }}>Customers</span>
+                    {/* Adds under the logged-into node — the same entity the list below shows children of. */}
+                    <Button size="sm" leading={<Plus size={16} />} style={{ marginLeft: 'auto', flexShrink: 0 }}
+                      onClick={() => openModal('addCustomer', path.at(-1) ?? null)}>
+                      Add customer
+                    </Button>
                   </div>
                   {/* Always the browsable descendants list of the logged-into node (path leaf) —
                       identical to Melvin's view, just scoped to the current entity's children. */}

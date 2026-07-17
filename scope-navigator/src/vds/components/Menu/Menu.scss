@@ -1,0 +1,70 @@
+// ============================================================================
+// Menu — dropdown action menu. Rows reuse the canonical .vds-popover__item
+// look (one hover/focus/disabled treatment for every dropdown); this file adds
+// only what's menu-specific: icon + trailing-hint layout, the danger tone,
+// separators, and group labels. Token-bound only.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-menu__panel {
+  min-width: 11rem;
+}
+
+// Rows lead with the icon, label fills, trailing hint hugs the right —
+// override __item's default space-between so the label doesn't float.
+.vds-menu__item {
+  justify-content: flex-start;
+  gap: var(--vds-space-2);
+}
+
+.vds-menu__item-icon {
+  flex-shrink: 0;
+  color: var(--vds-ink-muted);
+}
+
+.vds-menu__item-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vds-menu__item-trailing {
+  @include type.step(detail);
+  flex-shrink: 0;
+  margin-left: var(--vds-space-3);
+  color: var(--vds-ink-subtle);
+}
+
+// Destructive actions read danger at rest and fill with the danger tint.
+.vds-menu__item--danger {
+  color: var(--vds-danger);
+
+  .vds-menu__item-icon {
+    color: var(--vds-danger);
+  }
+  &:hover {
+    background-color: var(--vds-danger-soft);
+  }
+}
+
+.vds-menu__separator {
+  height: 1px;
+  margin: var(--vds-space-1) calc(-1 * var(--vds-space-1)); // full-bleed across the padded list
+  background-color: var(--vds-line);
+}
+
+.vds-menu__label {
+  @include type.step(eyebrow);
+  padding: var(--vds-space-2) var(--vds-space-2) var(--vds-space-1);
+  color: var(--vds-ink-subtle);
+  text-transform: uppercase;
+}
+
+// Touch: rows meet the minimum tap target.
+@include bp.coarse {
+  .vds-menu__item {
+    min-height: var(--vds-tap-target);
+  }
+}

@@ -1,0 +1,156 @@
+// ============================================================================
+// AppShell — the application frame. Nav column + (top bar over content).
+//
+// The shell fills the viewport and pins everything except the content, which
+// owns the ONE scrollbar. The nav column has no width of its own — it hugs
+// whatever it holds, so a SideNav animating between --vds-sidenav-w and
+// --vds-sidenav-w-collapsed drags the layout with it for free.
+//
+// RESPONSIVE: below lg the nav column leaves the flow and becomes an
+// off-canvas drawer on --vds-z-drawer over a --vds-scrim backdrop, sliding on
+// the same emphasized curve as the Drawer component. The hamburger
+// (.vds-appshell-trigger) only exists below lg.
+// ============================================================================
+@use '../../styles/breakpoints' as bp;
+
+.vds-appshell {
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: var(--vds-canvas);
+  font-family: var(--vds-font-sans);
+
+  // ---- nav column: sized by its content (the SideNav owns its width) ----
+  &__nav {
+    display: flex;
+    flex-shrink: 0;
+    height: 100%;
+    min-height: 0;
+    outline: none; // receives programmatic focus when the drawer opens
+  }
+
+  // ---- content column ----
+  &__main {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  &__topbar {
+    flex-shrink: 0;
+  }
+
+  // The one scrolling region. container-type makes it a size container, so
+  // @container queries inside respond to the CONTENT width — which changes
+  // when the rail collapses — not the viewport.
+  &__content {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background-color: var(--vds-canvas);
+    padding: var(--vds-page-pad);
+    container-type: inline-size;
+  }
+
+  // Scrim only exists in drawer mode (rendered by the JSX below lg).
+  &__scrim {
+    display: none;
+  }
+
+  // --------------------------------------------------------------------------
+  // Below lg: the nav becomes an off-canvas drawer.
+  // --------------------------------------------------------------------------
+  @include bp.down(lg) {
+    &__nav {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: var(--vds-z-drawer);
+      transform: translateX(-100%);
+      visibility: hidden; // out of the tab order while closed…
+      transition:
+        transform var(--vds-dur-slow) var(--vds-ease-emphatic),
+        visibility 0s linear var(--vds-dur-slow); // …but only after the slide-out
+    }
+    &--nav-open &__nav {
+      transform: none;
+      visibility: visible;
+      transition: transform var(--vds-dur-slow) var(--vds-ease-emphatic);
+      box-shadow: var(--vds-shadow-lg);
+    }
+
+    &__scrim {
+      display: block;
+      position: fixed;
+      inset: 0;
+      // One layer under the nav panel, same drawer tier.
+      z-index: calc(var(--vds-z-drawer) - 1);
+      background-color: var(--vds-scrim);
+      animation: vds-appshell-fade var(--vds-dur-base) var(--vds-ease-out);
+    }
+  }
+}
+
+// ---- the hamburger: only exists below lg (the rail is in the layout above) --
+.vds-appshell-trigger {
+  position: relative; // anchors the coarse-pointer hit-area overlay
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--vds-control-h-md);
+  height: var(--vds-control-h-md);
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--vds-radius-sm);
+  background-color: transparent;
+  color: currentColor;
+  cursor: pointer;
+  transition: background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+  &:hover {
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
+  }
+  &:focus-visible {
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
+  }
+
+  @include bp.up(lg) {
+    display: none;
+  }
+
+  // Touch: keep the visual size but grow the hit area to the tap target.
+  @include bp.coarse {
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: max(100%, var(--vds-tap-target));
+      height: max(100%, var(--vds-tap-target));
+    }
+  }
+}
+
+@keyframes vds-appshell-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-appshell__nav,
+  .vds-appshell__scrim {
+    transition: none !important;
+    animation: none !important;
+  }
+}

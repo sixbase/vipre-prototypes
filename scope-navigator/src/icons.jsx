@@ -107,6 +107,17 @@ import _Users from '~icons/material-symbols/group-outline-rounded'
 import _Wrench from '~icons/material-symbols/build-outline-rounded'
 import _X from '~icons/material-symbols/close-rounded'
 import _Zap from '~icons/material-symbols/bolt-outline-rounded'
+// Needed by design-system components (FileUpload, PasswordInput, Pagination, …).
+// CircleCheck/TriangleAlert are lucide's newer names for CheckCircle/AlertTriangle
+// and resolve to the same glyph — both names are exported so either import works.
+import _CircleCheck from '~icons/material-symbols/check-circle-outline-rounded'
+import _Download from '~icons/material-symbols/download-rounded'
+import _Eye from '~icons/material-symbols/visibility-outline-rounded'
+import _KeyRound from '~icons/material-symbols/key-outline-rounded'
+import _LayoutGrid from '~icons/material-symbols/grid-view-outline-rounded'
+import _Pencil from '~icons/material-symbols/edit-outline-rounded'
+import _TriangleAlert from '~icons/material-symbols/warning-outline-rounded'
+import _Upload from '~icons/material-symbols/upload-rounded'
 
 // lucide-compatible wrapper: size->width/height, color->css color, drop stroke-only props.
 const a = (C) => forwardRef(function Icon({ size = 24, color, strokeWidth, absoluteStrokeWidth, style, ...p }, ref) {
@@ -218,3 +229,11 @@ export const Users = a(_Users)
 export const Wrench = a(_Wrench)
 export const X = a(_X)
 export const Zap = a(_Zap)
+export const CircleCheck = a(_CircleCheck)
+export const Download = a(_Download)
+export const Eye = a(_Eye)
+export const KeyRound = a(_KeyRound)
+export const LayoutGrid = a(_LayoutGrid)
+export const Pencil = a(_Pencil)
+export const TriangleAlert = a(_TriangleAlert)
+export const Upload = a(_Upload)

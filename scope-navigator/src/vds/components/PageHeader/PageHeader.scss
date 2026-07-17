@@ -6,11 +6,30 @@
 // ============================================================================
 @use '../../styles/typography' as type;
 
+// Edge-fade amounts for the scrollable tab strip — registered so the
+// scroll-driven animation below can interpolate them (0 = no fade, 1 = full).
+@property --vds-ph-fade-start {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+@property --vds-ph-fade-end {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
 .vds-page-header {
   font-family: var(--vds-font-sans);
   display: flex;
   flex-direction: column;
   gap: var(--vds-space-4);
+  // The header adapts to ITS OWN width (container queries below), not the
+  // viewport — a header inside a split pane tightens like one on a phone.
+  // width must be explicit (100%) because inline-size containment removes
+  // content-based sizing; as a full-width page band that's its natural size.
+  width: 100%;
+  container-type: inline-size;
 
   // ---- top row: lead (left) ⟷ actions (right) ----
   &__bar {
@@ -35,8 +54,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: var(--vds-chip-sm);
+    height: var(--vds-chip-sm);
     flex-shrink: 0;
     border-radius: var(--vds-radius-lg);
     background-color: var(--vds-ph-icon-bg);
@@ -107,11 +126,34 @@
   }
 
   // ---- tab strip ----
+  // Never wraps: too many tabs scroll sideways inside the strip (a two-row tab
+  // bar stops reading as one set of tabs), and the page body never scrolls.
   &__tabs {
     display: flex;
     align-items: center;
     gap: var(--vds-space-1);
     border-bottom: 1px solid var(--vds-line);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+
+    > * { flex-shrink: 0; } // tabs keep their size; the strip scrolls instead
+
+    // Edge fade — a scroll-driven mask hints at off-screen tabs: the trailing
+    // edge fades while there's more to scroll, the leading edge fades once
+    // scrolled. Progressive enhancement: without scroll-timeline support the
+    // strip still scrolls, just without the hint (mask alpha only — the
+    // #000/transparent stops carry no visual color, so no token applies).
+    @supports (animation-timeline: scroll(self x)) {
+      animation: vds-page-header-tab-edges linear both;
+      animation-timeline: scroll(self x);
+      mask-image: linear-gradient(
+        to right,
+        transparent,
+        #000 calc(var(--vds-ph-fade-start) * var(--vds-space-6)),
+        #000 calc(100% - var(--vds-ph-fade-end) * var(--vds-space-6)),
+        transparent
+      );
+    }
   }
 
   // ---- filter row ----
@@ -121,4 +163,32 @@
     gap: var(--vds-space-2);
     flex-wrap: wrap;
   }
+
+  // ---- narrow-container adaptation ----
+  // In a squeezed header (phone viewport, split pane) the actions leave the
+  // title's right edge and take their own full-width row below the title
+  // block, and the filter row stacks its controls instead of wrapping them
+  // into a ragged grid. The query resolves against the ROOT (see above);
+  // everything styled here is a descendant.
+  @container (max-width: 559.98px) {
+    &__bar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    &__filters {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+}
+
+// Scroll progress → fade amounts: both edges faded mid-scroll; the start
+// fade unwinds at the very beginning, the end fade unwinds at the very end.
+// When the strip doesn't overflow the timeline is inactive and the initial
+// values (0 / 0) apply — no fade at all.
+@keyframes vds-page-header-tab-edges {
+  0% { --vds-ph-fade-start: 0; --vds-ph-fade-end: 1; }
+  15% { --vds-ph-fade-start: 1; --vds-ph-fade-end: 1; }
+  85% { --vds-ph-fade-start: 1; --vds-ph-fade-end: 1; }
+  100% { --vds-ph-fade-start: 1; --vds-ph-fade-end: 0; }
 }

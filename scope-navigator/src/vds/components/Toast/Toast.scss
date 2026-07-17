@@ -1,0 +1,150 @@
+// ============================================================================
+// Toast — fixed viewport region (.vds-toaster) + notification cards
+// (.vds-toast). Cards ride Surface's floating elevation; tones color the icon
+// only, so the card itself stays calm. Token-bound only.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-toaster {
+  position: fixed;
+  right: var(--vds-space-6);
+  bottom: var(--vds-space-6);
+  z-index: var(--vds-z-toast);
+  display: flex;
+  flex-direction: column; // newest is first in the DOM → on top of the stack
+  gap: var(--vds-space-2);
+  width: 24rem;
+  max-width: calc(100vw - 2 * var(--vds-space-6));
+}
+
+.vds-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vds-space-3);
+  padding: var(--vds-space-3) var(--vds-space-4);
+  animation: vds-toast-in var(--vds-dur-base) var(--vds-ease-out);
+}
+
+.vds-toast--leaving {
+  animation: vds-toast-out var(--vds-dur-base) var(--vds-ease-out) forwards;
+  pointer-events: none;
+}
+
+.vds-toast__icon {
+  flex-shrink: 0;
+  margin-top: 0.125rem; // optically align with the title's cap height
+}
+
+// ---- tones color the icon only ----
+.vds-toast--info    .vds-toast__icon { color: var(--vds-info); }
+.vds-toast--success .vds-toast__icon { color: var(--vds-success); }
+.vds-toast--warning .vds-toast__icon { color: var(--vds-warning); }
+.vds-toast--danger  .vds-toast__icon { color: var(--vds-danger); }
+
+.vds-toast__content {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--vds-space-1);
+}
+
+.vds-toast__title {
+  @include type.step(body);
+  font-weight: var(--vds-weight-medium);
+  color: var(--vds-ink);
+}
+
+.vds-toast__desc {
+  @include type.step(caption);
+  color: var(--vds-ink-muted);
+}
+
+.vds-toast__action {
+  @include type.step(caption);
+  align-self: center;
+  flex-shrink: 0;
+  padding: var(--vds-space-1) var(--vds-space-2);
+  border: 0;
+  border-radius: var(--vds-radius-sm);
+  background: transparent;
+  color: var(--vds-primary);
+  font-family: var(--vds-font-sans);
+  font-weight: var(--vds-weight-medium);
+  cursor: pointer;
+  transition: background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+  &:hover {
+    background-color: var(--vds-primary-soft);
+  }
+  &:focus-visible {
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
+  }
+}
+
+.vds-toast__close {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--vds-icon-btn-sm);
+  height: var(--vds-icon-btn-sm);
+  border: 0;
+  border-radius: var(--vds-radius-sm);
+  background: transparent;
+  color: var(--vds-ink-subtle);
+  cursor: pointer;
+  transition:
+    background-color var(--vds-dur-fast) var(--vds-ease-out),
+    color var(--vds-dur-fast) var(--vds-ease-out);
+
+  &:hover {
+    background-color: var(--vds-surface-hover);
+    color: var(--vds-ink);
+  }
+  &:focus-visible {
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
+  }
+}
+
+// ---- responsive: full-width strip along the bottom below sm ----
+@include bp.down(sm) {
+  .vds-toaster {
+    right: var(--vds-space-3);
+    bottom: var(--vds-space-3);
+    left: var(--vds-space-3);
+    width: auto;
+    max-width: none;
+  }
+}
+
+@keyframes vds-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes vds-toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-toast {
+    animation: none;
+  }
+  .vds-toast--leaving {
+    animation: none;
+    opacity: 0; // still disappears instantly; unmount follows right after
+  }
+}

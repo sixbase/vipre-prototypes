@@ -1,0 +1,141 @@
+// ============================================================================
+// SegmentedControl — a recessed track holding native-radio segments and one
+// sliding brand pill (the thumb) under the checked segment. The thumb is
+// positioned in px by JS (segments have unequal widths); its slide uses the
+// emphatic ease and is gated behind motion-ok. Static-markup consumers without
+// the JS thumb get a non-sliding pill via the :has() fallback at the bottom.
+// On overflow the track scrolls horizontally — segments never wrap.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-segmented {
+  // Track inset — the gutter between the track edge and the thumb, and between
+  // segments. Half a space-1 step (2px): the 4px grid has no step this fine, and
+  // the thumb's top/bottom must match the padding or the pill sits off-centre.
+  --vds-segmented-inset: calc(var(--vds-space-1) / 2);
+
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  gap: var(--vds-segmented-inset);
+  max-width: 100%;
+  padding: var(--vds-segmented-inset);
+  border: 1px solid var(--vds-line);
+  border-radius: var(--vds-radius-md);
+  background-color: var(--vds-surface-hover); // recessed neutral track
+  overflow-x: auto;   // too many segments → scroll, never wrap
+  overscroll-behavior-x: contain;
+
+  // ---- sizes ----
+  &--md { height: var(--vds-control-h-md); }
+  &--sm { height: var(--vds-control-h-sm); }
+
+  &--full {
+    display: flex;
+    width: 100%;
+  }
+  &--full &__segment {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  // ---- the sliding pill (JS-measured; absolute children scroll with content) ----
+  &__thumb {
+    position: absolute;
+    top: var(--vds-segmented-inset);
+    bottom: var(--vds-segmented-inset);
+    left: 0;
+    border-radius: var(--vds-radius-sm);
+    background-color: var(--vds-primary);
+    box-shadow: var(--vds-shadow-xs);
+
+    @include bp.motion-ok {
+      transition:
+        transform var(--vds-dur-base) var(--vds-ease-emphatic),
+        width var(--vds-dur-base) var(--vds-ease-emphatic);
+    }
+  }
+
+  // ---- segments ----
+  &__segment {
+    position: relative; // stays above the thumb
+    display: inline-flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    cursor: pointer;
+
+    &--disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  }
+
+  // the real radio: invisible, but keeps focus + arrow-key behaviour native
+  &__input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  &__face {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--vds-space-2);
+    width: 100%;
+    padding: 0 var(--vds-space-3);
+    border-radius: var(--vds-radius-sm);
+    color: var(--vds-ink-muted);
+    white-space: nowrap;
+    user-select: none;
+    pointer-events: none; // clicks land on the input underneath
+    transition: color var(--vds-dur-fast) var(--vds-ease-out);
+  }
+  &--sm &__face {
+    padding: 0 var(--vds-space-2);
+    @include type.step(detail);
+    font-weight: var(--vds-weight-medium);
+  }
+  &--md &__face {
+    @include type.step(body);
+    font-weight: var(--vds-weight-medium);
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+  }
+  &__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // hover (unchecked, enabled) — text darkens toward ink
+  &__segment:hover &__input:not(:checked) ~ &__face {
+    color: var(--vds-ink);
+  }
+
+  // checked — text flips to ride the brand pill
+  &__input:checked ~ &__face {
+    color: var(--vds-on-primary);
+  }
+
+  // focus ring on the segment's face, keyboard only
+  &__input:focus-visible ~ &__face {
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
+  }
+}
+
+// Static-markup fallback: no JS thumb rendered → the checked segment paints
+// its own (non-sliding) pill. React renders the thumb, so this never doubles.
+.vds-segmented:not(:has(.vds-segmented__thumb))
+  .vds-segmented__input:checked ~ .vds-segmented__face {
+  background-color: var(--vds-primary);
+  box-shadow: var(--vds-shadow-xs);
+}
+
+// No .dark override — track, line, primary, and on-primary all flip semantically.

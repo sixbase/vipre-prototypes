@@ -1,0 +1,182 @@
+// ============================================================================
+// Drawer — scrim + edge-attached slide-in panel. Sizes set a local dimension
+// var each side consumes (width for left/right, height for bottom). Slide uses
+// --vds-ease-emphatic over --vds-dur-slow. Token-bound only.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--vds-z-drawer);
+}
+
+.vds-drawer__scrim {
+  position: absolute;
+  inset: 0;
+  background-color: var(--vds-scrim);
+  animation: vds-drawer-fade-in var(--vds-dur-base) var(--vds-ease-out);
+}
+
+.vds-drawer__panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+
+  &:focus-visible {
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset-inset); // inside — the panel hugs the viewport edge
+  }
+}
+
+// ---- sizes: width for side drawers, height for the bottom sheet ----
+.vds-drawer--sm { --_drawer-w: 20rem; --_drawer-h: 30vh; }
+.vds-drawer--md { --_drawer-w: 26rem; --_drawer-h: 50vh; }
+.vds-drawer--lg { --_drawer-w: 34rem; --_drawer-h: 75vh; }
+
+// ---- sides ----
+.vds-drawer--right .vds-drawer__panel {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(var(--_drawer-w), 100%);
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  animation: vds-drawer-in-right var(--vds-dur-slow) var(--vds-ease-emphatic);
+}
+
+.vds-drawer--left .vds-drawer__panel {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(var(--_drawer-w), 100%);
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 0;
+  animation: vds-drawer-in-left var(--vds-dur-slow) var(--vds-ease-emphatic);
+}
+
+.vds-drawer--bottom .vds-drawer__panel {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--_drawer-h);
+  max-height: 90vh;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: var(--vds-radius-lg) var(--vds-radius-lg) 0 0;
+  animation: vds-drawer-in-bottom var(--vds-dur-slow) var(--vds-ease-emphatic);
+}
+
+// ---- anatomy ----
+.vds-drawer__header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--vds-space-4);
+  padding: var(--vds-space-4) var(--vds-space-5);
+  border-bottom: 1px solid var(--vds-line);
+}
+
+.vds-drawer__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.vds-drawer__close {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--vds-icon-btn-md);
+  height: var(--vds-icon-btn-md);
+  margin-left: auto; // stays right-aligned even without a title
+  border: 0;
+  border-radius: var(--vds-radius-sm);
+  background: transparent;
+  color: var(--vds-ink-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--vds-dur-fast) var(--vds-ease-out),
+    color var(--vds-dur-fast) var(--vds-ease-out);
+
+  &:hover {
+    background-color: var(--vds-surface-hover);
+    color: var(--vds-ink);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--vds-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.vds-drawer__body {
+  flex: 1 1 auto;
+  padding: var(--vds-space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.vds-drawer__footer {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: var(--vds-space-2);
+  padding: var(--vds-space-4) var(--vds-space-5);
+  border-top: 1px solid var(--vds-line);
+}
+
+// ---- exit (usePresence keeps the node mounted while --closing plays) ----
+.vds-drawer--closing .vds-drawer__scrim {
+  animation: vds-drawer-fade-in var(--vds-dur-base) var(--vds-ease-out) reverse forwards;
+}
+.vds-drawer--closing.vds-drawer--right .vds-drawer__panel {
+  animation: vds-drawer-in-right var(--vds-dur-slow) var(--vds-ease-emphatic) reverse forwards;
+}
+.vds-drawer--closing.vds-drawer--left .vds-drawer__panel {
+  animation: vds-drawer-in-left var(--vds-dur-slow) var(--vds-ease-emphatic) reverse forwards;
+}
+.vds-drawer--closing.vds-drawer--bottom .vds-drawer__panel {
+  animation: vds-drawer-in-bottom var(--vds-dur-slow) var(--vds-ease-emphatic) reverse forwards;
+}
+
+// ---- responsive: side drawers go full-width below sm ----
+@include bp.down(sm) {
+  .vds-drawer--right .vds-drawer__panel,
+  .vds-drawer--left .vds-drawer__panel {
+    width: 100%;
+  }
+}
+
+@keyframes vds-drawer-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes vds-drawer-in-right {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+
+@keyframes vds-drawer-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: none; }
+}
+
+@keyframes vds-drawer-in-bottom {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-drawer__scrim,
+  .vds-drawer__panel {
+    animation: none !important; // the side-specific --closing rules above included
+  }
+  .vds-drawer--closing {
+    display: none;
+  }
+}

@@ -1,278 +1,764 @@
 // ============================================================================
-// SideNav — the product navigation rail. A data-driven vertical nav: a brand
-// header, collapsible product groups (each with items, an optional "full portal"
-// escape link, and a locked / no-entitlement state), an account-admin footer
-// cluster, and an arbitrary footer slot.
+// SideNav — the product navigation rail, ported from the MSP v2 shell.
 //
-// THEME-FOLLOWING: built from plain SEMANTIC tokens (--vds-canvas / surface /
-// ink / line / primary), so it renders LIGHT in light mode and switches to the
-// product navy under a `.dark` ancestor — pass className="dark" to force the
-// dark rail anywhere (the chrome usually stays dark regardless of page theme).
-// Translucent hover fills are color-mix on --vds-ink so they flip for free.
+// FIXED NAVY CHROME: painted from the midnight ramp directly (NOT the semantic
+// surface tokens), so the rail stays the same navy in light AND dark mode — it
+// is product chrome, not a theme surface. The one brandable value is the
+// selected fill, --vds-nav-accent.
+//
+// CONCENTRIC RADIUS SYSTEM (the +2 nesting rule):
+//   The 32px product tile has radius 8 (--vds-radius-md). A pill wraps a tile
+//   with 2px of padding, so its radius is 8 + 2 = 10 — the inner and outer
+//   corners share the same center. A card wraps a pill with 2px of padding,
+//   so its radius is 10 + 2 = 12 (--vds-radius-lg). Rule: every wrapper's
+//   radius = the radius of what it wraps + the gap between them. Nested
+//   corners that share a center read as one calm shape; equal radii read as
+//   a pinched mistake.
+//
+// COLLAPSE CHOREOGRAPHY (the part that makes it feel engineered):
+//   - The rail width animates 220ms on --vds-ease-emphatic ("emphasized
+//     decelerate" — starts brisk, lands soft). One curve for all nav motion.
+//   - Labels animate max-width + margin-left on that same curve, and fade
+//     ASYMMETRICALLY: out fast (90ms — get out of the way), in late (200ms
+//     ease, 70ms delay — let the width lead, then the words arrive).
+//   - Icons hold their exact x in both states: identical row padding in both
+//     rail widths, and the label's LEAD MARGIN (not a flex gap) is what
+//     animates away — so the collapsed rail carries no phantom gap and the
+//     icon column never slides horizontally.
+//   - Eyebrows fade but never unmount — section heights are identical in both
+//     states, so nothing jumps vertically.
+//   - Chevrons shrink/fade in step with the labels.
+//
+// GEOMETRY (why the paddings are what they are): section pad-x 16 + 2px inset
+// + row pad-x 10 + half a 16px icon = 36px — and the collapsed rail
+// (--vds-sidenav-w-collapsed: 72px) is exactly 2 × 36, so the icon column is
+// dead-center when collapsed and never moves on expand.
 // ============================================================================
 @use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
 
 .vds-sidenav {
-  // Rail width — overridable per consumer via the custom property.
-  --vds-sidenav-w: 14rem;
-  // Interaction-state fills — the curated neutral ramp stops (graphite light /
-  // midnight dark), exposed as local knobs so a consumer can still override one
-  // rail. The selected row reads as a clean chip from the rail's own color
-  // family; full-strength ink + weight (below) carry the emphasis.
-  --vds-sidenav-hover: var(--vds-surface-hover);
-  --vds-sidenav-active: var(--vds-surface-selected);
-  --vds-sidenav-active-hover: var(--vds-surface-selected-hover);
-  // Custom scrollbar thumb — a ramp off the rail's own ink (graphite light /
-  // midnight dark), so it sits a few steps up the SAME color family as the rail
-  // and flips with the theme for free. Track stays transparent (canvas shows).
-  --vds-sidenav-scroll-thumb: color-mix(in oklab, var(--vds-ink) 20%, transparent);
-  --vds-sidenav-scroll-thumb-hover: color-mix(in oklab, var(--vds-ink) 36%, transparent);
+  // ---- chrome palette: the fixed midnight ramp (theme-stable) ----
+  --vds-sidenav-bg: var(--vds-midnight-950);        // the rail itself
+  --vds-sidenav-well: var(--vds-midnight-1000);     // recessed card wells + dividers
+  --vds-sidenav-ink: var(--vds-midnight-200);       // row labels
+  --vds-sidenav-ink-dim: var(--vds-midnight-300);   // eyebrows, back row, account type
+  --vds-sidenav-icon: var(--vds-midnight-400);      // resting row icons
+  --vds-sidenav-icon-faint: var(--vds-midnight-600); // escape-row icon at rest
+  --vds-sidenav-chev: var(--vds-midnight-500);      // product chevron at rest
+  --vds-sidenav-hover: var(--vds-midnight-800);     // hover fill
+  --vds-sidenav-press: var(--vds-midnight-700);     // pressed = one step brighter
+  --vds-sidenav-accent: var(--vds-nav-accent);      // selected fill (brandable)
+  // Selected rows darken toward the deepest navy on hover/press so the tint
+  // stays in the chrome's family (no raw black).
+  --vds-sidenav-accent-hover: color-mix(in srgb, var(--vds-nav-accent) 88%, var(--vds-midnight-1000));
+  --vds-sidenav-accent-press: color-mix(in srgb, var(--vds-nav-accent) 78%, var(--vds-midnight-1000));
+  // A whisper of top-light on selected fills, + an inset hairline for depth.
+  --vds-sidenav-toplight: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vds-white) 10%, transparent),
+    transparent 60%
+  );
+  --vds-sidenav-hairline: inset 0 1px 0 color-mix(in srgb, var(--vds-white) 8%, transparent);
 
+  // ---- the "go get this" badge on a not-subscribed tile ----
+  --vds-sidenav-unsub-disc: var(--vds-midnight-600);  // grey disc — reads as "off", not "broken"
+  --vds-sidenav-unsub-ring: var(--vds-midnight-950);  // ring = the rail's own navy, so the disc punches a hole in the tile
+  --vds-sidenav-unsub-ink: var(--vds-midnight-100);   // the arrow itself
+  --vds-sidenav-unsub-stroke: 1.6px;                  // arrow weight — optical, tuned against the 16px disc; not a scale step
+
+  // ---- edge handle (the collapse control riding the nav/content seam) ----
+  --vds-sidenav-edge-size: var(--vds-space-6);        // 24px — the disc
+  --vds-sidenav-edge-glyph: var(--vds-space-4);       // 16px — chevron box inside it
+  --vds-sidenav-edge-bg: var(--vds-nav-accent);       // follows the brand, like every other selected fill
+  --vds-sidenav-edge-ink: var(--vds-white);
+  // A white ring detaches the disc from BOTH surfaces it straddles (navy rail on
+  // one side, page canvas on the other) — no single border colour can do that.
+  --vds-sidenav-edge-ring: 0 0 0 2px var(--vds-white);
+  --vds-sidenav-edge-lift: var(--vds-shadow-md);       // resting drop shadow
+  --vds-sidenav-edge-lift-hover: var(--vds-shadow-lg); // …deepens so it lifts off the seam
+  --vds-sidenav-edge-press-scale: 0.92;
+  --vds-sidenav-dur-edge: 130ms;                       // fade in/out as the cursor nears
+
+  // ---- sizes ----
+  --vds-sidenav-icon-size: var(--vds-space-4);        // 16px — row icon + unsubscribed badge box
+  --vds-sidenav-tile-size: var(--vds-space-8);        // 32px — product / account tile
+  --vds-sidenav-account-h: var(--vds-control-h-md);   // 36px — fixed account-header height; ties the nav's account row into the shared control-height family
+  --vds-sidenav-back-h: var(--vds-space-6);           // 24px — fixed back-row height
+  --vds-sidenav-chev-size: var(--vds-space-6);        // 24px — chevron hit box
+  --vds-sidenav-label-max: 200px;        // row label clamp before ellipsis — text-truncation, not a scale value
+  --vds-sidenav-label-max-pill: 160px;   // product / account label clamp — same as above
+
+  // ---- spacing ----
+  --vds-sidenav-nest: 2px;               // concentric padding step (tile→pill→card) — the design mechanism, not a spacing choice; stays literal
+  --vds-sidenav-pad-x: var(--vds-space-4);     // 16px — rail's base horizontal padding
+  --vds-sidenav-section-pad-y: var(--vds-space-2-5); // 10px — section top / bottom padding
+  --vds-sidenav-section-gap: var(--vds-space-1);     // 4px — gap between rows in a section
+  --vds-sidenav-row-pad-x: var(--vds-space-2-5);     // 10px — row inner x padding
+  --vds-sidenav-row-pad-y: var(--vds-space-1-5);     // 6px — row inner y padding
+  --vds-sidenav-label-gap: var(--vds-space-2);       // 8px — icon→label lead margin (acts as the gap)
+
+  // ---- concentric radii (see the header comment) ----
+  --vds-sidenav-r-tile: var(--vds-radius-md);                                       // 8 — the 32px tiles
+  --vds-sidenav-r-pill: calc(var(--vds-sidenav-r-tile) + var(--vds-sidenav-nest));  // 10 — pill = tile + 2px pad
+  --vds-sidenav-r-card: calc(var(--vds-sidenav-r-pill) + var(--vds-sidenav-nest));  // 12 — card = pill + 2px pad
+
+  // ---- typography (sizes come from the typescale mixin; weights named here) ----
+  --vds-sidenav-weight-label: var(--vds-weight-medium);   // 500 — row labels
+  --vds-sidenav-weight-pill: var(--vds-weight-semibold);  // 600 — product / account name
+  --vds-sidenav-weight-quiet: var(--vds-weight-regular);  // 400 — "Full portal" + account type
+
+  // ---- motion ----
+  --vds-sidenav-ease: var(--vds-ease-emphatic);        // one curve for all nav motion
+  --vds-sidenav-dur-collapse: 220ms;                   // rail width + label slide (between dur-base and dur-slow)
+  --vds-sidenav-dur-hover-in: 50ms;                    // fill lands near-instantly…
+  --vds-sidenav-dur-hover-out: 280ms;                  // …and releases slowly
+  --vds-sidenav-dur-press: 80ms;                       // tile settle under the finger
+  --vds-sidenav-dur-label-out: 90ms;                   // label / eyebrow / badge fade on collapse (fast-out)
+  --vds-sidenav-delay-label-in: 70ms;                  // …and fade in late (the width leads first)
+  --vds-sidenav-dur-accordion: var(--vds-dur-slow);    // 240 — product card 0fr → 1fr
+  --vds-sidenav-delay-item-in: 60ms;                   // card items fade in a beat after the card opens
+  --vds-sidenav-dur-item-out: 110ms;                   // …and drop out quickly on close
+  --vds-sidenav-dur-tip: 140ms;                        // collapsed-rail tooltip fade + slide
+  --vds-sidenav-dur-shimmer: 1.15s;                    // loading skeleton shimmer loop
+
+  position: relative;
   display: flex;
   flex-direction: column;
-  width: var(--vds-sidenav-w);
   flex-shrink: 0;
+  width: var(--vds-sidenav-w);
   height: 100%;
   min-height: 0;
-  background-color: var(--vds-canvas);
-  border-right: 1px solid var(--vds-line);
+  background-color: var(--vds-sidenav-bg);
   font-family: var(--vds-font-sans);
-  color: var(--vds-ink-muted);
+  color: var(--vds-sidenav-ink);
+  transition: width var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease);
 
-  // ---- brand header ----
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--vds-space-2);
-    flex-shrink: 0;
-    padding: var(--vds-space-4) var(--vds-space-4) var(--vds-space-3);
-    color: var(--vds-ink);
+  &--collapsed {
+    width: var(--vds-sidenav-w-collapsed);
   }
 
-  // ---- scrollable group area ----
+  // ---- keyboard focus: a ring readable ON the navy (white pulled toward the
+  // accent), hugging the pill radius. Mouse clicks stay clean. ----
+  button:focus-visible {
+    outline: var(--vds-control-ring-w) solid color-mix(in srgb, var(--vds-white) 70%, var(--vds-nav-accent));
+    outline-offset: var(--vds-control-ring-offset-inset);
+  }
+
+  // --------------------------------------------------------------------------
+  // Scroll area — hidden scrollbars so row margins stay symmetric.
+  // --------------------------------------------------------------------------
   &__scroll {
     flex: 1 1 auto;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
     overflow-y: auto;
+    overflow-x: hidden;
     overscroll-behavior: contain;
-    padding: var(--vds-space-2);
-    display: flex;
-    flex-direction: column;
-    gap: var(--vds-space-2);
-
-    // ---- custom 4px scrollbar, scoped to the rail ----
-    // Firefox / standard: `thin` is the narrowest the spec exposes (~no exact px).
-    scrollbar-width: thin;
-    scrollbar-color: var(--vds-sidenav-scroll-thumb) transparent;
-
-    // Webkit/Blink (Chrome, Edge, Safari, Arc): exact 4px, rounded thumb.
+    scrollbar-width: none;
     &::-webkit-scrollbar {
-      width: 4px;
-      height: 4px;
-    }
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    &::-webkit-scrollbar-thumb {
-      background: var(--vds-sidenav-scroll-thumb);
-      border-radius: 9999px;
-    }
-    &::-webkit-scrollbar-thumb:hover {
-      background: var(--vds-sidenav-scroll-thumb-hover);
+      width: 0;
+      height: 0;
     }
   }
 
-  &__group {
+  &__footer {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.125rem;
   }
 
-  // ---- section label (variant:'section') ----
-  &__section-label {
-    @include type.step(eyebrow);
+  // --------------------------------------------------------------------------
+  // Sections + dividers
+  // --------------------------------------------------------------------------
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vds-sidenav-section-gap);
+    padding: var(--vds-sidenav-section-pad-y) var(--vds-sidenav-pad-x); // 16 = the rail's base x-pad (see GEOMETRY above)
+  }
+  &__section--account {
+    gap: 2px;
+  }
+
+  // Inset hairline — a quiet separator, not a full-bleed cut.
+  &__divider {
+    flex-shrink: 0;
+    height: 1px;
+    margin: 0 var(--vds-space-3);
+    background-color: var(--vds-sidenav-well);
+  }
+
+  // 2px x-inset mirrors the cards' inner padding, so bare pills/rows sit on
+  // the same x (and width) as carded ones — kept in BOTH rail states so the
+  // icon column never shifts on collapse/expand.
+  &__inset {
+    padding: 0 var(--vds-sidenav-nest);
+  }
+
+  // A cluster of consecutive bare rows (tighter 1px rhythm than the section's 4px).
+  &__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 0 var(--vds-sidenav-nest);
+  }
+
+  // Pinned utility cluster (consumer rows + the built-in collapse toggle).
+  // 18 = section pad 16 + the 2px inset, flattened into one padding.
+  &__utilities {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: var(--vds-sidenav-row-pad-y) calc(var(--vds-sidenav-pad-x) + var(--vds-sidenav-nest));
+  }
+
+  // ---- eyebrow: fades on collapse but NEVER unmounts, so section heights
+  // are identical in both states. In (late) / out (fast) mirror the labels. ----
+  &__eyebrow {
+    @include type.step(nano);
+    margin: 0;
+    padding-left: 4px; // aligns with the tile column (16 + inset 2 + pill pad 2)
     text-transform: uppercase;
-    color: var(--vds-ink-subtle);
-    padding: var(--vds-space-2) var(--vds-space-2) var(--vds-space-1);
-  }
-
-  // ---- product group header ----
-  &__group-header {
-    display: flex;
-    align-items: center;
-    gap: var(--vds-space-2);
-    width: 100%;
-    text-align: left;
-    padding: var(--vds-space-2);
-    border: 0;
-    border-radius: var(--vds-radius-md);
-    background: transparent;
-    color: var(--vds-ink);
-    @include type.step(caption);
-    font-weight: 600;
-    transition:
-      background-color var(--vds-dur-fast) var(--vds-ease-out),
-      color var(--vds-dur-fast) var(--vds-ease-out);
-  }
-  button#{&}__group-header {
-    cursor: pointer;
-    &:hover {
-      background-color: var(--vds-sidenav-hover);
-    }
-  }
-  &__group-icon {
-    flex-shrink: 0;
-    color: var(--vds-ink-subtle);
-  }
-  &__group-label {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: var(--vds-sidenav-ink-dim);
     white-space: nowrap;
+    overflow: hidden;
+    opacity: 1;
+    transition: opacity var(--vds-dur-base) ease var(--vds-sidenav-delay-label-in);
   }
-  &__group-caret {
-    flex-shrink: 0;
-    color: var(--vds-ink-subtle);
-    transition: transform var(--vds-dur-fast) var(--vds-ease-out);
-    &--open {
-      transform: rotate(180deg);
-    }
-  }
-  &__group-lock {
-    flex-shrink: 0;
-    color: var(--vds-ink-subtle);
+  &--collapsed &__eyebrow {
+    opacity: 0;
+    transition: opacity var(--vds-sidenav-dur-label-out) ease;
   }
 
-  // Locked product: dim the header to read as "not entitled".
-  &__group--locked &__group-header {
-    color: var(--vds-ink-subtle);
-    cursor: default;
+  // Empty-section note ("No managed products…"). Wraps to as many lines as it
+  // needs — unlike a row label, which must stay on one line — so it gets its own
+  // leading rather than the nav's tight default.
+  &__empty {
+    @include type.step(detail);
+    margin: 0;
+    padding: var(--vds-sidenav-row-pad-y) var(--vds-sidenav-row-pad-x);
+    color: var(--vds-sidenav-ink-dim);
+    line-height: var(--vds-leading-snug);
+    opacity: 1;
+    transition: opacity var(--vds-dur-base) ease var(--vds-sidenav-delay-label-in);
+  }
+  // The collapsed rail has no room for a sentence — fade it with the labels
+  // rather than unmounting, so the section keeps its height and nothing jumps.
+  &--collapsed &__empty {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--vds-sidenav-dur-label-out) ease;
   }
 
-  // ---- items ----
-  &__items {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-  }
-
-  &__item {
+  // --------------------------------------------------------------------------
+  // Bare menu row — 16px icon + fading label (+ badge)
+  // --------------------------------------------------------------------------
+  &__row {
     display: flex;
     align-items: center;
-    gap: var(--vds-space-2);
     width: 100%;
-    text-align: left;
-    // a touch of left inset so items read as children of their group header
-    padding: var(--vds-space-2) var(--vds-space-2) var(--vds-space-2) var(--vds-space-3);
+    padding: var(--vds-sidenav-row-pad-y) var(--vds-sidenav-row-pad-x); // IDENTICAL in both rail states — rows never shift x
     border: 0;
-    border-radius: var(--vds-radius-md);
-    background: transparent;
-    color: var(--vds-ink-muted);
-    @include type.step(body);
+    border-radius: var(--vds-sidenav-r-pill);
+    background-color: transparent;
+    color: var(--vds-sidenav-ink);
+    font: inherit;
+    text-align: left;
     cursor: pointer;
-    transition:
-      background-color var(--vds-dur-fast) var(--vds-ease-out),
-      color var(--vds-dur-fast) var(--vds-ease-out);
+    // Slow fade at rest…
+    transition: background-color var(--vds-sidenav-dur-hover-out) ease;
 
+    // …instant fill the moment you hover or press.
     &:hover {
       background-color: var(--vds-sidenav-hover);
-      color: var(--vds-ink);
+      transition-duration: var(--vds-sidenav-dur-hover-in);
+    }
+    &:active {
+      transition-duration: 0ms;
+    }
+    // Pressed: one step brighter than the hover fill — tactile, not murky.
+    &:not(#{&}--active):active {
+      background-color: var(--vds-sidenav-press);
     }
 
-    // Active = a neutral chip from the rail's own ink ramp; full ink + weight
-    // carry the emphasis, so it stays in one color family with the rail.
+    // ---- selection: accent fill + white ink + top-light + inset hairline ----
     &--active {
-      background-color: var(--vds-sidenav-active);
-      color: var(--vds-ink);
-      font-weight: 600;
-    }
-    // Keep the selected fill (and deepen it) on hover, instead of dropping back
-    // to the lighter unselected-hover tint.
-    &--active:hover {
-      background-color: var(--vds-sidenav-active-hover);
-      color: var(--vds-ink);
-    }
+      background-color: var(--vds-sidenav-accent);
+      background-image: var(--vds-sidenav-toplight);
+      box-shadow: var(--vds-sidenav-hairline);
+      color: var(--vds-white);
 
-    &--locked {
-      color: var(--vds-ink-subtle);
-      cursor: default;
+      // Longhand background-color only, so the darkened hover KEEPS the
+      // top-light gradient (a `background:` shorthand would wipe it).
       &:hover {
-        background-color: transparent;
-        color: var(--vds-ink-subtle);
+        background-color: var(--vds-sidenav-accent-hover);
+      }
+      &:active {
+        background-color: var(--vds-sidenav-accent-press);
       }
     }
   }
-  &__item-icon {
+
+  &__row-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--vds-sidenav-icon-size);
+    height: var(--vds-sidenav-icon-size);
     flex-shrink: 0;
+    color: var(--vds-sidenav-icon);
+    transition: color var(--vds-dur-base) ease;
   }
-  &__item-label {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  &__item-lock {
-    flex-shrink: 0;
-    color: var(--vds-ink-subtle);
-  }
-  &__item-badge {
-    flex-shrink: 0;
-    @include type.step(detail);
-    font-weight: 600;
-    color: var(--vds-ink-subtle);
-    background-color: var(--vds-sidenav-hover);
-    padding: 0 var(--vds-space-2);
-    border-radius: 9999px;
+  &__row--active &__row-icon {
+    color: var(--vds-white);
   }
 
-  // ---- "full portal" escape link — the clear door out of the curated set ----
-  &__escape {
+  // Sub rows (inside a product card) read a step larger.
+  &__row--sub {
+    @include type.step(caption);
+    font-weight: var(--vds-weight-medium);
+  }
+
+  // Escape row ("Full portal") — the quiet door out: faint icon that brightens
+  // to white on row hover, smallest label.
+  &__row--escape {
+    color: var(--vds-sidenav-ink-dim);
+    .vds-sidenav__row-icon {
+      color: var(--vds-sidenav-icon-faint);
+      transition: color var(--vds-dur-fast) ease;
+    }
+    &:hover .vds-sidenav__row-icon {
+      color: var(--vds-white);
+    }
+    .vds-sidenav__label {
+      @include type.step(micro);
+      font-weight: var(--vds-sidenav-weight-quiet);
+    }
+  }
+
+  // Back row — fixed 24px, chevron holds the icon column's x.
+  &__back {
+    height: var(--vds-sidenav-back-h);
+    padding-block: var(--vds-space-1);
+    color: var(--vds-sidenav-ink-dim);
+    .vds-sidenav__row-icon {
+      color: var(--vds-sidenav-ink-dim);
+    }
+    .vds-sidenav__label {
+      margin-left: var(--vds-space-1-5);
+      max-width: var(--vds-sidenav-label-max-pill);
+    }
+  }
+
+  // ---- the fading label: max-width + LEAD MARGIN animate on the emphasized
+  // curve; opacity is asymmetric (out fast / in late). No flex gap anywhere —
+  // the margin IS the gap, so collapsed rows carry no phantom space. ----
+  &__label {
+    @include type.step(detail);
+    font-weight: var(--vds-sidenav-weight-label);
+    min-width: 0;
+    max-width: var(--vds-sidenav-label-max);
+    margin-left: var(--vds-sidenav-label-gap);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    opacity: 1;
+    transition:
+      max-width var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      margin-left var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      opacity var(--vds-dur-base) ease var(--vds-sidenav-delay-label-in); // late-in: the width leads, words arrive
+  }
+  &--collapsed &__label {
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    transition:
+      max-width var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      margin-left var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      opacity var(--vds-sidenav-dur-label-out) ease; // fast-out: get out of the way
+  }
+  // Pill labels (product / tile rows) are a step larger and heavier.
+  &__label--pill {
+    @include type.step(body);
+    font-weight: var(--vds-sidenav-weight-pill);
+    max-width: var(--vds-sidenav-label-max-pill);
+    color: var(--vds-white);
+  }
+  &__row--sub .vds-sidenav__label {
+    @include type.step(caption);
+    font-weight: var(--vds-weight-medium);
+  }
+
+  // Count badge at the row's end — collapses with the label.
+  &__badge {
+    @include type.step(micro);
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 0 var(--vds-space-1-5);
+    border-radius: var(--vds-radius-full);
+    background-color: color-mix(in srgb, var(--vds-white) 12%, transparent);
+    color: var(--vds-sidenav-ink);
+    overflow: hidden;
+    transition:
+      max-width var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      padding var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      opacity var(--vds-dur-base) ease var(--vds-sidenav-delay-label-in);
+  }
+  &__row--active &__badge {
+    background-color: color-mix(in srgb, var(--vds-white) 20%, transparent);
+    color: var(--vds-white);
+  }
+  &--collapsed &__badge {
+    max-width: 0;
+    padding: 0;
+    opacity: 0;
+    transition:
+      max-width var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      padding var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      opacity var(--vds-sidenav-dur-label-out) ease;
+  }
+
+  // --------------------------------------------------------------------------
+  // Tile pill — 32px tile + label (+ chevron). Concentric: 2px pad → radius 10.
+  // --------------------------------------------------------------------------
+  &__pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--vds-sidenav-nest); // same in both rail states — pills never shift x
+    border: 0;
+    border-radius: var(--vds-sidenav-r-pill);
+    background-color: transparent;
+    color: var(--vds-sidenav-ink);
+    font: inherit;
+    text-align: left;
+    transition: background-color var(--vds-sidenav-dur-hover-out) ease;
+  }
+  // Only real buttons get the hover/press treatment (locked heads are divs).
+  button#{&}__pill {
+    cursor: pointer;
+    &:hover {
+      background-color: var(--vds-sidenav-hover);
+      transition-duration: var(--vds-sidenav-dur-hover-in);
+    }
+    &:active {
+      transition-duration: 0ms;
+    }
+    &:not(.vds-sidenav__pill--active):active {
+      background-color: var(--vds-sidenav-press);
+    }
+  }
+  &__pill--active {
+    background-color: var(--vds-sidenav-accent);
+    background-image: var(--vds-sidenav-toplight);
+    box-shadow: var(--vds-sidenav-hairline);
+  }
+  button#{&}__pill--active {
+    &:hover {
+      background-color: var(--vds-sidenav-accent-hover);
+    }
+    &:active {
+      background-color: var(--vds-sidenav-accent-press);
+    }
+  }
+
+  &__pill-main {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  // The 32px tile slot. Hover: a calm lift; press: settles under the finger.
+  &__tile {
+    position: relative;
+    width: var(--vds-sidenav-tile-size);
+    height: var(--vds-sidenav-tile-size);
+    flex-shrink: 0;
+    transition: transform var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease);
+  }
+  button#{&}__pill:hover &__tile {
+    transform: scale(1.05);
+  }
+  button#{&}__pill:active &__tile {
+    transform: scale(0.97);
+    transition-duration: var(--vds-sidenav-dur-press);
+  }
+
+  // "Go get this" badge on a not-subscribed product tile. Sits on the tile's
+  // bottom-right corner, overhanging by 4px so it reads as applied ON TOP of the
+  // tile rather than tucked inside it. Derived from the geometry — tile, minus
+  // the badge, plus the overhang — so the corner holds if either size changes.
+  &__unsub {
+    position: absolute;
+    left: calc(var(--vds-sidenav-tile-size) - var(--vds-sidenav-icon-size) + var(--vds-space-1));
+    top: calc(var(--vds-sidenav-tile-size) - var(--vds-sidenav-icon-size) + var(--vds-space-1));
+    width: var(--vds-sidenav-icon-size);
+    height: var(--vds-sidenav-icon-size);
+  }
+  &__unsub-disc {
+    fill: var(--vds-sidenav-unsub-disc);
+    stroke: var(--vds-sidenav-unsub-ring);
+    stroke-width: var(--vds-border-w);
+  }
+  &__unsub-arrow {
+    stroke: var(--vds-sidenav-unsub-ink);
+    stroke-width: var(--vds-sidenav-unsub-stroke);
+  }
+
+  &__pill--locked {
+    cursor: default;
+    .vds-sidenav__label--pill {
+      color: var(--vds-sidenav-ink); // muted vs the white of a live product
+    }
+  }
+
+  // ---- chevron: shrinks/fades in step with the labels; arrow flips 200ms. ----
+  &__chev {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--vds-sidenav-chev-size);
+    max-width: var(--vds-sidenav-chev-size);
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: var(--vds-radius-lg);
+    color: var(--vds-sidenav-chev);
+    opacity: 1;
+    transition:
+      max-width var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      opacity var(--vds-dur-base) ease var(--vds-sidenav-delay-label-in),
+      color var(--vds-dur-base) ease;
+
+    svg {
+      display: block;
+      transition: transform var(--vds-dur-base) var(--vds-sidenav-ease);
+    }
+    &--closed svg {
+      transform: rotate(180deg);
+    }
+  }
+  button#{&}__pill:hover &__chev {
+    color: var(--vds-white);
+  }
+  &--collapsed &__chev {
+    max-width: 0;
+    opacity: 0;
+    transition:
+      max-width var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      opacity var(--vds-sidenav-dur-label-out) ease;
+  }
+
+  // --------------------------------------------------------------------------
+  // Product card — the darker navy well. Concentric: 2px pad → radius 12.
+  // --------------------------------------------------------------------------
+  &__card {
+    display: flex;
+    flex-direction: column;
+    padding: var(--vds-sidenav-nest);
+    margin-block: 1px; // 4px section gap + 2 → cards sit 6px apart
+    border-radius: var(--vds-sidenav-r-card);
+    background-color: var(--vds-sidenav-well);
+  }
+
+  // ---- accordion reveal: the card opens 0fr → 1fr on the emphasized curve;
+  // the items fade in a beat AFTER the card starts opening (and drop out
+  // quickly on close) — a two-stage reveal, not a pop. ----
+  &__reveal {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--vds-sidenav-dur-accordion) var(--vds-sidenav-ease);
+
+    &--open {
+      grid-template-rows: 1fr;
+    }
+  }
+  &__reveal-clip {
+    overflow: hidden;
+    min-height: 0;
+  }
+  &__reveal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 2px;
+    opacity: 0;
+    // visibility flips AFTER the close animation — and keeps the closed
+    // items out of the tab order.
+    visibility: hidden;
+    transition:
+      opacity var(--vds-sidenav-dur-item-out) ease,
+      visibility 0s linear var(--vds-sidenav-dur-accordion);
+  }
+  &__reveal--open &__reveal-body {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity var(--vds-dur-base) ease var(--vds-sidenav-delay-item-in);
+  }
+
+  // --------------------------------------------------------------------------
+  // Account header — concentric pill, fixed 36px so collapse never shifts y.
+  // --------------------------------------------------------------------------
+  &__account {
+    display: flex;
+    align-items: center;
+    height: var(--vds-sidenav-account-h);
+    padding: var(--vds-sidenav-nest);
+    border-radius: var(--vds-sidenav-r-pill);
+  }
+  &__account-tile {
+    display: block;
+    width: var(--vds-sidenav-tile-size);
+    height: var(--vds-sidenav-tile-size);
+    flex-shrink: 0;
+    img,
+    svg {
+      display: block;
+      width: var(--vds-sidenav-tile-size);
+      height: var(--vds-sidenav-tile-size);
+      max-width: none; // a reset's max-width:100% would clamp it mid-animation
+      border-radius: var(--vds-sidenav-r-tile);
+    }
+  }
+  &__account-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    max-width: var(--vds-sidenav-label-max-pill);
+    margin-left: var(--vds-sidenav-label-gap);
+    overflow: hidden;
+    opacity: 1;
+    transition:
+      max-width var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      margin-left var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      opacity var(--vds-dur-base) ease var(--vds-sidenav-delay-label-in);
+  }
+  &--collapsed &__account-text {
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    transition:
+      max-width var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      margin-left var(--vds-sidenav-dur-collapse) var(--vds-sidenav-ease),
+      opacity var(--vds-sidenav-dur-label-out) ease;
+  }
+  &__account-name {
+    @include type.step(caption);
+    font-weight: var(--vds-sidenav-weight-pill);
+    line-height: var(--vds-leading-snug);
+    color: var(--vds-white);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  &__account-type {
+    @include type.step(nano);
+    font-weight: var(--vds-sidenav-weight-quiet);
+    line-height: var(--vds-leading-snug);
+    color: var(--vds-sidenav-ink-dim);
+    white-space: nowrap;
+  }
+
+  // --------------------------------------------------------------------------
+  // Loading skeletons — shimmer cards standing in for products.
+  // --------------------------------------------------------------------------
+  &__skel-row {
     display: flex;
     align-items: center;
     gap: var(--vds-space-2);
-    width: 100%;
-    text-align: left;
-    padding: var(--vds-space-1) var(--vds-space-2) var(--vds-space-1) var(--vds-space-3);
-    margin-top: 0.125rem;
-    border: 0;
-    border-radius: var(--vds-radius-md);
-    background: transparent;
-    color: var(--vds-ink-subtle);
-    @include type.step(detail);
-    font-weight: 500;
-    cursor: pointer;
-    transition:
-      color var(--vds-dur-fast) var(--vds-ease-out),
-      background-color var(--vds-dur-fast) var(--vds-ease-out);
+    padding: var(--vds-sidenav-nest);
+  }
+  &__skel {
+    background: linear-gradient(
+      90deg,
+      var(--vds-midnight-800) 25%,
+      var(--vds-midnight-700) 50%,
+      var(--vds-midnight-800) 75%
+    );
+    background-size: 480px 100%;
+    animation: vds-sidenav-shimmer var(--vds-sidenav-dur-shimmer) ease-in-out infinite;
+  }
+  &__skel--tile {
+    width: var(--vds-sidenav-tile-size);
+    height: var(--vds-sidenav-tile-size);
+    flex-shrink: 0;
+    border-radius: var(--vds-sidenav-r-tile);
+  }
+  &__skel--label {
+    height: var(--vds-space-3);
+    flex: 1 1 auto;
+    border-radius: var(--vds-radius-sm);
+  }
+  &--collapsed &__skel--label {
+    display: none;
+  }
 
-    &:hover {
-      color: var(--vds-primary);
-      background-color: var(--vds-sidenav-hover);
+  // --------------------------------------------------------------------------
+  // Collapsed-rail tooltip — ONE floating chip pinned just off the rail's
+  // right edge (fixed positioning lets it escape the rail). Re-keyed per row
+  // in the JSX so the fade+slide replays as you move between rows.
+  // --------------------------------------------------------------------------
+  &__tip {
+    position: fixed;
+    z-index: var(--vds-z-tooltip);
+    transform: translateY(-50%);
+    pointer-events: none;
+    padding: 7px 9px;
+    border-radius: calc(var(--vds-radius-sm) + var(--vds-sidenav-nest)); // 6 — between chip + pill
+    border: 1px solid var(--vds-midnight-800);
+    background-color: var(--vds-midnight-1000);
+    box-shadow: var(--vds-shadow-lg);
+    color: var(--vds-white);
+    @include type.step(detail);
+    font-weight: var(--vds-weight-medium);
+    line-height: var(--vds-leading-none);
+    white-space: nowrap;
+    animation: vds-sidenav-tip-in var(--vds-sidenav-dur-tip) var(--vds-sidenav-ease);
+
+    // The little arrow back at the rail.
+    &::before {
+      content: '';
+      position: absolute;
+      right: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 4px solid transparent;
+      border-left-width: 0;
+      border-right-color: var(--vds-midnight-1000);
     }
   }
-  &__escape-icon {
-    flex-shrink: 0;
-  }
+}
 
-  // ---- footer (account cluster + arbitrary slot) ----
-  &__footer {
-    flex-shrink: 0;
-    border-top: 1px solid var(--vds-line);
-    padding: var(--vds-space-2);
-    display: flex;
-    flex-direction: column;
-    gap: var(--vds-space-1);
+@keyframes vds-sidenav-shimmer {
+  0% {
+    background-position: -240px 0;
   }
-  &__footer-slot {
-    padding-top: var(--vds-space-1);
+  100% {
+    background-position: 240px 0;
   }
+}
 
-  // ---- focus ----
-  & button:focus-visible {
-    outline: 2px solid var(--vds-focus-ring);
-    outline-offset: 2px;
+@keyframes vds-sidenav-tip-in {
+  from {
+    opacity: 0;
+    transform: translate(-4px, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+}
+
+// ---- reduced motion: kill ALL the choreography — collapse snaps, reveals
+// snap, shimmer freezes, tooltips just appear. ----
+@media (prefers-reduced-motion: reduce) {
+  .vds-sidenav,
+  .vds-sidenav *,
+  .vds-sidenav *::before {
+    transition: none !important;
+    animation: none !important;
   }
 }

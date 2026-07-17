@@ -1,0 +1,83 @@
+// ============================================================================
+// Skeleton — shimmering loading placeholder. The gradient + timing deliberately
+// mirror the Table (__skeleton) and StatTile skeletons so every loading state
+// in a view pulses in sync. Reduced motion = static tint, no sweep.
+// ============================================================================
+
+// The shared shimmer recipe (same stops as Table/StatTile: line 25% →
+// line-strong 37% → line 63%, sweeping right-to-left).
+%vds-skeleton-shimmer {
+  background-color: var(--vds-line); // static base — what reduced-motion keeps
+  background-image: linear-gradient(
+    90deg,
+    var(--vds-line) 25%,
+    var(--vds-line-strong) 37%,
+    var(--vds-line) 63%
+  );
+  background-size: 400% 100%;
+  animation: vds-skeleton-shimmer 1.4s ease infinite;
+}
+
+.vds-skeleton {
+  display: block;
+  width: 100%;
+  // Bar height is pinned to the Table (__skeleton) and StatTile bars so mixed
+  // loading states line up; changing it here alone would break that match.
+  --_skeleton-bar-h: 0.75rem;
+
+  // ---- single bar of text ----
+  &--text {
+    @extend %vds-skeleton-shimmer;
+    height: var(--_skeleton-bar-h);
+    border-radius: var(--vds-radius-sm);
+  }
+
+  // ---- block (card, chart, image stand-in) ----
+  &--rect {
+    @extend %vds-skeleton-shimmer;
+    height: 3rem;
+    border-radius: var(--vds-radius-md);
+  }
+
+  // ---- circle (avatar stand-in) ----
+  &--circle {
+    @extend %vds-skeleton-shimmer;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--vds-radius-full);
+  }
+
+  // ---- multi-line text: root is a plain stack; the bars shimmer ----
+  &--lines {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vds-space-2);
+  }
+  &__line {
+    @extend %vds-skeleton-shimmer;
+    display: block;
+    height: var(--_skeleton-bar-h);
+    border-radius: var(--vds-radius-sm);
+
+    &:last-child:not(:only-child) {
+      width: 60%; // the short closing line that reads as "paragraph"
+    }
+  }
+}
+
+@keyframes vds-skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+// Reduced motion: hold a static tint — kill both the sweep and the gradient
+// (a frozen gradient stripe looks like a rendering artifact).
+@media (prefers-reduced-motion: reduce) {
+  .vds-skeleton--text,
+  .vds-skeleton--rect,
+  .vds-skeleton--circle,
+  .vds-skeleton__line {
+    animation: none;
+    background-image: none;
+  }
+}

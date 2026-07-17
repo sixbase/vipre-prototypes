@@ -1,0 +1,100 @@
+// ============================================================================
+// DescriptionList — labeled facts on a real <dl>. The ROOT is the container
+// (container-type: inline-size, like StatTile); the inner __list is the grid,
+// so a 3-column list folds toward one column when its CONTAINER narrows —
+// drawer, side panel, or card, regardless of viewport. Terms muted,
+// descriptions ink; values may be any node.
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-dl {
+  container-type: inline-size;
+  width: 100%;
+  font-family: var(--vds-font-sans);
+
+  // rhythm knobs — dense tightens these
+  --_dl-row-gap: var(--vds-space-4);
+  --_dl-col-gap: var(--vds-space-6);
+  --_dl-pair-gap: var(--vds-space-1);
+
+  &__list {
+    display: grid;
+    grid-template-columns: 1fr;
+    row-gap: var(--_dl-row-gap);
+    column-gap: var(--_dl-col-gap);
+    margin: 0;
+  }
+  &--cols-2 .vds-dl__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  &--cols-3 .vds-dl__list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  // ---- one term/value pair (a <div> cell wrapping <dt> + <dd>) ----
+  &__item {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--_dl-pair-gap);
+  }
+  &__item--span-2 { grid-column: span 2; }
+  &__item--span-3 { grid-column: span 3; }
+  // a span can never exceed the declared column count
+  &--cols-1 .vds-dl__item { grid-column: auto; }
+  &--cols-2 .vds-dl__item--span-3 { grid-column: span 2; }
+
+  &__term {
+    @include type.step(detail);
+    font-weight: var(--vds-weight-medium);
+    color: var(--vds-ink-muted);
+  }
+  &__desc {
+    @include type.step(body);
+    color: var(--vds-ink);
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  // ---- horizontal: term left, value right ----
+  &--horizontal .vds-dl__item {
+    display: grid;
+    grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr);
+    column-gap: var(--vds-space-4);
+    align-items: baseline;
+  }
+
+  // ---- divided: a hairline rules off each row ----
+  &--divided .vds-dl__item {
+    padding-bottom: var(--_dl-row-gap);
+    border-bottom: 1px solid var(--vds-line-subtle);
+
+    &:last-child { border-bottom: 0; padding-bottom: 0; }
+  }
+
+  // ---- dense: packed side-panel rhythm ----
+  &--dense {
+    --_dl-row-gap: var(--vds-space-2);
+    --_dl-col-gap: var(--vds-space-4);
+    --_dl-pair-gap: 0px;
+
+    .vds-dl__desc { @include type.step(caption); color: var(--vds-ink); }
+  }
+
+  // ---- container response: fold toward one column as the CONTAINER narrows.
+  // The query resolves against .vds-dl (the nearest container of __list). ----
+  @container (max-width: 559.98px) {
+    &--cols-3 .vds-dl__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    &--cols-3 .vds-dl__item--span-3 { grid-column: span 2; }
+  }
+  @container (max-width: 379.98px) {
+    &--cols-2 .vds-dl__list,
+    &--cols-3 .vds-dl__list { grid-template-columns: 1fr; }
+    // single track — neutralise every span (outranks the base span rules)
+    &--cols-2 .vds-dl__item,
+    &--cols-3 .vds-dl__item { grid-column: auto; }
+
+    // horizontal pairs stack when there's no room for two tracks
+    &--horizontal .vds-dl__item {
+      grid-template-columns: 1fr;
+      row-gap: var(--_dl-pair-gap);
+    }
+  }
+}

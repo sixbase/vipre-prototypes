@@ -1,0 +1,86 @@
+// ============================================================================
+// EmptyState — centered "nothing here" panel. Generous whitespace, a soft icon
+// ring, quiet type. `--inset` renders a dashed canvas well for use inside an
+// existing Surface. Padding relaxes on narrow viewports.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  font-family: var(--vds-font-sans);
+
+  // per-size knobs
+  --_es-pad: var(--vds-space-12);
+  --_es-ring: 3.5rem;
+  --_es-ring-bg: var(--vds-canvas);
+
+  padding: var(--_es-pad) var(--vds-space-6);
+
+  // ---- soft icon ring ----
+  &__ring {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--_es-ring);
+    height: var(--_es-ring);
+    border-radius: var(--vds-radius-full);
+    background-color: var(--_es-ring-bg);
+    border: 1px solid var(--vds-line);
+    color: var(--vds-ink-subtle);
+    margin-bottom: var(--vds-space-4);
+  }
+
+  // ---- copy ----
+  &__title {
+    margin: 0;
+    color: var(--vds-ink);
+  }
+  &__desc {
+    @include type.step(body);
+    color: var(--vds-ink-muted);
+    max-width: 34rem;
+    margin-top: var(--vds-space-2);
+  }
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--vds-space-3);
+    margin-top: var(--vds-space-5);
+  }
+
+  // ---- sizes ----
+  &--sm {
+    --_es-pad: var(--vds-space-6);
+    --_es-ring: var(--vds-chip-sm);
+    .vds-empty__title { @include type.step(subheading); font-weight: var(--vds-weight-semibold); }
+  }
+  &--md {
+    .vds-empty__title { @include type.step(heading); }
+  }
+  &--lg {
+    --_es-pad: var(--vds-space-16);
+    --_es-ring: 4.5rem;
+    .vds-empty__title { @include type.step(title); }
+  }
+
+  // ---- inset: a dashed, canvas-tinted well inside an existing Surface ----
+  &--inset {
+    --_es-ring-bg: var(--vds-surface); // the ring must lift off the canvas well
+    background-color: var(--vds-canvas);
+    border: 1px dashed var(--vds-line-strong);
+    border-radius: var(--vds-radius-lg);
+  }
+
+  // narrow viewports: keep the message, shed the ceremony
+  @include bp.down(sm) {
+    padding: var(--vds-space-8) var(--vds-space-4);
+
+    &--sm { padding: var(--vds-space-5) var(--vds-space-3); }
+  }
+}

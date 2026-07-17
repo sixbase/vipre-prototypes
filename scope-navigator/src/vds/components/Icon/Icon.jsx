@@ -5,12 +5,13 @@ import { cx } from '../../lib/cx.js'
  * Icon
  *
  * A presentation wrapper that gives any SVG icon a consistent size and tone.
- * It does NOT ship its own icon set — pass a lucide-react icon (or any SVG
- * component) via `as`, or raw <svg> as children. Color inherits from the
- * surrounding text by default (currentColor); `tone` overrides it.
+ * It does NOT ship its own icon set — pass any SVG icon component via `as`
+ * (the repo uses Material Symbols Rounded through the `@icons` alias), or raw
+ * <svg> as children. Color inherits from the surrounding text by default
+ * (currentColor); `tone` overrides it.
  *
  * Props:
- * - as:    an icon component (e.g. a lucide icon). Omit to use children.
+ * - as:    an icon component (e.g. from `@icons`). Omit to use children.
  * - size:  'xs' | 'sm' | 'md' | 'lg'  → 14 / 16 / 20 / 24px   (default 'md')
  * - tone:  'current' | 'muted' | 'subtle' | 'primary' | 'success' | 'warning'
  *          | 'danger' | 'info'   (default 'current' — inherits text color)

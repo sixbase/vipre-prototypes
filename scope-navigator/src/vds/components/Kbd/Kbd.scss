@@ -1,0 +1,39 @@
+// ============================================================================
+// Kbd — inline key cap. Token-bound only. Co-located with Kbd.jsx.
+//
+// Selector is `kbd.vds-kbd` (element + class) on purpose: the docs showcase
+// layer ships a legacy `.vds-kbd` rule that loads AFTER the component
+// aggregate; the extra specificity lets the component own its look everywhere.
+// (Once the docs primitives adopt this component, that legacy rule can go.)
+// ============================================================================
+@use '../../styles/typography' as type;
+
+kbd.vds-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  font-family: var(--vds-font-sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--vds-ink-muted);
+  background: var(--vds-surface);
+  border: 1px solid var(--vds-line-strong);
+  border-radius: var(--vds-radius-sm);
+  // The "raised cap" edge — a hairline shelf under the key, same color as the
+  // border so it reads as depth in both themes without a new gray.
+  box-shadow: inset 0 -1px 0 var(--vds-line-strong);
+  vertical-align: middle;
+
+  &.vds-kbd--sm {
+    @include type.step(nano);
+    height: 1.125rem;
+    min-width: 1.125rem;
+    padding: 0 var(--vds-space-1);
+  }
+
+  &.vds-kbd--md {
+    @include type.step(micro);
+    height: 1.375rem;
+    padding: 0 var(--vds-space-1-5);
+  }
+}

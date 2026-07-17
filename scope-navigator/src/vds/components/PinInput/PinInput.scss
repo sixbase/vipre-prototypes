@@ -1,0 +1,75 @@
+// ============================================================================
+// PinInput — a row of single-char cells for OTP / code entry. Each cell IS an
+// input dressed up, so its shell recipe mirrors Input's field-class chrome:
+// neutral border + hover darken, the soft box-shadow focus ring. The public
+// tokens bind to the same foundation tokens Input uses (its --vds-input-* vars
+// are scoped to .vds-input, so they're re-declared here against foundation).
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-pin {
+  // ---- public tokens (bind to foundation only; mirror the Input field recipe) ----
+  --vds-pin-gap: var(--vds-space-2);
+  --vds-pin-cell-sm: var(--vds-control-h-sm);   // 32px — square cell
+  --vds-pin-cell-md: var(--vds-control-h-md);   // 36px
+  --vds-pin-cell-lg: var(--vds-control-h-lg);   // 44px
+  --vds-pin-radius: var(--vds-radius-sm);
+  --vds-pin-border-w: var(--vds-border-w);      // 1px
+  --vds-pin-fill: var(--vds-surface-sunken);
+  --vds-pin-border: var(--vds-line-strong);
+  --vds-pin-border-hover: color-mix(in oklab, var(--vds-pin-border), var(--vds-ink) var(--vds-control-hover-mix));
+  --vds-pin-border-focus: var(--vds-focus-ring);
+  --vds-pin-ring: color-mix(in oklab, var(--vds-focus-ring) var(--vds-control-ring-tint), transparent);
+  --vds-pin-dur: var(--vds-dur-fast);
+  --vds-pin-ease: var(--vds-ease-out);
+
+  display: inline-flex;
+  gap: var(--vds-pin-gap);
+
+  &--disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  &__cell {
+    // square-ish cell; width follows the size token (default md, overridden below)
+    width: var(--vds-pin-cell-md);
+    height: var(--vds-pin-cell-md);
+    padding: 0;
+    text-align: center;
+    font-family: var(--vds-font-sans);
+    color: var(--vds-ink);
+    background-color: var(--vds-pin-fill);
+    border: var(--vds-pin-border-w) solid var(--vds-pin-border);
+    border-radius: var(--vds-pin-radius);
+    @include type.step(body);
+
+    @include bp.motion-ok {
+      transition:
+        border-color var(--vds-pin-dur) var(--vds-pin-ease),
+        box-shadow var(--vds-pin-dur) var(--vds-pin-ease);
+    }
+
+    &:hover:not(:focus) {
+      border-color: var(--vds-pin-border-hover);
+    }
+
+    // Field-class soft focus ring. Raise the focused cell so the ring isn't
+    // clipped under the next cell's box.
+    &:focus {
+      outline: none;
+      border-color: var(--vds-pin-border-focus);
+      box-shadow: 0 0 0 var(--vds-control-ring-w) var(--vds-pin-ring);
+      position: relative;
+      z-index: var(--vds-z-raised);
+    }
+  }
+
+  // ---- sizes (square: width == height) ----
+  &--sm .vds-pin__cell { width: var(--vds-pin-cell-sm); height: var(--vds-pin-cell-sm); @include type.step(detail); }
+  &--md .vds-pin__cell { width: var(--vds-pin-cell-md); height: var(--vds-pin-cell-md); }
+  &--lg .vds-pin__cell { width: var(--vds-pin-cell-lg); height: var(--vds-pin-cell-lg); @include type.step(body-lg); }
+}
+// No .dark override needed — every chrome var resolves through a semantic token
+// that already flips to the Midnight ramp in dark mode.

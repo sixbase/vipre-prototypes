@@ -3,31 +3,66 @@
 // a flex shell so leading/trailing affixes sit inside one focusable-looking box.
 // ============================================================================
 @use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
 
 .vds-input {
-  // Chrome bound to SEMANTIC tokens so it flips light/dark for free:
-  //   border  → line-strong   (graphite-300 → midnight-700)
-  //   muted   → ink-subtle    (graphite-500 → midnight-400)
-  //   fill    → surface-sunken (white → recessed midnight-950)
-  // Focus is the unified BRAND ring (--vds-focus-ring), matching Button/Checkbox.
-  --vds-input-border: var(--vds-line-strong);
-  --vds-input-border-hover: color-mix(in oklab, var(--vds-line-strong), var(--vds-ink) 30%);
-  --vds-input-border-focus: var(--vds-focus-ring);
-  --vds-input-ring: color-mix(in oklab, var(--vds-focus-ring) 35%, transparent);
-  --vds-input-muted: var(--vds-ink-subtle);
+  // ---- public tokens (bind to these to retheme/respace — not the rule bodies below) ----
+  // Sizing
+  --vds-input-h-xs: var(--vds-control-h-xs);       // 28px — dense rows, toolbars
+  --vds-input-h-sm: var(--vds-control-h-sm);       // 2rem / 32px
+  --vds-input-h-md: var(--vds-control-h-md);       // 2.25rem / 36px
+  --vds-input-h-lg: var(--vds-control-h-lg);       // 2.75rem / 44px
+  --vds-input-h-xl: var(--vds-control-h-xl);       // 52px — hero / marketing forms
+  --vds-input-pad-x-xs: var(--vds-space-2);        // 8px — field rhythm, one step below sm
+  --vds-input-pad-x-sm: var(--vds-space-2-5);      // 0.625rem / 10px
+  --vds-input-pad-x-md: var(--vds-space-3);        // 0.75rem / 12px
+  --vds-input-pad-x-lg: var(--vds-space-4);        // 1rem / 16px
+  --vds-input-pad-x-xl: var(--vds-space-5);        // 20px — one step above lg
+  --vds-input-gap: var(--vds-space-2);             // 0.5rem / 8px — affix ↔ field gap
+  // Optical: affix slots hang this far INTO the padding — glyphs carry
+  // whitespace inside their box, so a flush icon reads over-padded.
+  --vds-input-affix-nudge: calc(var(--vds-space-1) / 2);   // 2px at xs/sm/md
+  // Shape
+  --vds-input-radius: var(--vds-radius-sm);        // 0.25rem / 4px
+  --vds-input-border-w: var(--vds-border-w);       // 1px
+  // Color — bound to SEMANTIC tokens so it flips light/dark for free:
+  //   fill  → surface-sunken (white → recessed midnight-950)
+  //   muted → ink-subtle     (graphite-500 → midnight-400) — placeholder text + affix icons.
+  //   NOTE: --vds-input-muted (not "-placeholder") is the existing, already-public name —
+  //   Select/Textarea define the identical var on their own scope, and the docs' color-usage
+  //   table (src/docs/colorUsage.js) reads it by this name. Kept as-is on purpose.
   --vds-input-fill: var(--vds-surface-sunken);
+  --vds-input-muted: var(--vds-ink-subtle);
+  // Add-ons — attached prefix/suffix chrome segments (e.g. "$" | amount, "https://" | url).
+  // A hairline-separated segment tinted a touch darker than the field fill, with muted ink,
+  // so it reads as chrome ATTACHED inside the border (distinct from the affix icon slots).
+  --vds-input-addon-bg: color-mix(in oklab, var(--vds-surface-sunken), var(--vds-ink) 4%); // 4% = documented tint recipe (a mix ratio, not a scale value — §1)
+  --vds-input-addon-ink: var(--vds-ink-muted);
+  // Touch — coarse-pointer zoom guard (iOS auto-zooms text inputs under 16px)
+  --vds-input-touch-min: var(--vds-control-font-touch-min);
+  // Motion
+  --vds-input-dur: var(--vds-dur-fast);
+  --vds-input-ease: var(--vds-ease-out);
+
+  // ---- derived recipes (internal names, kept stable; values bind to the contract) ----
+  // Focus is the unified BRAND ring (--vds-focus-ring), matching Button/Checkbox, but
+  // rendered as a soft shadow ring (not a hard outline) — see the pattern doc's D1.
+  --vds-input-border: var(--vds-line-strong);
+  --vds-input-border-hover: color-mix(in oklab, var(--vds-input-border), var(--vds-ink) var(--vds-control-hover-mix));
+  --vds-input-border-focus: var(--vds-focus-ring);
+  --vds-input-ring: color-mix(in oklab, var(--vds-focus-ring) var(--vds-control-ring-tint), transparent);
 
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--vds-input-gap);
   width: 100%;
   background-color: var(--vds-input-fill);
-  border: 1px solid var(--vds-input-border);
-  border-radius: var(--vds-radius-sm);
+  border: var(--vds-input-border-w) solid var(--vds-input-border);
+  border-radius: var(--vds-input-radius);
   color: var(--vds-ink);
   transition:
-    border-color var(--vds-dur-fast) var(--vds-ease-out),
-    box-shadow var(--vds-dur-fast) var(--vds-ease-out);
+    border-color var(--vds-input-dur) var(--vds-input-ease),
+    box-shadow var(--vds-input-dur) var(--vds-input-ease);
 
   // hover (resting only — focus/invalid win): border darkens toward ink
   &:hover:not(:focus-within):not(.vds-input--invalid):not(.vds-input--disabled) {
@@ -37,14 +72,14 @@
   // focus ring follows the inner input's focus — unified brand ring
   &:focus-within {
     border-color: var(--vds-input-border-focus);
-    box-shadow: 0 0 0 2px var(--vds-input-ring);
+    box-shadow: 0 0 0 var(--vds-control-ring-w) var(--vds-input-ring);
   }
 
   &--invalid {
     border-color: var(--vds-danger);
     &:focus-within {
       border-color: var(--vds-danger);
-      box-shadow: 0 0 0 2px color-mix(in oklab, var(--vds-danger) 30%, transparent);
+      box-shadow: 0 0 0 var(--vds-control-ring-w) color-mix(in oklab, var(--vds-danger) var(--vds-control-ring-tint-invalid), transparent);
     }
   }
 
@@ -53,10 +88,12 @@
     pointer-events: none;
   }
 
-  // ---- sizes (heights match Button) ----
-  &--sm { height: 2rem;    padding: 0 0.625rem; @include type.step(detail); }
-  &--md { height: 2.25rem; padding: 0 0.75rem;  @include type.step(body); }
-  &--lg { height: 2.75rem; padding: 0 1rem;     @include type.step(body-lg); }
+  // ---- sizes (heights = the shared control-metric tokens, matching Button) ----
+  &--xs { height: var(--vds-input-h-xs); padding: 0 var(--vds-input-pad-x-xs); @include type.step(micro); }
+  &--sm { height: var(--vds-input-h-sm); padding: 0 var(--vds-input-pad-x-sm); @include type.step(detail); }
+  &--md { height: var(--vds-input-h-md); padding: 0 var(--vds-input-pad-x-md); @include type.step(body); }
+  &--lg { height: var(--vds-input-h-lg); padding: 0 var(--vds-input-pad-x-lg); @include type.step(body-lg); --vds-input-affix-nudge: var(--vds-space-1); }  // 4px
+  &--xl { height: var(--vds-input-h-xl); padding: 0 var(--vds-input-pad-x-xl); @include type.step(body-lg); --vds-input-affix-nudge: var(--vds-space-1); }  // 4px
 
   &__field {
     flex: 1 1 auto;
@@ -80,8 +117,80 @@
     color: var(--vds-input-muted);
   }
 
+  // Optical nudge — affixes hang into the pad so glyph whitespace doesn't read as over-padding.
+  &__affix--lead { margin-inline-start: calc(var(--vds-input-affix-nudge) * -1); }
+
   // Trailing affix is often an interactive clear button — let it receive clicks.
-  &__affix--trail { cursor: pointer; }
+  &__affix--trail {
+    cursor: pointer;
+    margin-inline-end: calc(var(--vds-input-affix-nudge) * -1);
+  }
+
+  // ---- add-ons: attached prefix/suffix segments (distinct from the affix icon slots) ----
+  // A full-height chrome segment flush to the field's border, separated from the editable
+  // area by a hairline. Prefix is the first child, suffix the last. Existing affix/size
+  // rules are untouched — these are additive selectors only.
+  &__addon {
+    align-self: stretch;            // fill the field height so it reads as attached chrome
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    white-space: nowrap;
+    background-color: var(--vds-input-addon-bg);
+    color: var(--vds-input-addon-ink);
+  }
+
+  // Hairline between the segment and the editable area — neutral even when invalid
+  // (internal chrome, not the field's outer border). Outer corners round to nest inside
+  // the shell's radius (inner radius = outer − border), so no square nub pokes past it.
+  &__addon--prefix {
+    border-inline-end: var(--vds-input-border-w) solid var(--vds-input-border);
+    border-start-start-radius: calc(var(--vds-input-radius) - var(--vds-input-border-w));
+    border-end-start-radius: calc(var(--vds-input-radius) - var(--vds-input-border-w));
+  }
+  &__addon--suffix {
+    border-inline-start: var(--vds-input-border-w) solid var(--vds-input-border);
+    border-start-end-radius: calc(var(--vds-input-radius) - var(--vds-input-border-w));
+    border-end-end-radius: calc(var(--vds-input-radius) - var(--vds-input-border-w));
+  }
+
+  // Per-size: the segment's inner padding == the field's pad-x, and a negative outer margin
+  // pulls it flush to the border (cancelling the shell's pad-x). Emitted as separate
+  // selectors so the existing size rules stay byte-identical.
+  @each $size, $pad in (
+    'xs': '--vds-input-pad-x-xs',
+    'sm': '--vds-input-pad-x-sm',
+    'md': '--vds-input-pad-x-md',
+    'lg': '--vds-input-pad-x-lg',
+    'xl': '--vds-input-pad-x-xl'
+  ) {
+    &--#{$size} {
+      .vds-input__addon { padding-inline: var(#{$pad}); }
+      .vds-input__addon--prefix { margin-inline-start: calc(var(#{$pad}) * -1); }
+      .vds-input__addon--suffix { margin-inline-end: calc(var(#{$pad}) * -1); }
+    }
+  }
+
+  @include bp.coarse {
+    // ≥16px text on touch so iOS doesn't zoom the page when the field focuses.
+    &--md { font-size: var(--vds-input-touch-min); }
+
+    // Any interactive affix content (e.g. a clear button) grows an invisible
+    // hit-area overlay to the minimum tap target without moving the layout.
+    &__affix > :is(button, a, [role='button']) {
+      position: relative;
+
+      &::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: max(100%, var(--vds-tap-target));
+        height: max(100%, var(--vds-tap-target));
+      }
+    }
+  }
 }
 // No .dark override needed — every chrome var above resolves through a semantic
 // token that already flips to the Midnight (Vipre navy) ramp in dark mode.

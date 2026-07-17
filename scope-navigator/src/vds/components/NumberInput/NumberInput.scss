@@ -1,0 +1,78 @@
+// ============================================================================
+// NumberInput — an Input "dressed up" with a vertical stepper. The shell IS an
+// Input, so every field metric (height, pad, border, fill, focus ring) comes
+// from the reused --vds-input-* tokens. NumberInput-scoped tokens only cover
+// the right-alignment and the two stepper buttons in Input's trailing slot.
+// ============================================================================
+
+.vds-number {
+  // ---- public tokens (bind to these to retheme/re-align) ----
+  // --vds-number-align holds a CSS keyword (a layout choice, not a design-scale
+  // value), so it stays literal by design — see control-anatomy §1's exception.
+  --vds-number-align: right;                           // numbers read better flush-right
+  --vds-number-step-ink: var(--vds-input-muted);       // resting +/- glyphs
+  --vds-number-step-ink-hover: var(--vds-ink);         // hover / focus glyphs
+  --vds-number-step-radius: var(--vds-radius-sm);      // focus-ring corner
+  --vds-number-step-dur: var(--vds-dur-fast);
+  --vds-number-step-ease: var(--vds-ease-out);
+
+  // Right-align the value, and hide the browser's native spinners (we ship our
+  // own stepper affordance in the trailing slot).
+  .vds-input__field {
+    text-align: var(--vds-number-align);
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      appearance: none;
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    // Firefox spinner removal — a platform hack, not a design value.
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  &__stepper {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--vds-number-step-ink);
+    cursor: pointer;
+    border-radius: var(--vds-number-step-radius);
+    transition: color var(--vds-number-step-dur) var(--vds-number-step-ease);
+
+    &:hover:not(:disabled) {
+      color: var(--vds-number-step-ink-hover);
+    }
+
+    // Action control → HARD OUTLINE ring (control-anatomy §3).
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset);
+      color: var(--vds-number-step-ink-hover);
+    }
+
+    // Disabled at a bound — the one sanctioned literal (CLAUDE.md).
+    &:disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+}
+// No .dark override — every var resolves through a semantic token that already
+// flips to the Midnight ramp in dark mode.

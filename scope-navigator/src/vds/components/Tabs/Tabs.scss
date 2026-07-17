@@ -1,0 +1,178 @@
+// ============================================================================
+// Tabs — WAI-ARIA tab strip. Token-bound only. Co-located with Tabs.jsx.
+//
+// Two variants (underline / pill) × two sizes (sm / md). The list scrolls
+// horizontally when it overflows: hidden scrollbar + edge fade masks (the JS
+// toggles --fade-start / --fade-end so a fade only shows where content hides).
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-tabs {
+  display: block;
+
+  // ---- the strip -----------------------------------------------------------
+  &__list {
+    // Local fade widths — flipped on by the fade classes below, consumed by
+    // the mask. Content fades out over the last 24px of a scrollable side.
+    --_fade-l: 0px;
+    --_fade-r: 0px;
+
+    display: flex;
+    align-items: stretch;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; // no scrollbar clutter
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--_fade-l),
+      #000 calc(100% - var(--_fade-r)),
+      transparent 100%
+    );
+
+    &--fade-start {
+      --_fade-l: var(--vds-space-6);
+    }
+    &--fade-end {
+      --_fade-r: var(--vds-space-6);
+    }
+    &--fitted .vds-tabs__tab {
+      flex: 1;
+      justify-content: center;
+    }
+  }
+
+  // ---- one tab ---------------------------------------------------------------
+  &__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    flex-shrink: 0;
+    border: 0;
+    background: transparent;
+    font-family: var(--vds-font-sans);
+    font-weight: var(--vds-weight-medium);
+    white-space: nowrap;
+    color: var(--vds-ink-muted);
+    cursor: pointer;
+    transition:
+      color var(--vds-dur-fast) var(--vds-ease-out),
+      background-color var(--vds-dur-fast) var(--vds-ease-out),
+      box-shadow var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      color: var(--vds-ink);
+    }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset-inset); // inset: stays visible inside the scroll container
+      border-radius: var(--vds-radius-sm);
+    }
+    &:disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  }
+
+  &__icon {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  &__count {
+    @include type.step(micro);
+    font-variant-numeric: tabular-nums;
+    min-width: 1.25rem;
+    padding: 0 var(--vds-space-1);
+    border-radius: var(--vds-radius-sm);
+    text-align: center;
+    background: var(--vds-surface-selected);
+    color: var(--vds-ink-muted);
+  }
+
+  // ---- sizes -----------------------------------------------------------------
+  &--sm .vds-tabs__tab {
+    @include type.step(detail);
+    font-weight: var(--vds-weight-medium);
+    height: var(--vds-control-h-sm);
+    padding: 0 var(--vds-space-3);
+  }
+  &--md .vds-tabs__tab {
+    @include type.step(body);
+    font-weight: var(--vds-weight-medium);
+    height: 2.5rem;
+    padding: 0 var(--vds-space-3);
+  }
+
+  // ---- underline variant -------------------------------------------------------
+  &--underline {
+    .vds-tabs__list {
+      // Track line under the whole strip; the selected tab paints over it.
+      box-shadow: inset 0 -1px 0 var(--vds-line);
+    }
+    .vds-tabs__tab--selected {
+      color: var(--vds-primary);
+      box-shadow: inset 0 -2px 0 var(--vds-primary);
+
+      .vds-tabs__count {
+        background: var(--vds-primary-soft);
+        color: var(--vds-primary);
+      }
+    }
+  }
+
+  // ---- pill variant ------------------------------------------------------------
+  &--pill {
+    .vds-tabs__list {
+      gap: var(--vds-space-1);
+    }
+    .vds-tabs__tab {
+      border-radius: var(--vds-radius-sm);
+
+      &:hover {
+        background: var(--vds-surface-hover);
+      }
+      &:focus-visible {
+        outline-offset: var(--vds-control-ring-offset);
+      }
+    }
+    .vds-tabs__tab--selected {
+      background: var(--vds-primary-soft);
+      color: var(--vds-primary);
+
+      .vds-tabs__count {
+        background: var(--vds-primary-soft);
+        color: var(--vds-primary);
+      }
+    }
+  }
+
+  // ---- panel ---------------------------------------------------------------
+  &__panel {
+    padding-top: var(--vds-space-4);
+
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset);
+      border-radius: var(--vds-radius-sm);
+    }
+  }
+}
+
+// Comfortable touch targets on coarse pointers.
+@include bp.coarse {
+  .vds-tabs__tab {
+    min-height: var(--vds-tap-target);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-tabs__tab {
+    transition: none;
+  }
+}

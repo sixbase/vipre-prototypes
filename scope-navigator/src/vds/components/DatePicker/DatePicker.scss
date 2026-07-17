@@ -1,0 +1,234 @@
+// ============================================================================
+// DatePicker — an Input-style trigger that opens a month-grid calendar in a
+// Popover. The trigger wears Input's chrome (reuses the --vds-input-* tokens,
+// like Select) so it reads as a form control; the calendar is the component's
+// own surface, painted from --vds-datepicker-* tokens. All placement, Escape,
+// outside-click, and focus-return come from Popover — this file owns chrome only.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-datepicker {
+  // ---- trigger chrome: reuse Input's field tokens (this control IS an input
+  //      dressed up), redeclared here so the trigger inherits them (Select does
+  //      the same). All bound to SEMANTIC tokens so they flip light/dark. ----
+  --vds-input-fill: var(--vds-surface-sunken);
+  --vds-input-muted: var(--vds-ink-subtle);
+  --vds-input-border: var(--vds-line-strong);
+  --vds-input-border-hover: color-mix(in oklab, var(--vds-line-strong), var(--vds-ink) var(--vds-control-hover-mix));
+
+  // ---- calendar tokens (bind to these to retheme the panel) ----
+  --vds-datepicker-cell: var(--vds-control-h-sm);        // 32px day cell — the dense control height
+  --vds-datepicker-gap: var(--vds-space-1);              // 4px between cells
+  --vds-datepicker-pad: var(--vds-space-2);              // 8px panel inset
+  --vds-datepicker-radius: var(--vds-radius-sm);         // 4px cell + nav radius
+  --vds-datepicker-accent: var(--vds-primary);           // selected fill
+  --vds-datepicker-on-accent: var(--vds-on-primary);     // selected ink
+  --vds-datepicker-today-ring: var(--vds-focus-ring);    // today marker ring
+  --vds-datepicker-muted: var(--vds-ink-subtle);         // outside-month days + weekday header
+  --vds-datepicker-hover: color-mix(in oklab, var(--vds-ink) 7%, transparent); // day hover fill
+  --vds-datepicker-dur: var(--vds-dur-fast);
+  --vds-datepicker-ease: var(--vds-ease-out);
+
+  display: inline-flex;
+  width: 100%;
+
+  // ====================================================================
+  // Trigger (the closed control) — mirrors Input/Select field chrome.
+  // ====================================================================
+  &__trigger {
+    position: relative; // anchors the coarse-pointer ::after hit-area overlay
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    width: 100%;
+    margin: 0;
+    border: var(--vds-border-w) solid var(--vds-input-border);
+    border-radius: var(--vds-radius-sm);
+    background-color: var(--vds-input-fill);
+    color: var(--vds-ink);
+    font-family: var(--vds-font-sans);
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color var(--vds-datepicker-dur) var(--vds-datepicker-ease),
+      box-shadow var(--vds-datepicker-dur) var(--vds-datepicker-ease);
+
+    // hover (resting only — focus/open win): border darkens toward ink
+    &:hover:not(:focus-visible):not([aria-expanded='true']) {
+      border-color: var(--vds-input-border-hover);
+    }
+
+    // FIELD focus ring — the soft shadow recipe (control-anatomy §3).
+    &:focus-visible {
+      outline: none;
+      border-color: var(--vds-focus-ring);
+      box-shadow: 0 0 0 var(--vds-control-ring-w)
+        color-mix(in oklab, var(--vds-focus-ring) var(--vds-control-ring-tint), transparent);
+    }
+    &[aria-expanded='true'] { border-color: var(--vds-focus-ring); }
+  }
+
+  &__lead { color: var(--vds-input-muted); flex-shrink: 0; }
+  &__value {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &--placeholder .vds-datepicker__value { color: var(--vds-input-muted); }
+
+  // ---- sizes (heights = shared control metrics, matching Input) ----
+  &--xs { &.vds-datepicker__trigger { height: var(--vds-control-h-xs); padding: 0 var(--vds-space-2);   @include type.step(micro); } }
+  &--sm { &.vds-datepicker__trigger { height: var(--vds-control-h-sm); padding: 0 var(--vds-space-2-5); @include type.step(detail); } }
+  &--md { &.vds-datepicker__trigger { height: var(--vds-control-h-md); padding: 0 var(--vds-space-3);   @include type.step(body); } }
+  &--lg { &.vds-datepicker__trigger { height: var(--vds-control-h-lg); padding: 0 var(--vds-space-4);   @include type.step(body-lg); } }
+  &--xl { &.vds-datepicker__trigger { height: var(--vds-control-h-xl); padding: 0 var(--vds-space-5);   @include type.step(body-lg); } }
+
+  &--invalid {
+    &.vds-datepicker__trigger {
+      border-color: var(--vds-danger);
+      &:focus-visible {
+        border-color: var(--vds-danger);
+        box-shadow: 0 0 0 var(--vds-control-ring-w)
+          color-mix(in oklab, var(--vds-danger) var(--vds-control-ring-tint-invalid), transparent);
+      }
+    }
+  }
+
+  &--disabled { opacity: 0.5; pointer-events: none; }
+
+  // Touch: keep the visual height, grow an invisible hit area to the tap target,
+  // and hold trigger text at ≥16px (matches Input/Select).
+  @include bp.coarse {
+    &--md.vds-datepicker__trigger { font-size: var(--vds-control-font-touch-min); }
+
+    &--sm.vds-datepicker__trigger::after,
+    &--md.vds-datepicker__trigger::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: max(100%, var(--vds-tap-target));
+      height: max(100%, var(--vds-tap-target));
+    }
+  }
+}
+
+// ============================================================================
+// Calendar panel — rendered inside the Popover Surface (panelClassName
+// vds-datepicker__pop). Painted entirely from --vds-datepicker-* tokens.
+// ============================================================================
+.vds-datepicker__panel {
+  padding: var(--vds-datepicker-pad);
+}
+
+.vds-datepicker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vds-space-2);
+  margin-bottom: var(--vds-space-1);
+}
+
+.vds-datepicker__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--vds-datepicker-cell);
+  height: var(--vds-datepicker-cell);
+  border: 0;
+  border-radius: var(--vds-datepicker-radius);
+  background: transparent;
+  color: var(--vds-ink-muted);
+  cursor: pointer;
+  transition: background-color var(--vds-datepicker-dur) var(--vds-datepicker-ease);
+
+  &:hover { background-color: var(--vds-datepicker-hover); }
+  &:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 var(--vds-control-ring-w)
+      color-mix(in oklab, var(--vds-focus-ring) 45%, transparent);
+  }
+}
+
+.vds-datepicker__title {
+  @include type.step(detail);
+  font-weight: var(--vds-weight-semibold);
+  color: var(--vds-ink);
+}
+
+.vds-datepicker__weekdays,
+.vds-datepicker__row {
+  display: grid;
+  grid-template-columns: repeat(7, var(--vds-datepicker-cell));
+  gap: var(--vds-datepicker-gap);
+}
+
+.vds-datepicker__weekday {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--vds-datepicker-cell);
+  @include type.step(micro);
+  color: var(--vds-datepicker-muted);
+}
+
+.vds-datepicker__grid {
+  display: grid;
+  gap: var(--vds-datepicker-gap);
+}
+
+.vds-datepicker__day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--vds-datepicker-cell);
+  height: var(--vds-datepicker-cell);
+  border: 0;
+  border-radius: var(--vds-datepicker-radius);
+  background: transparent;
+  color: var(--vds-ink);
+  font-family: var(--vds-font-sans);
+  @include type.step(detail);
+  cursor: pointer;
+  transition:
+    background-color var(--vds-datepicker-dur) var(--vds-datepicker-ease),
+    color var(--vds-datepicker-dur) var(--vds-datepicker-ease);
+
+  &:hover { background-color: var(--vds-datepicker-hover); }
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 var(--vds-control-ring-w)
+      color-mix(in oklab, var(--vds-focus-ring) var(--vds-control-ring-tint), transparent);
+  }
+
+  &--outside { color: var(--vds-datepicker-muted); }
+
+  // Today — a ring, no fill (so it never competes with the selected day).
+  &--today { box-shadow: inset 0 0 0 var(--vds-border-w) var(--vds-datepicker-today-ring); }
+
+  // Selected — the brand accent fill + on-accent ink (control-anatomy status pattern).
+  &--selected {
+    background-color: var(--vds-datepicker-accent);
+    color: var(--vds-datepicker-on-accent);
+    font-weight: var(--vds-weight-semibold);
+    &:hover { background-color: var(--vds-datepicker-accent); }
+  }
+
+  &--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    &:hover { background-color: transparent; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-datepicker__trigger,
+  .vds-datepicker__nav,
+  .vds-datepicker__day { transition: none; }
+}
+// No .dark override — every chrome var resolves through a semantic token that
+// already flips to the Midnight ramp in dark mode.

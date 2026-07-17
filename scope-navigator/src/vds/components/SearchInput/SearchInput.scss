@@ -1,0 +1,61 @@
+// ============================================================================
+// SearchInput — composed ON Input (the root carries both .vds-input and
+// .vds-search-input). Owns only what Input doesn't: the clear button, the
+// shortcut-hint chip, and suppressing the native WebKit cancel button so our
+// clear affordance is the only one.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-search-input {
+  // our clear button replaces the browser's
+  .vds-input__field::-webkit-search-cancel-button,
+  .vds-input__field::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+  }
+
+  &__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: calc(var(--vds-space-1) / 2);
+    border: 0;
+    border-radius: var(--vds-radius-sm);
+    background: transparent;
+    color: var(--vds-ink-subtle);
+    cursor: pointer;
+    transition:
+      color var(--vds-dur-fast) var(--vds-ease-out),
+      background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      color: var(--vds-ink);
+      background-color: var(--vds-surface-hover);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--vds-focus-ring);
+      outline-offset: 1px;
+    }
+  }
+
+  &__hint {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--vds-space-1);
+    border: 1px solid var(--vds-line);
+    border-radius: var(--vds-radius-sm);
+    background-color: var(--vds-surface);
+    color: var(--vds-ink-subtle);
+    font-family: var(--vds-font-sans);
+    white-space: nowrap;
+    @include type.step(micro);
+
+    // a mouse shortcut hint is noise on touch devices
+    @include bp.coarse {
+      display: none;
+    }
+  }
+}

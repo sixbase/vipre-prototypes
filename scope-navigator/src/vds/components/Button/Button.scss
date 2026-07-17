@@ -7,38 +7,118 @@
 // semantic token.
 // ============================================================================
 @use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
 
 .vds-button {
+  // ---- public tokens (size · shape · type · focus ring · motion) ----
+  // Bound to foundation tokens only — see docs/playbook control contract.
+  // The --_btn-* tone vars further down are the per-tone color mechanism
+  // and are untouched by this block.
+  --vds-button-h-xs: var(--vds-control-h-xs);
+  --vds-button-h-sm: var(--vds-control-h-sm);
+  --vds-button-h-md: var(--vds-control-h-md);
+  --vds-button-h-lg: var(--vds-control-h-lg);
+  --vds-button-h-xl: var(--vds-control-h-xl);
+  --vds-button-pad-x-xs: var(--vds-space-2);  // 8px
+  --vds-button-pad-x-sm: var(--vds-space-3);  // 12px
+  --vds-button-pad-x-md: var(--vds-space-4);  // 16px
+  --vds-button-pad-x-lg: var(--vds-space-6);  // 24px
+  --vds-button-pad-x-xl: var(--vds-space-8);  // 32px
+  // icon ↔ label gap — scales with size. A frozen gap looks fine on xs/sm but
+  // reads glued-to-the-label once the side padding grows on lg/xl (pad-x climbs
+  // 8→32px while the gap stayed 8), so it steps up to keep the internal rhythm.
+  // Each size class re-points --vds-button-gap to its step below.
+  --vds-button-gap-xs: var(--vds-space-2);     // 8px
+  --vds-button-gap-sm: var(--vds-space-2);     // 8px
+  --vds-button-gap-md: var(--vds-space-2-5);   // 10px
+  --vds-button-gap-lg: var(--vds-space-3);     // 12px
+  --vds-button-gap-xl: var(--vds-space-3);     // 12px
+  --vds-button-gap: var(--vds-button-gap-md);  // default; size classes override
+  // Optical: icon slots hang this far INTO the padding — glyphs carry
+  // whitespace inside their box, so a flush icon reads over-padded. Scales with
+  // size (2px xs/sm → 4px md → 6px lg → 8px xl) so the big icons reclaim some of
+  // the generous side padding instead of floating in it.
+  --vds-button-icon-nudge: var(--vds-space-1);            // 4px — md default
+  // Optical: Rubik's glyphs sit ~0.5px high inside their line box. On the tiny
+  // sizes that reads as the label floating above the perfectly-centered icon,
+  // so xs/md push the label down to re-center its metric box. sm/lg/xl are
+  // within a rounding of center already, so they leave this at 0.
+  --vds-button-label-optical: 0;
+  --vds-button-radius: var(--vds-radius-sm);
+  --vds-button-border-w: var(--vds-border-w);
+  --vds-button-weight: var(--vds-weight-medium);
+  --vds-button-weight-strong: var(--vds-weight-semibold); // xl only — a CTA reads heavier
+  --vds-button-ring-w: var(--vds-control-ring-w);
+  --vds-button-ring-offset: var(--vds-control-ring-offset);
+  --vds-button-dur: var(--vds-dur-fast);
+  --vds-button-ease: var(--vds-ease-out);
+
+  position: relative; // anchors the coarse-pointer ::after hit-area overlay
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: var(--vds-button-gap);
   font-family: var(--vds-font-sans);
-  font-weight: 500;
+  font-weight: var(--vds-button-weight);
   white-space: nowrap;
   user-select: none;
-  border: 1px solid transparent;
-  border-radius: var(--vds-radius-sm);
+  border: var(--vds-button-border-w) solid transparent;
+  border-radius: var(--vds-button-radius);
   cursor: pointer;
   transition:
-    background-color var(--vds-dur-fast) var(--vds-ease-out),
-    color var(--vds-dur-fast) var(--vds-ease-out),
-    border-color var(--vds-dur-fast) var(--vds-ease-out);
+    background-color var(--vds-button-dur) var(--vds-button-ease),
+    color var(--vds-button-dur) var(--vds-button-ease),
+    border-color var(--vds-button-dur) var(--vds-button-ease);
 
   &:focus-visible {
-    outline: 2px solid var(--vds-focus-ring);
-    outline-offset: 2px;
+    outline: var(--vds-button-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-button-ring-offset);
   }
 
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.5; // CLAUDE.md mandate: literal, never a new gray
     pointer-events: none;
   }
 
-  // ---- sizes ----
-  &--sm { height: 2rem;    padding: 0 0.75rem; @include type.step(detail); }
-  &--md { height: 2.25rem; padding: 0 1rem;    @include type.step(body); }
-  &--lg { height: 2.75rem; padding: 0 1.5rem;  @include type.step(body-lg); }
+  // ---- sizes (heights = the shared control-metric tokens) ----
+  // NOTE: type.step() also stamps a font-weight (from the typescale), so each
+  // size MUST re-assert --vds-button-weight AFTER the step — otherwise the label
+  // weight would silently follow the text step (e.g. micro=500, body=400) and
+  // vary by size. One consistent label weight across sizes is the intent (and
+  // matches Material/Fluid/Apple). xl overrides to the heavier CTA weight below.
+  &--xs { --vds-button-gap: var(--vds-button-gap-xs); --vds-button-icon-nudge: calc(var(--vds-space-1) / 2);  // 2px — small buttons, small nudge
+    --vds-button-label-optical: 0.5px; // re-center the label against the icon
+    height: var(--vds-button-h-xs); padding: 0 var(--vds-button-pad-x-xs); @include type.step(micro); font-weight: var(--vds-button-weight); }
+  &--sm { --vds-button-gap: var(--vds-button-gap-sm); --vds-button-icon-nudge: calc(var(--vds-space-1) / 2);  // 2px — small buttons, small nudge
+    height: var(--vds-button-h-sm); padding: 0 var(--vds-button-pad-x-sm); @include type.step(detail); font-weight: var(--vds-button-weight); }
+  &--md { --vds-button-gap: var(--vds-button-gap-md); --vds-button-label-optical: 0.5px; // re-center the label against the icon
+    height: var(--vds-button-h-md); padding: 0 var(--vds-button-pad-x-md); @include type.step(body); font-weight: var(--vds-button-weight); }
+  &--lg { --vds-button-gap: var(--vds-button-gap-lg); --vds-button-icon-nudge: var(--vds-space-1-5);  // 6px — gap and nudge both grow with the button
+    height: var(--vds-button-h-lg); padding: 0 var(--vds-button-pad-x-lg); @include type.step(body-lg); font-weight: var(--vds-button-weight); }
+  &--xl {
+    --vds-button-gap: var(--vds-button-gap-xl);
+    --vds-button-icon-nudge: var(--vds-space-2); // 8px — big icons reclaim the hero padding
+    height: var(--vds-button-h-xl);
+    padding: 0 var(--vds-button-pad-x-xl);
+    @include type.step(subheading); // xl steps UP one typescale (16px vs lg's 15px) — the hero reads a touch bigger
+    font-weight: var(--vds-button-weight); // same medium weight as every other size — xl stands out by SIZE, not weight
+  }
+
+  // Touch: xs/sm/md buttons keep their visual height but grow an invisible hit
+  // area to the minimum tap target (lg and xl are already ≥44px tall).
+  @include bp.coarse {
+    &--xs::after,
+    &--sm::after,
+    &--md::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: max(100%, var(--vds-tap-target));
+      height: max(100%, var(--vds-tap-target));
+    }
+  }
 
   // ---- icon-only ----
   // Drop the text padding and square the button to its size's height, so a lone
@@ -50,6 +130,26 @@
 
   // ---- full width ----
   &--full { width: 100%; }
+
+  // ---- icon slots — the button's gap (--vds-button-gap) handles spacing;
+  // the spans just center the glyph and refuse to squash. ----
+  &__leading,
+  &__trailing {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  &__leading  { margin-inline-start: calc(var(--vds-button-icon-nudge) * -1); }
+  &__trailing { margin-inline-end:   calc(var(--vds-button-icon-nudge) * -1); }
+
+  // ---- label — inline-flex so the optical translate applies (transforms are
+  // ignored on raw inline text). Nudged down by --vds-button-label-optical to
+  // sit level with the icon. ----
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    transform: translateY(var(--vds-button-label-optical));
+  }
 
   // --------------------------------------------------------------------------
   // TONES — set the local palette consumed by the variants below.

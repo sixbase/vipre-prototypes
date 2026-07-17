@@ -1,0 +1,40 @@
+// ============================================================================
+// RadioGroup — layout + label chrome for a set of Radios. Vertical stacks;
+// horizontal flows in a row and wraps back to stacking when the container is
+// narrow (flex-wrap — container-driven, no media query needed).
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vds-space-2);
+
+  // Each Radio inside receives `disabled` and dims itself — the group only
+  // blocks pointers and dims its own label, so radios don't double-fade.
+  &--disabled {
+    pointer-events: none;
+  }
+  &--disabled &__label {
+    opacity: 0.5;
+  }
+
+  &__label {
+    color: var(--vds-ink);
+    @include type.step(body);
+    font-weight: var(--vds-weight-medium);
+  }
+
+  &__items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vds-space-3);
+  }
+
+  &--horizontal &__items {
+    flex-direction: row;
+    flex-wrap: wrap; // narrow containers: items wrap back into a stack
+    column-gap: var(--vds-space-6);
+    row-gap: var(--vds-space-3);
+  }
+}

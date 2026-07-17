@@ -1,0 +1,168 @@
+// ============================================================================
+// Slider — styled native range input. The filled track is a gradient whose
+// stop is bound to --vds-slider-pct (set inline by the component / by JS).
+// The stop position compensates for the thumb width so the fill always meets
+// the thumb's centre. Thumb matches Switch (white, shadow); fill is brand.
+// WebKit and Gecko are styled separately: -webkit-slider-* pseudos get the
+// gradient; Firefox uses its native ::-moz-range-progress for the fill.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-slider {
+  // knobs (component-scoped, all bound to tokens)
+  --vds-slider-thumb: var(--vds-space-5);         // 20px — never smaller
+  --vds-slider-track-h: var(--vds-space-1-5);
+  --vds-slider-fill: var(--vds-primary);
+  --vds-slider-track: var(--vds-line-strong);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vds-space-3);
+  width: 100%;
+
+  &--sm { --vds-slider-track-h: var(--vds-space-1); }
+
+  &--disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  &__control {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  // labelled marks hang below the track — reserve room so they don't overlap
+  // whatever comes next on the page
+  &--labelled-marks &__control {
+    margin-bottom: var(--vds-space-4);
+  }
+
+  // ---- the native input -----------------------------------------------------
+  &__input {
+    // Declared HERE (not on the root) on purpose: var() inside a custom
+    // property substitutes on the element it's declared on, and the live
+    // --vds-slider-pct lives in this input's inline style. The track pseudo
+    // then inherits the correct, per-value stop.
+    // The calc compensates for thumb width → the fill edge tracks the thumb centre.
+    --vds-slider-stop: calc(
+      var(--vds-slider-thumb) / 2 +
+      (100% - var(--vds-slider-thumb)) * var(--vds-slider-pct, 50) / 100
+    );
+
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: var(--vds-slider-thumb); // hit area ≥ thumb
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+
+    // touch: grow the hit area to the minimum tap target
+    @include bp.coarse {
+      height: var(--vds-tap-target);
+    }
+  }
+
+  // ---- WebKit / Blink ----
+  &__input::-webkit-slider-runnable-track {
+    height: var(--vds-slider-track-h);
+    border-radius: var(--vds-radius-full);
+    background: linear-gradient(
+      to right,
+      var(--vds-slider-fill) var(--vds-slider-stop),
+      var(--vds-slider-track) 0
+    );
+  }
+  &__input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: var(--vds-slider-thumb);
+    height: var(--vds-slider-thumb);
+    margin-top: calc((var(--vds-slider-track-h) - var(--vds-slider-thumb)) / 2);
+    border: 1px solid var(--vds-line-strong);
+    border-radius: var(--vds-radius-full);
+    background-color: var(--vds-white); // matches the Switch thumb, both themes
+    box-shadow: var(--vds-shadow-sm);
+  }
+
+  // ---- Gecko (Firefox) ----
+  &__input::-moz-range-track {
+    height: var(--vds-slider-track-h);
+    border-radius: var(--vds-radius-full);
+    background-color: var(--vds-slider-track);
+  }
+  &__input::-moz-range-progress {
+    height: var(--vds-slider-track-h);
+    border-radius: var(--vds-radius-full);
+    background-color: var(--vds-slider-fill);
+  }
+  &__input::-moz-range-thumb {
+    width: var(--vds-slider-thumb);
+    height: var(--vds-slider-thumb);
+    border: 1px solid var(--vds-line-strong);
+    border-radius: var(--vds-radius-full);
+    background-color: var(--vds-white);
+    box-shadow: var(--vds-shadow-sm);
+  }
+
+  // ---- focus ring — on the thumb, keyboard only ----
+  &__input:focus-visible {
+    outline: none;
+  }
+  &__input:focus-visible::-webkit-slider-thumb {
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
+  }
+  &__input:focus-visible::-moz-range-thumb {
+    outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+    outline-offset: var(--vds-control-ring-offset);
+  }
+
+  // ---- marks (optional ticks) -----------------------------------------------
+  &__marks {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  &__mark {
+    position: absolute;
+    top: 50%;
+    // same thumb-width compensation as the fill stop, so ticks line up with
+    // where the thumb centre actually lands for that value
+    left: calc(
+      var(--vds-slider-thumb) / 2 +
+      (100% - var(--vds-slider-thumb)) * var(--vds-slider-mark-pct, 0) / 100
+    );
+    width: 0.125rem;
+    height: 0.125rem;
+    border-radius: var(--vds-radius-full);
+    background-color: var(--vds-ink-subtle);
+    transform: translate(-50%, -50%);
+  }
+  &__mark-label {
+    position: absolute;
+    top: calc(var(--vds-slider-thumb) / 2 + var(--vds-space-1));
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--vds-ink-subtle);
+    white-space: nowrap;
+    @include type.step(detail);
+  }
+
+  // ---- inline value readout ----
+  &__value {
+    flex-shrink: 0;
+    min-width: 3ch;
+    text-align: right;
+    color: var(--vds-ink);
+    font-variant-numeric: tabular-nums; // digits don't jitter as the value moves
+    @include type.step(body);
+  }
+}
+
+// No .dark override — every chrome var resolves through semantic tokens.

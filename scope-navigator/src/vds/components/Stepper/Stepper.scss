@@ -1,0 +1,227 @@
+// ============================================================================
+// Stepper — ordered progress. Token-bound only.
+//
+// Layout is authored once per axis as a mixin: `--vertical` uses the vertical
+// mixin at every width; `--horizontal` is horizontal from `sm` up and falls
+// back to the vertical layout below it (small screens don't have the width
+// for a row of labelled steps). Connector lines ride the ::before pseudo.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+$indicator: 1.75rem; // circle diameter (rem so it scales with root font size)
+$connector: 2px;     // connector line thickness — px so it stays a crisp rule at any root size
+
+// ---- shared (axis-independent) ---------------------------------------------
+.vds-stepper {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+
+  &__content {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--vds-space-2);
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-family: var(--vds-font-sans);
+    text-align: left;
+  }
+
+  // Clickable (completed / error) steps are real buttons.
+  button.vds-stepper__content {
+    cursor: pointer;
+    border-radius: var(--vds-radius-sm);
+
+    &:hover .vds-stepper__label {
+      color: var(--vds-primary);
+    }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset);
+    }
+  }
+
+  &__indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: $indicator;
+    height: $indicator;
+    border-radius: var(--vds-radius-xl);
+    border: 1px solid var(--vds-line-strong);
+    background: var(--vds-surface);
+    color: var(--vds-ink-subtle);
+    transition:
+      background-color var(--vds-dur-base) var(--vds-ease-out),
+      border-color var(--vds-dur-base) var(--vds-ease-out),
+      box-shadow var(--vds-dur-base) var(--vds-ease-out);
+  }
+
+  &__number {
+    @include type.step(detail);
+    font-weight: var(--vds-weight-medium);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vds-space-1);
+    min-width: 0;
+    padding-top: calc(($indicator - 1.25rem) / 2); // optically center label on circle
+  }
+
+  &__label {
+    @include type.step(body);
+    font-weight: var(--vds-weight-medium);
+    color: var(--vds-ink-muted);
+  }
+
+  &__description {
+    @include type.step(detail);
+    color: var(--vds-ink-subtle);
+  }
+
+  // Visually-hidden state prefix for screen readers.
+  &__sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  // ---- states ----------------------------------------------------------------
+  &__step--complete {
+    .vds-stepper__indicator {
+      background: var(--vds-primary);
+      border-color: var(--vds-primary);
+      color: var(--vds-on-primary);
+    }
+  }
+
+  &__step--current {
+    .vds-stepper__indicator {
+      background: var(--vds-primary);
+      border-color: var(--vds-primary);
+      color: var(--vds-on-primary);
+      box-shadow: 0 0 0 4px var(--vds-primary-soft); // the accent ring
+    }
+    .vds-stepper__label {
+      color: var(--vds-ink);
+    }
+  }
+
+  &__step--error {
+    .vds-stepper__indicator {
+      background: var(--vds-danger);
+      border-color: var(--vds-danger);
+      color: var(--vds-on-danger);
+    }
+    .vds-stepper__label {
+      color: var(--vds-danger);
+    }
+  }
+}
+
+// ---- axis layouts (mixins so horizontal can fall back to vertical) ---------
+@mixin stepper-horizontal {
+  display: flex;
+  align-items: flex-start;
+
+  .vds-stepper__step {
+    display: flex;
+    align-items: flex-start;
+    flex: 1;
+    min-width: 0;
+
+    // Connector: fills the space BEFORE each step (except the first).
+    &:not(:first-child)::before {
+      content: '';
+      flex: 1;
+      height: $connector;
+      min-width: var(--vds-space-4);
+      margin: calc(($indicator - $connector) / 2) var(--vds-space-2) 0;
+      border-radius: var(--vds-radius-sm);
+      background: var(--vds-line);
+    }
+    // A step you've passed (or are on) colors the line leading INTO it.
+    &--complete:not(:first-child)::before,
+    &--current:not(:first-child)::before {
+      background: var(--vds-primary);
+    }
+    &--error:not(:first-child)::before {
+      background: var(--vds-danger);
+    }
+    &:last-child {
+      flex: 0 1 auto;
+    }
+  }
+}
+
+@mixin stepper-vertical {
+  display: flex;
+  flex-direction: column;
+
+  .vds-stepper__step {
+    position: relative;
+    display: block;
+    flex: none;
+
+    &:not(:last-child) {
+      padding-bottom: var(--vds-space-6);
+    }
+    // Connector: drops from this step's circle down to the next.
+    &:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      top: calc($indicator + var(--vds-space-1));
+      bottom: var(--vds-space-1);
+      left: calc(($indicator - $connector) / 2);
+      width: $connector;
+      border-radius: var(--vds-radius-sm);
+      background: var(--vds-line);
+    }
+    &--complete:not(:last-child)::before {
+      background: var(--vds-primary);
+    }
+    &--error:not(:last-child)::before {
+      background: var(--vds-danger);
+    }
+  }
+}
+
+.vds-stepper--vertical {
+  @include stepper-vertical;
+}
+
+.vds-stepper--horizontal {
+  @include bp.up(sm) {
+    @include stepper-horizontal;
+  }
+  @include bp.down(sm) {
+    @include stepper-vertical;
+  }
+}
+
+// Comfortable touch targets on coarse pointers.
+@include bp.coarse {
+  .vds-stepper button.vds-stepper__content {
+    min-height: var(--vds-tap-target);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-stepper__indicator {
+    transition: none;
+  }
+}

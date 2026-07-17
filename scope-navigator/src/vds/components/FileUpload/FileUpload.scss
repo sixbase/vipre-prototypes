@@ -1,0 +1,166 @@
+// ============================================================================
+// FileUpload — a dashed dropzone that also opens the native file picker. A
+// field-class control: neutral chrome at rest, brand accent on hover/drag, the
+// soft box-shadow focus ring (matching Input). Every value binds to a
+// foundation token; the two mix ratios are the documented drag/hover recipe.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-fileupload {
+  // ---- public tokens (bind to foundation only) ----
+  --vds-fileupload-radius: var(--vds-radius-md);
+  --vds-fileupload-border-w: var(--vds-border-w);          // 1px hairline
+  --vds-fileupload-border: var(--vds-line-strong);
+  --vds-fileupload-border-active: var(--vds-primary);      // hover / drag-over
+  --vds-fileupload-fill: var(--vds-surface-sunken);
+  // drag-over / hover tint — the documented "accent 5%" mix recipe
+  --vds-fileupload-fill-active: color-mix(in oklab, var(--vds-surface-sunken), var(--vds-primary) 5%);
+  --vds-fileupload-ink: var(--vds-ink);
+  --vds-fileupload-ink-muted: var(--vds-ink-subtle);
+  --vds-fileupload-icon: var(--vds-ink-subtle);
+  --vds-fileupload-gap: var(--vds-space-2);
+  --vds-fileupload-pad-sm: var(--vds-space-4);             // 16px
+  --vds-fileupload-pad-md: var(--vds-space-6);             // 24px
+  --vds-fileupload-pad-lg: var(--vds-space-8);             // 32px
+  // Field-class soft focus ring — same recipe as Input.
+  --vds-fileupload-ring: color-mix(in oklab, var(--vds-focus-ring) var(--vds-control-ring-tint), transparent);
+  --vds-fileupload-dur: var(--vds-dur-fast);
+  --vds-fileupload-ease: var(--vds-ease-out);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--vds-fileupload-gap);
+  width: 100%;
+
+  &--disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  &__zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--vds-fileupload-gap);
+    width: 100%;
+    margin: 0;
+    background-color: var(--vds-fileupload-fill);
+    color: var(--vds-fileupload-ink-muted);
+    border: var(--vds-fileupload-border-w) dashed var(--vds-fileupload-border);
+    border-radius: var(--vds-fileupload-radius);
+    text-align: center;
+    font-family: var(--vds-font-sans);
+    cursor: pointer;
+
+    @include bp.motion-ok {
+      transition:
+        border-color var(--vds-fileupload-dur) var(--vds-fileupload-ease),
+        background-color var(--vds-fileupload-dur) var(--vds-fileupload-ease),
+        box-shadow var(--vds-fileupload-dur) var(--vds-fileupload-ease);
+    }
+
+    &:hover,
+    &--dragging {
+      border-color: var(--vds-fileupload-border-active);
+      background-color: var(--vds-fileupload-fill-active);
+      color: var(--vds-fileupload-ink);
+    }
+
+    // Field-class soft focus ring — keyboard AND pointer.
+    &:focus-visible {
+      outline: none;
+      border-color: var(--vds-fileupload-border-active);
+      box-shadow: 0 0 0 var(--vds-control-ring-w) var(--vds-fileupload-ring);
+    }
+  }
+
+  &__icon { color: var(--vds-fileupload-icon); }
+
+  &__label { @include type.step(body); }
+
+  // ---- sizes — pad rhythm + label step ----
+  &--sm .vds-fileupload__zone { padding: var(--vds-fileupload-pad-sm); }
+  &--sm .vds-fileupload__label { @include type.step(detail); }
+  &--md .vds-fileupload__zone { padding: var(--vds-fileupload-pad-md); }
+  &--lg .vds-fileupload__zone { padding: var(--vds-fileupload-pad-lg); }
+  &--lg .vds-fileupload__label { @include type.step(body-lg); }
+
+  // ---- selected-file list ----
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vds-space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--vds-space-2);
+    padding: var(--vds-space-1) var(--vds-space-2);
+    background-color: var(--vds-fileupload-fill);
+    border: var(--vds-fileupload-border-w) solid var(--vds-line);
+    border-radius: var(--vds-radius-sm);
+    color: var(--vds-fileupload-ink);
+    @include type.step(detail);
+  }
+
+  &__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__remove {
+    position: relative; // anchors the coarse-pointer hit-area pseudo
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: var(--vds-space-5);   // 20px glyph box
+    height: var(--vds-space-5);
+    padding: 0;
+    border: 0;
+    border-radius: var(--vds-radius-sm);
+    background: none;
+    color: var(--vds-fileupload-ink-muted);
+    cursor: pointer;
+
+    @include bp.motion-ok {
+      transition:
+        color var(--vds-fileupload-dur) var(--vds-fileupload-ease),
+        background-color var(--vds-fileupload-dur) var(--vds-fileupload-ease);
+    }
+
+    &:hover {
+      color: var(--vds-fileupload-ink);
+      background-color: color-mix(in oklab, currentColor 15%, transparent);
+    }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: 1px;
+      color: var(--vds-fileupload-ink);
+    }
+
+    // ≥ tap-target hit area on touch — the glyph stays small, the target grows.
+    @include bp.coarse {
+      &::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: max(100%, var(--vds-tap-target));
+        height: max(100%, var(--vds-tap-target));
+      }
+    }
+  }
+}
+// No .dark override needed — every chrome var resolves through a semantic token
+// that already flips to the Midnight ramp in dark mode.

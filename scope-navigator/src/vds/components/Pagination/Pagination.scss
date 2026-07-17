@@ -1,0 +1,147 @@
+// ============================================================================
+// Pagination — prev/next + numbered buttons. Token-bound only.
+//
+// Responsive contract: at and above `sm` the numbered list shows and the
+// "Page X of Y" status hides; below `sm` they swap (pure CSS — the JSX always
+// renders both). The `--compact` modifier forces the compact form everywhere.
+// Coarse pointers get --vds-tap-target hit areas.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vds-space-1);
+
+  &__pages {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: flex;
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: var(--vds-radius-sm);
+    font-family: var(--vds-font-sans);
+    font-weight: var(--vds-weight-medium);
+    font-variant-numeric: tabular-nums;
+    color: var(--vds-ink-muted);
+    cursor: pointer;
+    transition:
+      background-color var(--vds-dur-fast) var(--vds-ease-out),
+      color var(--vds-dur-fast) var(--vds-ease-out),
+      border-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      background: var(--vds-surface-hover);
+      color: var(--vds-ink);
+    }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset);
+    }
+    &:disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    // The active page — solid brand fill.
+    &[aria-current='page'] {
+      background: var(--vds-primary);
+      border-color: var(--vds-primary);
+      color: var(--vds-on-primary);
+    }
+
+    // Mirror the chevron for "previous" (the icon set only ships right-facing).
+    &--prev .vds-icon {
+      transform: scaleX(-1);
+    }
+  }
+
+  &__gap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--vds-ink-subtle);
+    user-select: none;
+  }
+
+  &__status {
+    display: none; // shown below `sm` / in --compact
+    @include type.step(caption);
+    font-variant-numeric: tabular-nums;
+    color: var(--vds-ink-muted);
+    padding: 0 var(--vds-space-2);
+    white-space: nowrap;
+  }
+
+  // ---- sizes ----
+  &--sm {
+    .vds-pagination__btn,
+    .vds-pagination__gap {
+      @include type.step(detail);
+      font-weight: var(--vds-weight-medium);
+      min-width: var(--vds-control-h-sm); // square: min-width tracks the height
+      height: var(--vds-control-h-sm);
+      padding: 0 var(--vds-space-1);
+    }
+  }
+  &--md {
+    .vds-pagination__btn,
+    .vds-pagination__gap {
+      @include type.step(body);
+      font-weight: var(--vds-weight-medium);
+      min-width: var(--vds-control-h-md); // square: min-width tracks the height
+      height: var(--vds-control-h-md);
+      padding: 0 var(--vds-space-1);
+    }
+  }
+
+  // ---- compact form (forced) ----
+  &--compact {
+    .vds-pagination__pages {
+      display: none;
+    }
+    .vds-pagination__status {
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+}
+
+// ---- compact form (automatic, below sm) ----
+@include bp.down(sm) {
+  .vds-pagination__pages {
+    display: none;
+  }
+  .vds-pagination__status {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+// Comfortable touch targets on coarse pointers.
+@include bp.coarse {
+  .vds-pagination__btn {
+    min-width: var(--vds-tap-target);
+    min-height: var(--vds-tap-target);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-pagination__btn {
+    transition: none;
+  }
+}

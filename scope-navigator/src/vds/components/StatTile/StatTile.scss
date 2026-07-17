@@ -11,6 +11,10 @@
   min-width: 0; // shrink-safe inside a grid/flex cell (no overflow)
   text-align: left;
   font-family: var(--vds-font-sans);
+  // The tile adapts to ITS OWN width (container queries below), not the
+  // viewport — a narrow tile in a wide dashboard grid still tightens up.
+  // Safe with inline-size containment because the width is explicit (100%).
+  container-type: inline-size;
 
   // Corner = Surface's default radius-lg (12px) — the shared metrics-family
   // value (StatTile + MetricCard match). No component-scoped override.
@@ -24,8 +28,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;   // sized to roughly the value+label block; per-size below
-    height: 2.5rem;
+    width: var(--vds-chip-sm);   // sized to roughly the value+label block; per-size below
+    height: var(--vds-chip-sm);
     color: var(--vds-stat-accent);
   }
 
@@ -33,13 +37,13 @@
   // outline (default, Vipre style): a thin neutral ring, transparent center,
   // the glyph carries the meaning via tone.
   &--icon-outline .vds-stat__icon {
-    border-radius: 9999px;
+    border-radius: var(--vds-radius-full);
     border: 1px solid var(--vds-line-strong);
     background-color: transparent;
   }
   // soft: filled circle tinted to the tone (same shape as outline, filled).
   &--icon-soft .vds-stat__icon {
-    border-radius: 9999px;
+    border-radius: var(--vds-radius-full);
     background-color: var(--vds-stat-soft);
   }
 
@@ -61,16 +65,21 @@
   }
 
   &__delta { flex-shrink: 0; }
-  &__spark { flex-shrink: 0; }
+  &__spark {
+    flex-shrink: 1; // the trend gives way before anything overflows…
+    min-width: 0;   // …and may shrink below its natural SVG width
+  }
 
   // structured delta chip: signed value, colored by direction (+/- conveys it)
   &__delta--chip {
     display: inline-flex;
     align-items: center;
-    font-size: 0.75rem;
-    font-weight: 600;
+    @include type.step(detail);
+    // Both overrides are load-bearing: detail ships weight 400 + a 1rem leading;
+    // the chip needs semibold and single-line so it centers against the icon.
+    font-weight: var(--vds-weight-semibold);
+    line-height: var(--vds-leading-none);
     font-variant-numeric: tabular-nums;
-    line-height: 1;
   }
   &__delta--good { color: var(--vds-success); }
   &__delta--bad { color: var(--vds-danger); }
@@ -90,15 +99,27 @@
 
     &--label { width: 6rem; height: 0.75rem; }
     // gap between the label bar and the value bar (label renders first)
-    &--value { width: 4.5rem; height: 1.5rem; margin-top: 0.5rem; }
+    &--value { width: 4.5rem; height: 1.5rem; margin-top: var(--vds-space-2); }
   }
 
-  // ---- layout: stacked (default) ----
-  &--stacked {
+  // ---- inner layout wrapper ----
+  // The ROOT is the query container, and a container query can't restyle the
+  // container itself — so the padding + flex layout live one level in, where
+  // the narrow-tile query below can reach them.
+  &__in {
     display: flex;
+    width: 100%;
+    min-width: 0;
+    padding: var(--vds-space-4);
+  }
+  &--size-lg &__in { padding: var(--vds-space-5); }
+
+  // ---- layout: stacked (default) ----
+  &--stacked &__in {
     flex-direction: column;
     gap: var(--vds-space-1);
-
+  }
+  &--stacked {
     .vds-stat__top {
       display: flex;
       align-items: center;
@@ -111,11 +132,11 @@
   }
 
   // ---- layout: row (compact) ----
-  &--row {
-    display: flex;
+  &--row &__in {
     align-items: center;
     gap: var(--vds-space-3);
-
+  }
+  &--row {
     .vds-stat__body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .vds-stat__spark { margin-left: auto; }
     .vds-stat__delta { margin-left: auto; }
@@ -125,19 +146,39 @@
   // ---- sizes (value step + icon chip scaled to the value+label height) ----
   &--size-sm {
     .vds-stat__value { @include type.step(heading); }
-    .vds-stat__icon { width: 2.5rem; height: 2.5rem; }
+    .vds-stat__icon { width: var(--vds-chip-sm); height: var(--vds-chip-sm); }
   }
   &--size-md {
     .vds-stat__value { @include type.step(title); }
-    .vds-stat__icon { width: 3rem; height: 3rem; }
+    .vds-stat__icon { width: var(--vds-chip-md); height: var(--vds-chip-md); }
   }
   &--size-lg {
     .vds-stat__value { @include type.step(display); }
-    .vds-stat__icon { width: 3.25rem; height: 3.25rem; }
+    .vds-stat__icon { width: var(--vds-chip-lg); height: var(--vds-chip-lg); }
   }
 
   // ---- interactive (drill-in) — shared metrics-family recipe ----
   &--interactive { @include mix.interactive-card; }
+
+  // ---- narrow-tile adaptation (container query on the tile's own width) ----
+  // Squeezed tiles (dense grids, phone columns): the value drops one type step,
+  // padding tightens, and the row layout wraps its trend onto a second line
+  // instead of crushing the label. The query resolves against the ROOT (the
+  // container); everything styled here is a descendant — see `__in` above.
+  @container (max-width: 219.98px) {
+    &__in,
+    &--size-lg .vds-stat__in { padding: var(--vds-space-3); }
+
+    &--size-md .vds-stat__value { @include type.step(heading); }
+    &--size-lg .vds-stat__value { @include type.step(title); }
+
+    &--row .vds-stat__in { flex-wrap: wrap; }
+    &--row .vds-stat__spark {
+      margin-left: 0;
+      width: 100%;
+    }
+    &--row .vds-stat__spark + .vds-stat__delta { margin-left: auto; }
+  }
 
   // ---- tones (color ONLY the icon glyph + soft chip; the value stays ink) ----
   &--primary {
@@ -161,7 +202,8 @@
   // Color the icon glyph + soft chip; the sparkline follows automatically since
   // sparkTone derives from tone. Each maps to a semantic ACCENT token, which
   // already carries the light→dark (600→400) flip — no per-mode override needed.
-  @each $fam in azure, harbor, emerald, amber, rose, orchid, clay {
+  // azure / orchid are quoted: they're CSS color keywords (matches MetricCard).
+  @each $fam in "azure", harbor, emerald, amber, rose, "orchid", clay {
     &--#{$fam} {
       --vds-stat-accent: var(--vds-accent-#{$fam});
       --vds-stat-soft: var(--vds-accent-#{$fam}-soft);

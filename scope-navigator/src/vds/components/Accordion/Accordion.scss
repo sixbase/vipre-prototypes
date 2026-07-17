@@ -1,0 +1,122 @@
+// ============================================================================
+// Accordion — stacked disclosure sections. Token-bound only.
+//
+// Open/close choreography (mirrors the MSP v2 nav):
+//   1. Height animates via grid-template-rows 0fr → 1fr (240ms, emphatic ease)
+//   2. The body fades/slides in a beat later (delay = --vds-dur-fast)
+//   3. visibility flips after the collapse so closed content can't be tabbed
+// prefers-reduced-motion collapses all of it to instant.
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-accordion {
+  border: 1px solid var(--vds-line);
+  border-radius: var(--vds-radius-md);
+  background: var(--vds-surface);
+
+  &__item {
+    &:not(:first-child) {
+      border-top: 1px solid var(--vds-line);
+    }
+    &--disabled .vds-accordion__trigger {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  }
+
+  // The heading is a semantic wrapper only — the button carries the look.
+  &__header {
+    margin: 0;
+  }
+
+  &__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--vds-space-3);
+    width: 100%;
+    padding: var(--vds-space-3) var(--vds-space-4);
+    border: 0;
+    background: transparent;
+    font-family: var(--vds-font-sans);
+    @include type.step(body);
+    font-weight: var(--vds-weight-medium);
+    color: var(--vds-ink);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      background: var(--vds-surface-hover);
+    }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset-inset); // the item edge is flush with the box border
+      border-radius: var(--vds-radius-sm);
+    }
+  }
+
+  &__label {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__chevron {
+    flex-shrink: 0;
+    color: var(--vds-ink-subtle);
+    transition: transform var(--vds-dur-slow) var(--vds-ease-emphatic);
+  }
+  &__item--open .vds-accordion__chevron {
+    transform: rotate(180deg);
+  }
+
+  // ---- the collapse: grid 0fr → 1fr ----------------------------------------
+  &__panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    visibility: hidden; // closed content is unreachable (focus + AT)
+    transition:
+      grid-template-rows var(--vds-dur-slow) var(--vds-ease-emphatic),
+      visibility 0s linear var(--vds-dur-slow); // hide only after the collapse
+
+    &--open {
+      grid-template-rows: 1fr;
+      visibility: visible;
+      transition: grid-template-rows var(--vds-dur-slow) var(--vds-ease-emphatic);
+    }
+  }
+
+  &__clip {
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  // The body fades in a beat after the height starts moving.
+  &__body {
+    padding: 0 var(--vds-space-4) var(--vds-space-4);
+    @include type.step(body);
+    color: var(--vds-ink-muted);
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--vds-space-1)));
+    transition:
+      opacity var(--vds-dur-fast) var(--vds-ease-out),
+      transform var(--vds-dur-fast) var(--vds-ease-out);
+  }
+  &__panel--open .vds-accordion__body {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity var(--vds-dur-base) var(--vds-ease-out) var(--vds-dur-fast),
+      transform var(--vds-dur-base) var(--vds-ease-emphatic) var(--vds-dur-fast);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-accordion__panel,
+  .vds-accordion__panel--open,
+  .vds-accordion__body,
+  .vds-accordion__panel--open .vds-accordion__body,
+  .vds-accordion__chevron {
+    transition: none;
+  }
+}

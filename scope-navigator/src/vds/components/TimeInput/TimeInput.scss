@@ -1,0 +1,24 @@
+// ============================================================================
+// TimeInput — native-first. It IS an Input (type=time), so the whole field
+// shell (sizes, border, focus ring, invalid, disabled, touch) comes from
+// Input.scss unchanged. This file only tidies the native time control's chrome
+// and exposes a token for the leading icon — everything binds to Input's tokens.
+// ============================================================================
+.vds-timeinput {
+  // Public token — the leading Clock tint. Bound to Input's muted affix color
+  // so it flips light/dark with the rest of the field.
+  --vds-timeinput-icon: var(--vds-input-muted);
+
+  .vds-timeinput__lead { color: var(--vds-timeinput-icon); }
+
+  // The native field fills the shell like any other Input value.
+  .vds-input__field {
+    // The platform time UI owns spinner/picker glyphs; give the built-in
+    // picker indicator a pointer so it reads as clickable. Tint it to the
+    // field's foreground so it matches the value text in both themes.
+    &::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      color: var(--vds-ink-muted);
+    }
+  }
+}

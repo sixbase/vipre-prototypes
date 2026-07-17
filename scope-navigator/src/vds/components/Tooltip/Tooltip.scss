@@ -1,0 +1,69 @@
+// ============================================================================
+// Tooltip — the inverted chip. Background is the current theme's ink, text is
+// ink-inverse, so it reads as a dark chip on the light theme and a light chip
+// on the dark theme without a theme fork. Small text, subtle border,
+// shadow-lg, always on top (--vds-z-tooltip). Token-bound only.
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-tooltip {
+  @include type.step(detail);
+  position: fixed;
+  z-index: var(--vds-z-tooltip);
+  max-width: 18rem;
+  padding: var(--vds-space-1) var(--vds-space-2);
+  border: 1px solid color-mix(in oklab, var(--vds-ink-inverse) 14%, transparent);
+  border-radius: var(--vds-radius-sm);
+  background-color: var(--vds-ink);
+  color: var(--vds-ink-inverse);
+  font-family: var(--vds-font-sans);
+  box-shadow: var(--vds-shadow-lg);
+  pointer-events: none; // never steal hover from the trigger — no flicker
+
+  // Elegant reveal: fade + a soft scale-up that blooms from the trigger's edge
+  // and slides a touch from the trigger toward its resting spot, so the chip
+  // reads as emerging from the thing it describes. The direction (--_tt-from)
+  // and the bloom origin (--_tt-origin) are set per placement below. Rides the
+  // soft "expo" ease-out for a fast start and a long, calm landing.
+  transform-origin: var(--_tt-origin, center bottom);
+  animation: vds-tooltip-in var(--vds-dur-base) var(--vds-ease-out);
+}
+
+// Reveal comes FROM the trigger: start nudged toward it, bloom from that edge.
+.vds-tooltip--top    { --_tt-from: translateY(0.25rem);  --_tt-origin: center bottom; }
+.vds-tooltip--bottom { --_tt-from: translateY(-0.25rem); --_tt-origin: center top; }
+.vds-tooltip--left   { --_tt-from: translateX(0.25rem);  --_tt-origin: right center; }
+.vds-tooltip--right  { --_tt-from: translateX(-0.25rem); --_tt-origin: left center; }
+
+// The arrow is a rotated square in the chip's own fill; --_tt-arrow (set
+// inline by the placement logic) keeps it pointing at the trigger's center
+// even when the chip is clamped against a viewport edge.
+.vds-tooltip__arrow {
+  position: absolute;
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: var(--vds-ink);
+  transform: rotate(45deg);
+}
+
+.vds-tooltip--top    .vds-tooltip__arrow { bottom: -0.25rem; left: calc(var(--_tt-arrow) - 0.25rem); }
+.vds-tooltip--bottom .vds-tooltip__arrow { top: -0.25rem;    left: calc(var(--_tt-arrow) - 0.25rem); }
+.vds-tooltip--left   .vds-tooltip__arrow { right: -0.25rem;  top: calc(var(--_tt-arrow) - 0.25rem); }
+.vds-tooltip--right  .vds-tooltip__arrow { left: -0.25rem;   top: calc(var(--_tt-arrow) - 0.25rem); }
+
+@keyframes vds-tooltip-in {
+  from {
+    opacity: 0;
+    transform: var(--_tt-from, translateY(0.25rem)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-tooltip {
+    animation: none;
+  }
+}

@@ -1,18 +1,19 @@
 // ============================================================================
-// MetricCard — flagship KPI card. Composes Surface; owns the header (soft icon
-// chip + title + period), the hero value + delta, the target progress bar, and
-// the breakdown list. Rests at level 1 (surface + line + whisper shadow-xs),
-// matching Card / StatTile; interactive cards lift to raised on hover.
+// MetricCard — flagship KPI card. Composes Surface + Progress; owns the header
+// (soft icon chip + title + period), the hero value + delta, and the breakdown
+// list. Rests at level 1 (surface + line + whisper shadow-xs), matching Card /
+// StatTile; interactive cards lift to raised on hover.
 // ============================================================================
 @use '../../styles/typography' as type;
 @use '../../styles/mixins' as mix;
 
 .vds-metric {
-  display: flex;
-  flex-direction: column;
-  gap: var(--vds-space-5); // 20px between the card's stacked blocks
   width: 100%;
   font-family: var(--vds-font-sans);
+  // The card adapts to ITS OWN width (container query below), not the
+  // viewport — a narrow card in a dashboard grid tightens up wherever it sits.
+  // Safe with inline-size containment because the width is explicit (100%).
+  container-type: inline-size;
 
   // icon chip tone → accent (glyph) + soft (chip bg). Set per tone below.
   --vds-metric-accent: var(--vds-primary);
@@ -22,6 +23,19 @@
   // The whole card is a <button>; rest → hover lift → pressed → focus ring.
   &--interactive { @include mix.interactive-card; }
 
+  // ---- inner layout wrapper ----
+  // The ROOT is the query container, and a container query can't restyle the
+  // container itself — so the padding + stack layout live one level in, where
+  // the narrow-card query below can reach them (same pattern as StatTile).
+  &__in {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vds-space-5); // 20px between the card's stacked blocks
+    width: 100%;
+    min-width: 0;
+    padding: var(--vds-space-6);
+  }
+
   // ---- header ----
   &__header {
     display: flex;
@@ -30,9 +44,9 @@
   }
   &__icon {
     flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 9999px;
+    width: var(--vds-chip-md);
+    height: var(--vds-chip-md);
+    border-radius: var(--vds-radius-full);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -62,10 +76,7 @@
     gap: var(--vds-space-2);
   }
   &__value {
-    font-size: 2.5rem;
-    line-height: 1.05;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    @include type.step(display);
     font-variant-numeric: tabular-nums;
     color: var(--vds-ink);
   }
@@ -77,7 +88,7 @@
   &__delta-inner {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: var(--vds-space-1);
   }
   &__delta-caption {
     @include type.step(detail);
@@ -102,7 +113,7 @@
   }
   &__progress-pct {
     @include type.step(detail);
-    font-weight: 600;
+    font-weight: var(--vds-weight-semibold);
     font-variant-numeric: tabular-nums;
     color: var(--vds-ink);
   }
@@ -110,31 +121,12 @@
     @include type.step(micro);
     color: var(--vds-ink-subtle);
   }
-  &__bar {
-    height: 0.5rem; // 8px
-    width: 100%;
-    border-radius: 9999px;
-    background-color: var(--vds-line);
-    overflow: hidden;
-  }
-  &__bar-fill {
-    height: 100%;
-    border-radius: 9999px;
-    background-color: var(--vds-primary);
-    // ~900ms to match the number count-up as the card enters the viewport.
-    transition: width 0.9s var(--vds-ease-out);
-
-    &--azure { background-color: var(--vds-accent-azure); }
-    &--primary { background-color: var(--vds-primary); }
-    &--success { background-color: var(--vds-success); }
-    &--danger { background-color: var(--vds-danger); }
-  }
 
   // ---- breakdown list ----
   &__breakdown {
     display: flex;
     flex-direction: column;
-    gap: 0.625rem; // 10px between rows
+    gap: var(--vds-space-2-5);
     margin: 0;
   }
   &__breakdown-row {
@@ -149,10 +141,26 @@
   }
   &__breakdown-value {
     @include type.step(body);
-    font-weight: 600;
+    font-weight: var(--vds-weight-semibold);
     font-variant-numeric: tabular-nums;
     color: var(--vds-ink);
     margin: 0;
+  }
+
+  // ---- narrow-card adaptation (container query on the card's own width) ----
+  // Squeezed cards (dense grids, phone columns): the icon chip shrinks a notch
+  // and the padding + block gap tighten. The hero value needs no override — the
+  // display step already clamps itself. The query resolves against the ROOT (the
+  // container); everything styled here is a descendant — see `__in` above.
+  @container (max-width: 259.98px) {
+    &__in {
+      gap: var(--vds-space-4);
+      padding: var(--vds-space-4);
+    }
+    .vds-metric__icon {
+      width: var(--vds-chip-sm);
+      height: var(--vds-chip-sm);
+    }
   }
 
   // ---- icon chip tones ----
@@ -169,10 +177,4 @@
       --vds-metric-soft: var(--vds-accent-#{$fam}-soft);
     }
   }
-}
-
-// Honor reduced-motion: the bar snaps to its width instead of sliding (the JS
-// count-up already snaps to the final number for these users).
-@media (prefers-reduced-motion: reduce) {
-  .vds-metric__bar-fill { transition: none; }
 }

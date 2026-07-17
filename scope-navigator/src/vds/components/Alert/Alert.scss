@@ -1,0 +1,125 @@
+// ============================================================================
+// Alert — inline banner. Soft tone tint + a 3px tone-colored left accent + a
+// faint tone-mixed hairline (clinical, not shouty). Tones set local --_alert-*
+// custom properties; the parts consume them. Actions stack below the text at
+// every width — the banner never has to reflow, so it is safe in any container.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vds-space-3);
+  padding: var(--vds-space-4);
+  border-radius: var(--vds-radius-md);
+  font-family: var(--vds-font-sans);
+
+  // tone palette (info default)
+  --_alert-accent: var(--vds-info);
+  --_alert-soft: var(--vds-info-soft);
+
+  background-color: var(--_alert-soft);
+  // faint full hairline so the banner holds its edge on same-tint surfaces…
+  border: 1px solid color-mix(in oklab, var(--_alert-accent) 25%, transparent);
+  // …and the tone-colored accent spine on the left.
+  border-left: 3px solid var(--_alert-accent);
+
+  // ---- parts ----
+  &__icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    color: var(--_alert-accent);
+    // optically align the 20px glyph with the title's cap height
+    margin-top: 0.0625rem;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--vds-space-1);
+  }
+  &__title {
+    @include type.step(body);
+    font-weight: var(--vds-weight-semibold);
+    color: var(--vds-ink);
+  }
+  &__desc {
+    @include type.step(body);
+    color: var(--vds-ink-muted);
+  }
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--vds-space-2);
+    margin-top: var(--vds-space-2);
+  }
+
+  // ---- dismiss ----
+  &__dismiss {
+    position: relative; // anchors the coarse-pointer hit-area pseudo
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--vds-icon-btn-sm);
+    height: var(--vds-icon-btn-sm);
+    margin: -0.125rem -0.25rem 0 0; // tuck into the padding, keep the visual grid
+    padding: 0;
+    border: 0;
+    border-radius: var(--vds-radius-sm);
+    background: none;
+    color: var(--vds-ink-muted);
+    cursor: pointer;
+    transition:
+      background-color var(--vds-dur-fast) var(--vds-ease-out),
+      color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      color: var(--vds-ink);
+      background-color: color-mix(in oklab, currentColor 12%, transparent);
+    }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset);
+    }
+
+    // finger-sized hit area on touch, without growing the visual glyph
+    @include bp.coarse {
+      &::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: var(--vds-tap-target, 44px);
+        height: var(--vds-tap-target, 44px);
+        transform: translate(-50%, -50%);
+      }
+    }
+  }
+
+  // ---- tones ----
+  &--neutral {
+    --_alert-accent: var(--vds-ink-subtle);
+    --_alert-soft: var(--vds-canvas);
+  }
+  &--info {
+    --_alert-accent: var(--vds-info);
+    --_alert-soft: var(--vds-info-soft);
+  }
+  &--success {
+    --_alert-accent: var(--vds-success);
+    --_alert-soft: var(--vds-success-soft);
+  }
+  &--warning {
+    --_alert-accent: var(--vds-warning);
+    --_alert-soft: var(--vds-warning-soft);
+  }
+  &--danger {
+    --_alert-accent: var(--vds-danger);
+    --_alert-soft: var(--vds-danger-soft);
+  }
+}

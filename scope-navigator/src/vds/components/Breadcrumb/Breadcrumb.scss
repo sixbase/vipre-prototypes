@@ -1,0 +1,141 @@
+// ============================================================================
+// Breadcrumb — the "where am I" trail. Token-bound only.
+// Non-current crumbs are muted links that truncate with an ellipsis (tighter
+// cap on narrow screens); the current page is full-strength ink and keeps its
+// room. The "…" collapse button composes the Popover menu primitives.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-breadcrumb {
+  &__list {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  &__sep {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin: 0 var(--vds-space-1);
+    color: var(--vds-ink-subtle);
+  }
+
+  &__crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vds-space-1);
+    min-width: 0;
+    padding: var(--vds-space-1) var(--vds-space-1);
+    border: 0;
+    background: transparent;
+    border-radius: var(--vds-radius-sm);
+    font-family: var(--vds-font-sans);
+    @include type.step(caption);
+    color: var(--vds-ink-muted);
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      color var(--vds-dur-fast) var(--vds-ease-out),
+      background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      color: var(--vds-ink);
+      background: var(--vds-surface-hover);
+    }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset);
+    }
+
+    // Current page: full ink, not interactive, never truncated away.
+    &--current {
+      color: var(--vds-ink);
+      font-weight: var(--vds-weight-medium);
+      cursor: default;
+      &:hover {
+        background: transparent;
+      }
+    }
+    &--inert {
+      cursor: default;
+      &:hover {
+        color: var(--vds-ink-muted);
+        background: transparent;
+      }
+    }
+  }
+
+  &__icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--vds-ink-subtle);
+  }
+
+  // First/middle crumbs truncate; the current page keeps its full label.
+  &__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 12rem;
+  }
+  &__crumb--current .vds-breadcrumb__text {
+    max-width: none;
+  }
+
+  &__ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--vds-space-1);
+    border: 0;
+    background: transparent;
+    border-radius: var(--vds-radius-sm);
+    color: var(--vds-ink-subtle);
+    cursor: pointer;
+    transition:
+      color var(--vds-dur-fast) var(--vds-ease-out),
+      background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      color: var(--vds-ink);
+      background: var(--vds-surface-hover);
+    }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset);
+    }
+  }
+}
+
+// Narrow screens: tighten the truncation cap so the current page keeps room.
+@include bp.down(sm) {
+  .vds-breadcrumb__text {
+    max-width: 6rem;
+  }
+}
+
+// Comfortable touch targets on coarse pointers.
+@include bp.coarse {
+  .vds-breadcrumb__crumb:not(.vds-breadcrumb__crumb--current):not(.vds-breadcrumb__crumb--inert),
+  .vds-breadcrumb__ellipsis {
+    min-height: var(--vds-tap-target);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-breadcrumb__crumb,
+  .vds-breadcrumb__ellipsis {
+    transition: none;
+  }
+}

@@ -4,19 +4,40 @@
 @use '../../styles/typography' as type;
 
 .vds-badge {
+  --vds-badge-dot-size: 0.3125rem;
+
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.5rem;
+  gap: var(--vds-space-1);
+  padding: 0.125rem var(--vds-space-2);
   border: 1px solid transparent;
   border-radius: var(--vds-radius-sm);
   white-space: nowrap;
+  vertical-align: middle; // optical: chips ride the text middle, not the baseline (table cells sat ~1.5px low)
   @include type.step(micro);
 
+  // Leading icon slot. Sized off the font (em) so it tracks the label, and
+  // nudged UP: `align-items: center` centers the icon box on the LINE box, but
+  // the text's ink sits high in that box, so a flush icon reads low next to the
+  // letters. (The dot nudges the other way — it lives on the lowercase body,
+  // while an icon reads as a peer of the whole word.) Measured to land the icon
+  // on the text's ink center.
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    transform: translateY(-0.08em);
+
+    svg {
+      width: 1.1em;   // slightly taller than the cap height so it reads as a peer of the text
+      height: 1.1em;
+    }
+  }
+
   &__dot {
-    width: 0.3125rem;
-    height: 0.3125rem;
-    border-radius: 9999px;
+    width: var(--vds-badge-dot-size);
+    height: var(--vds-badge-dot-size);
+    border-radius: var(--vds-radius-full);
     background-color: currentColor;
     // Optical centering. `align-items: center` centers the dot on the LINE
     // BOX, but the text's ink isn't centered in that box — the font's
@@ -31,7 +52,7 @@
   &--neutral { background-color: var(--vds-canvas);       color: var(--vds-ink-muted); border-color: var(--vds-line); }
   &--primary { background-color: var(--vds-primary-soft);  color: var(--vds-primary); }
   &--success { background-color: var(--vds-success-soft);  color: var(--vds-success); }
-  &--warning { background-color: var(--vds-warning-soft);  color: var(--vds-warning); }
+  &--warning { background-color: var(--vds-warning-soft);  color: var(--vds-on-warning-soft); }
   &--danger  { background-color: var(--vds-danger-soft);   color: var(--vds-danger); }
   &--info    { background-color: var(--vds-info-soft);     color: var(--vds-info); }
 }

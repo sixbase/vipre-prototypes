@@ -1,0 +1,211 @@
+// ============================================================================
+// CommandPalette — the app-wide search overlay. Token-bound only.
+//
+// Self-contained overlay: fixed scrim + Surface panel at --vds-z-modal.
+// Desktop: panel top-aligned ~15vh, capped width/height. Below `sm`: the
+// panel goes full-screen (radius and vertical padding drop away).
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-command {
+  position: fixed;
+  inset: 0;
+  z-index: var(--vds-z-modal);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 15vh var(--vds-space-4) var(--vds-space-4);
+
+  &__scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--vds-scrim);
+    animation: vds-command-fade var(--vds-dur-base) var(--vds-ease-out);
+  }
+
+  &__panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 40rem;
+    max-height: min(60vh, 32rem);
+    overflow: hidden;
+    animation: vds-command-in var(--vds-dur-slow) var(--vds-ease-emphatic);
+  }
+
+  // ---- search row ------------------------------------------------------------
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-3);
+    padding: 0 var(--vds-space-4);
+    border-bottom: 1px solid var(--vds-line);
+    flex-shrink: 0;
+
+    // The input has no ring of its own (it's the palette's only tab stop);
+    // the row's bottom edge takes the focus color instead.
+    &:focus-within {
+      border-bottom-color: var(--vds-focus-ring);
+    }
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    height: 3.5rem;
+    border: 0;
+    background: transparent;
+    font-family: var(--vds-font-sans);
+    @include type.step(body-lg);
+    color: var(--vds-ink);
+
+    &::placeholder {
+      color: var(--vds-ink-subtle);
+    }
+    &:focus {
+      outline: none; // the row's :focus-within edge carries the indicator
+    }
+  }
+
+  // ---- results ---------------------------------------------------------------
+  &__list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--vds-space-2);
+  }
+
+  &__group {
+    &:not(:first-child) {
+      margin-top: var(--vds-space-2);
+    }
+  }
+
+  &__group-label {
+    @include type.step(eyebrow);
+    text-transform: uppercase;
+    color: var(--vds-ink-subtle);
+    padding: var(--vds-space-2) var(--vds-space-2) var(--vds-space-1);
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-3);
+    padding: var(--vds-space-2) var(--vds-space-3);
+    border-radius: var(--vds-radius-sm);
+    @include type.step(body);
+    color: var(--vds-ink);
+    cursor: pointer;
+
+    &--active {
+      background: var(--vds-primary-soft);
+      color: var(--vds-primary);
+
+      .vds-command__item-icon {
+        color: var(--vds-primary);
+      }
+    }
+  }
+
+  &__item-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--vds-ink-subtle);
+  }
+
+  &__item-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__item-hint {
+    flex-shrink: 0;
+    @include type.step(micro);
+    font-variant-numeric: tabular-nums;
+    color: var(--vds-ink-subtle);
+  }
+
+  &__empty {
+    padding: var(--vds-space-8) var(--vds-space-4);
+    text-align: center;
+    @include type.step(body);
+    color: var(--vds-ink-subtle);
+  }
+
+  // ---- footer ----------------------------------------------------------------
+  &__footer {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-4);
+    padding: var(--vds-space-2) var(--vds-space-4);
+    border-top: 1px solid var(--vds-line);
+    flex-shrink: 0;
+    @include type.step(micro);
+    color: var(--vds-ink-subtle);
+  }
+
+  &__hint {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vds-space-1);
+  }
+}
+
+// ---- full-screen below sm ----------------------------------------------------
+@include bp.down(sm) {
+  .vds-command {
+    padding: 0;
+
+    // Extra specificity on purpose: beats the Surface radius utility class
+    // regardless of aggregate order.
+    .vds-command__panel {
+      max-width: none;
+      max-height: none;
+      height: 100%;
+      border-radius: 0;
+      border-left: 0;
+      border-right: 0;
+    }
+  }
+}
+
+// Comfortable touch targets on coarse pointers.
+@include bp.coarse {
+  .vds-command__item {
+    min-height: var(--vds-tap-target);
+  }
+}
+
+@keyframes vds-command-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vds-command-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--vds-space-2)) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vds-command__scrim,
+  .vds-command__panel {
+    animation: none;
+  }
+}

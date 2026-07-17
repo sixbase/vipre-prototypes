@@ -1,0 +1,155 @@
+// ============================================================================
+// Tag — dismissible / interactive chip (Badge's bigger sibling). Tones set the
+// local --_tag-ink / --_tag-soft pair from the semantic accent tokens (which
+// already flip 600→400 + color-mix soft in dark). Hover states mix the ink
+// into the soft fill, so they hold up in both themes without new tokens.
+// ============================================================================
+@use '../../styles/typography' as type;
+@use '../../styles/breakpoints' as bp;
+
+.vds-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vds-space-1);
+  border: 1px solid transparent;
+  border-radius: var(--vds-radius-sm);
+  font-family: var(--vds-font-sans);
+  white-space: nowrap;
+  user-select: none;
+
+  --_tag-ink: var(--vds-ink-muted);
+  --_tag-soft: var(--vds-canvas);
+  // hover: nudge the ink into the fill — works over both solid -50 tints
+  // (light) and color-mix tints (dark)
+  --_tag-soft-hover: color-mix(in oklab, var(--_tag-ink) 12%, var(--_tag-soft));
+
+  background-color: var(--_tag-soft);
+  color: var(--_tag-ink);
+
+  // ---- sizes ----
+  &--sm { height: 1.375rem; padding: 0 var(--vds-space-2);   @include type.step(micro); }
+  &--md { height: var(--vds-control-h-xs); padding: 0 var(--vds-space-2-5); @include type.step(detail); font-weight: var(--vds-weight-medium); }
+
+  &__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+  // ---- neutral keeps a visible hairline (its fill matches the canvas) ----
+  &--neutral { border-color: var(--vds-line); }
+
+  // ---- accent families — soft tint + matching ink ----
+  @each $fam in rose, clay, amber, "lime", emerald, harbor, "azure", "purple", "orchid", "magenta" {
+    &--#{$fam} {
+      --_tag-ink: var(--vds-accent-#{$fam});
+      --_tag-soft: var(--vds-accent-#{$fam}-soft);
+    }
+  }
+
+  // cobalt has no semantic accent token yet — fall back to its primitives with
+  // the same 600-light recipe. TODO(tokens): drop the fallbacks once
+  // --vds-accent-cobalt(-soft) land; the var() already prefers them.
+  &--cobalt {
+    --_tag-ink: var(--vds-accent-cobalt, var(--vds-cobalt-600));
+    --_tag-soft: var(--vds-accent-cobalt-soft, var(--vds-cobalt-50));
+  }
+
+  // ---- whole-chip button (onClick without onDismiss) ----
+  &--interactive {
+    cursor: pointer;
+    appearance: none;
+    transition:
+      background-color var(--vds-dur-fast) var(--vds-ease-out),
+      border-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover { background-color: var(--_tag-soft-hover); }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset);
+    }
+  }
+
+  // ---- split shell (onClick + onDismiss → two inner buttons) ----
+  &--split {
+    gap: 0;
+    padding: 0;
+  }
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vds-space-1);
+    height: 100%;
+    padding: 0 var(--vds-space-1) 0 var(--vds-space-2-5);
+    border: 0;
+    border-radius: inherit;
+    background: none;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover { background-color: var(--_tag-soft-hover); }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: var(--vds-control-ring-offset-inset);
+    }
+  }
+  &--sm .vds-tag__action { padding: 0 var(--vds-space-1) 0 var(--vds-space-2); }
+
+  // ---- dismiss (×) ----
+  &__dismiss {
+    position: relative; // anchors the coarse-pointer hit-area pseudo
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--vds-icon-btn-xs);
+    height: var(--vds-icon-btn-xs);
+    margin-right: -0.25rem; // optically balance against the label padding
+    padding: 0;
+    border: 0;
+    border-radius: var(--vds-radius-sm);
+    background: none;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+    transition:
+      opacity var(--vds-dur-fast) var(--vds-ease-out),
+      background-color var(--vds-dur-fast) var(--vds-ease-out);
+
+    &:hover {
+      opacity: 1;
+      background-color: color-mix(in oklab, currentColor 15%, transparent);
+    }
+    &:focus-visible {
+      outline: var(--vds-control-ring-w) solid var(--vds-focus-ring);
+      outline-offset: 1px;
+      opacity: 1;
+    }
+
+    // ≥ tap-target hit area on touch — the glyph stays small, the target grows
+    @include bp.coarse {
+      &::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: var(--vds-tap-target, 44px);
+        height: var(--vds-tap-target, 44px);
+        transform: translate(-50%, -50%);
+      }
+    }
+  }
+  &--split .vds-tag__dismiss { margin-right: var(--vds-space-1); }
+
+  // ---- disabled — the standard recipe, never a new gray ----
+  &--disabled,
+  &:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+// cobalt fallback flips to the vibrant 400 + color-mix soft in dark, matching
+// every real accent token. Dead code the moment --vds-accent-cobalt exists.
+.dark .vds-tag--cobalt {
+  --_tag-ink: var(--vds-accent-cobalt, var(--vds-cobalt-400));
+  --_tag-soft: var(--vds-accent-cobalt-soft, color-mix(in oklab, var(--vds-cobalt-400) 16%, transparent));
+}

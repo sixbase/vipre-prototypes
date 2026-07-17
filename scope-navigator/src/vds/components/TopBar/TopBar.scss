@@ -1,0 +1,75 @@
+// ============================================================================
+// TopBar — the horizontal chrome strip. --vds-topbar-h tall; three slots:
+// leading (pinned), body (flexes + truncates), trailing (pinned).
+//
+// Tones: 'surface' is a normal theme surface (flips light/dark); 'navy' is
+// the FIXED midnight chrome — same ramp as the SideNav rail, identical in
+// both themes, because it is product chrome rather than a theme surface.
+//
+// Safe areas: padding-inline maxes the design padding against
+// env(safe-area-inset-*), so slots clear notches and rounded corners.
+// ============================================================================
+@use '../../styles/typography' as type;
+
+.vds-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--vds-space-3);
+  height: var(--vds-topbar-h);
+  flex-shrink: 0;
+  padding-inline:
+    max(var(--vds-space-4), env(safe-area-inset-left))
+    max(var(--vds-space-4), env(safe-area-inset-right));
+  font-family: var(--vds-font-sans);
+
+  // ---- tones ----
+  &--surface {
+    background-color: var(--vds-surface);
+    color: var(--vds-ink);
+    border-bottom: 1px solid var(--vds-line);
+  }
+  &--navy {
+    // Fixed midnight chrome — matches the SideNav rail in both themes.
+    background-color: var(--vds-midnight-950);
+    color: var(--vds-white);
+    border-bottom: 1px solid var(--vds-midnight-1000);
+
+    // Keyboard focus must read on navy — same recipe as the rail.
+    :focus-visible {
+      outline-color: color-mix(in srgb, var(--vds-white) 70%, var(--vds-nav-accent));
+    }
+  }
+
+  &--sticky {
+    position: sticky;
+    top: 0;
+    z-index: var(--vds-z-sticky);
+  }
+
+  // ---- slots ----
+  &__leading,
+  &__trailing {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    flex-shrink: 0; // edge slots hold their ground…
+  }
+
+  &__body {
+    display: flex;
+    align-items: center;
+    gap: var(--vds-space-2);
+    flex: 1 1 auto;
+    min-width: 0; // …the body yields and truncates
+    white-space: nowrap;
+    overflow: hidden;
+
+    // Let text children ellipsize instead of overflowing the bar.
+    > * {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}

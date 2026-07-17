@@ -16,10 +16,13 @@ import { Spinner } from '../Spinner/index.js'
  * Props:
  * - variant:   'solid' | 'soft' | 'outline' | 'ghost'                       (default 'solid')
  * - tone:      'primary' | 'neutral' | 'success' | 'warning' | 'danger' | 'info'  (default 'primary')
- * - size:      'sm' | 'md' | 'lg'                                           (default 'md')
+ * - size:      'xs' | 'sm' | 'md' | 'lg' | 'xl'                             (default 'md')
  * - loading:   show a Spinner, set aria-busy, and block interaction          (default false)
  * - fullWidth: stretch to fill the container                                 (default false)
  * - iconOnly:  square the button to hold a single icon (no text padding)     (default false)
+ * - leading:   icon node before the label — reinforces what the action IS
+ * - trailing:  icon node after the label — points where the action GOES
+ *              (next step, opens a menu, external link)
  * - all native ButtonHTMLAttributes (onClick, disabled, type, aria-*, …)
  *
  * Legacy `variant` values stay supported and map onto the new axes:
@@ -39,6 +42,8 @@ import { Spinner } from '../Spinner/index.js'
  * <Button variant="outline" tone="danger">Delete…</Button>
  * <Button loading>Saving…</Button>
  * <Button variant="ghost" size="sm" iconOnly aria-label="Edit"><Icon as={Pencil} /></Button>
+ * <Button leading={<Icon as={Plus} size="sm" />}>Add customer</Button>
+ * <Button variant="outline" trailing={<Icon as={ChevronRight} size="sm" />}>Next</Button>
  */
 
 // Legacy variant → [variant, default tone]. The tone here is only a fallback;
@@ -58,6 +63,8 @@ export const Button = forwardRef(function Button(
     loading = false,
     fullWidth = false,
     iconOnly = false,
+    leading,
+    trailing,
     type = 'button',
     disabled = false,
     className,
@@ -91,9 +98,22 @@ export const Button = forwardRef(function Button(
       )}
       {...props}
     >
-      {loading && <Spinner size={size === 'lg' ? 'md' : 'sm'} />}
-      {/* When an icon-only button is loading, the spinner replaces the icon. */}
-      {!(loading && iconOnly) && children}
+      {loading && (
+        <Spinner size={size === 'xl' ? 'lg' : size === 'lg' ? 'md' : 'sm'} />
+      )}
+      {/* The spinner stands in for the leading icon while loading. */}
+      {leading && !loading && (
+        <span className="vds-button__leading" aria-hidden="true">{leading}</span>
+      )}
+      {/* When an icon-only button is loading, the spinner replaces the icon.
+          Text labels get a wrapper so the SCSS can optically re-center them
+          against the icon (Rubik's glyphs sit a hair high in their line box);
+          icon-only children stay unwrapped. */}
+      {!(loading && iconOnly) &&
+        (iconOnly ? children : <span className="vds-button__label">{children}</span>)}
+      {trailing && (
+        <span className="vds-button__trailing" aria-hidden="true">{trailing}</span>
+      )}
     </button>
   )
 })

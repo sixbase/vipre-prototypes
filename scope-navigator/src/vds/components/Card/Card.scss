@@ -7,6 +7,7 @@
   justify-content: space-between;
   gap: var(--vds-space-3);
   margin-bottom: var(--vds-space-4);
+  flex-wrap: wrap; // narrow cards: actions drop below the title, never crush it
 }
 
 .vds-card__actions {
