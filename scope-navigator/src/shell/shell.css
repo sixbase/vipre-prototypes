@@ -142,6 +142,61 @@ button.ob-phead:hover .ob-chevc { color: var(--vds-white); }
 .msp-acct-chip--sel, .msp-acct-chip--sel:hover { background: var(--nav-accent); color: var(--vds-white); }
 @media (prefers-reduced-motion: reduce) { .msp-acct-pop { animation: none; } }
 
+/* ---- Account tree column (opens to the RIGHT of the rail) -------------------
+   A second sidebar column: same navy chrome as the rail, with a hairline seam on
+   its left so the two read as one widened sidebar. The outer animates its width
+   (0↔ACCT_TREE_W, inline); this inner holds the layout at a FIXED width so the
+   content doesn't reflow/wrap while the column is opening. */
+.msp-tree-col {
+  background: var(--vds-midnight-950);
+  border-left: 1px solid var(--vds-midnight-1000);
+}
+.msp-tree-col-inner {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--vds-font-sans);
+}
+/* Owner label — names the parent whose accounts these are. */
+.msp-tree-col-owner {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+  padding: 12px;
+  border-bottom: 1px solid var(--vds-midnight-1000);
+}
+/* The tree itself takes the remaining height and scrolls. */
+.msp-tree-col-list { flex: 1; min-height: 0; padding: 6px; overflow-y: auto; overflow-x: hidden; }
+
+/* A tree row: [depth spacer][caret gutter][body]. The caret column is fixed so carets
+   line up regardless of depth; indentation lands on the tile via the spacer. */
+.msp-tree-row { display: flex; align-items: stretch; border-radius: 8px; }
+.msp-tree-row:hover { background: var(--vds-midnight-800); }
+.msp-tree-row--cur, .msp-tree-row--cur:hover { background: color-mix(in srgb, var(--nav-accent) 16%, transparent); }
+
+/* Caret: its own hit target so expanding a branch never fires the row's navigate. */
+.msp-tree-caret {
+  display: grid; place-items: center;
+  width: 20px; flex-shrink: 0;
+  border: 0; background: transparent; padding: 0; cursor: pointer;
+  color: var(--vds-midnight-300);
+  border-radius: 6px;
+}
+.msp-tree-caret:hover { color: var(--vds-white); }
+.msp-tree-caret--leaf { cursor: default; }
+
+/* Row body: the tile + name/type; clicking it switches scope to that node. */
+.msp-tree-main {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0;
+  padding: 6px 6px 6px 0;
+  border: 0; background: transparent; cursor: pointer;
+  font-family: inherit; text-align: left;
+}
+.msp-tree-caret svg, .msp-tree-main { will-change: transform; }
+@media (prefers-reduced-motion: reduce) {
+  .msp-tree-col, .msp-tree-children { transition: none !important; }
+}
+
 
 /* Reseller-theme dropdown rows (dark navy popover). */
 .ob-brand-item:hover { background: var(--vds-midnight-800) !important; }

@@ -63,7 +63,7 @@ const NAV_PAD_X = 16
 // Collapsed rail centers the x=36 icon column (2 × 36), so icons keep the EXACT same x
 // as the expanded nav — they never slide horizontally on collapse/expand.
 const SYM_W_COLLAPSED = 72
-const SYM_W_EXPANDED = 242
+const SYM_W_EXPANDED = 280
 // "Emphasized decelerate" — starts brisk, lands soft. One curve for all nav motion.
 const OB_EASE = 'cubic-bezier(0.2, 0, 0, 1)'
 // Labels fade OUT fast when collapsing (get out of the way), fade IN slightly late when
@@ -93,11 +93,11 @@ const LOGO_MARK_W = (20 * 47) / 40             // 23.5 — VIPRE mark at BrandLo
 const LOGO_PAD_L = LOGO_COL - LOGO_MARK_W / 2  // 24.25 — centers the mark on that column
 const PRODUCT_CARD = { background: 'var(--vds-midnight-1000)', borderRadius: R_CARD, padding: NEST, display: 'flex', flexDirection: 'column', gap: 2 }
 // Full-portal nav geometry — CLONED from the dark rail so the two navs read as one family:
-// same 242/72 widths, same 16px section pad-x, and the same 36px icon column
+// same 280/72 widths, same 16px section pad-x, and the same 36px icon column
 // (section 16 + inset 2 + row pad 10 + half a 16px icon), so 72 = 2 × 36 stays centered.
 const POR_PAD = NAV_PAD_X               // 16 — section horizontal padding (was 32)
 const POR_W_COLLAPSED = SYM_W_COLLAPSED // 72 — 2 × the 36px icon column (was 80)
-const POR_W_EXPANDED = SYM_W_EXPANDED   // 242 (was 200)
+const POR_W_EXPANDED = SYM_W_EXPANDED   // 280 — mirrors the dark rail's expanded width
 
 // How ScopeTree renders each tenancy type (mirrors the main app + the mock data types).
 const SCOPE_TYPE_CONFIG = {
@@ -308,29 +308,237 @@ function AccountHeader({ collapsed, account }) {
   )
 }
 
-// Interactive account header: a dropdown trigger that pops a scope switcher listing the
-// PARENT's children — i.e. the current node PLUS its siblings (the list you drilled in
-// from). The current node is checked; picking a sibling switches laterally to it (re-heads
-// the nav, lands on its home page). At the root the "parent" is the signed-in distributor,
-// so its children are the top-level accounts. Falls back to the static header when there's
-// nothing to switch between (a lone child, or the end-customer lens).
-function AccountSwitcher({ collapsed, account, owner, currentId, children, onPick, placement = 'right' }) {
-  const [open, setOpen] = useState(false)
-  const [rect, setRect] = useState(null)       // trigger geometry, captured on open
+// ---- account tree: pure helpers (search / filter / default-expand) ----------
+// A node passes the current search + managed/unmanaged filter on its OWN fields.
+function treeNodeMatches(node, q, mgmt) {
+  if (q && !node.name.toLowerCase().includes(q)) return false
+  if (mgmt === 'managed' && isEntityUnmanaged(node)) return false
+  if (mgmt === 'unmanaged' && !isEntityUnmanaged(node)) return false
+  return true
+}
+// A node stays in the tree if it — or anything under it — passes the filter, so a
+// deep match never gets hidden behind a parent that doesn't match itself.
+function subtreeMatches(node, q, mgmt) {
+  if (treeNodeMatches(node, q, mgmt)) return true
+  return (node.children ?? []).some((k) => subtreeMatches(k, q, mgmt))
+}
+// The ancestor chain (top → parent) of the current scope node, so the tree opens
+// with the current account already revealed rather than needing a hunt.
+function ancestorsOf(nodes, targetId, acc = []) {
+  for (const n of nodes) {
+    if (n.id === targetId) return acc
+    const kids = n.children ?? []
+    if (kids.length) {
+      const found = ancestorsOf(kids, targetId, [...acc, n.id])
+      if (found) return found
+    }
+  }
+  return null
+}
+// While filtering, every node that has a matching DESCENDANT auto-opens, so the
+// matches downstream are visible without the user expanding each level by hand.
+function collectAutoOpen(nodes, q, mgmt, acc) {
+  for (const n of nodes) {
+    const kids = n.children ?? []
+    if (kids.some((k) => subtreeMatches(k, q, mgmt))) acc.add(n.id)
+    collectAutoOpen(kids, q, mgmt, acc)
+  }
+  return acc
+}
+
+// One row of the inline account tree. Recursive: an account with sub-accounts gets
+// a disclosure caret that expands its children INDENTED IN PLACE (the same 0fr↔1fr
+// grid the product cards use), while the row body switches scope to that node. The
+// row is the whole trail from the list owner down to here, so a click can navigate
+// straight to a nested account in one hop.
+function AccountTreeRow({ node, depth, trail, currentId, onPick, q, mgmt, isOpen, onToggle }) {
+  const cfg = SCOPE_TYPE_CONFIG[node.type]
+  const kids = (node.children ?? []).filter((k) => subtreeMatches(k, q, mgmt))
+  const hasKids = kids.length > 0
+  const open = hasKids && isOpen(node.id)
+  const isCur = node.id === currentId
+  const nodeTrail = [...trail, node]
+  // Indent by depth on the TILE column; the caret sits in a fixed 16px gutter before it
+  // so carets line up in one column regardless of depth.
+  const indent = depth * 16
+  return (
+    <div className="msp-tree-node">
+      <div className={['msp-tree-row', isCur && 'msp-tree-row--cur'].filter(Boolean).join(' ')}>
+        <span style={{ width: indent, flexShrink: 0 }} aria-hidden />
+        {hasKids ? (
+          <button type="button" className="msp-tree-caret" onClick={() => onToggle(node.id)}
+            aria-expanded={open} aria-label={`${open ? 'Collapse' : 'Expand'} ${node.name}`}>
+            <ChevronRight size={14} style={{ transform: open ? 'rotate(90deg)' : 'none', transition: `transform 180ms ${OB_EASE}` }} />
+          </button>
+        ) : (
+          <span className="msp-tree-caret msp-tree-caret--leaf" aria-hidden />
+        )}
+        <button type="button" className="msp-tree-main"
+          onClick={() => onPick(nodeTrail)}
+          aria-current={isCur ? 'true' : undefined}>
+          <img src={cfg?.tile ?? distributorTile} alt="" style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }} />
+          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: 13, fontWeight: isCur ? 600 : 500, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{node.name}</span>
+            <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: '0.4px', color: C.inkDim }}>{isCur ? `${cfg?.label ?? 'Account'} · current` : (cfg?.label ?? 'Account')}</span>
+          </span>
+          {isCur && (
+            <span aria-hidden style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: 999, background: C.selected, flexShrink: 0 }}>
+              <Check size={12} style={{ color: C.white }} />
+            </span>
+          )}
+        </button>
+      </div>
+      {hasKids && (
+        <div className="msp-tree-children" style={{ display: 'grid', gridTemplateRows: open ? '1fr' : '0fr', transition: `grid-template-rows 220ms ${OB_EASE}` }}>
+          <div style={{ overflow: 'hidden', minHeight: 0 }} aria-hidden={!open || undefined}>
+            {kids.map((k) => (
+              <AccountTreeRow key={k.id} node={k} depth={depth + 1} trail={nodeTrail}
+                currentId={currentId} onPick={onPick} q={q} mgmt={mgmt} isOpen={isOpen} onToggle={onToggle} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// The account-header trigger in the rail: toggles the account TREE COLUMN (which opens
+// to the RIGHT, widening the sidebar — see AccountTreeColumn). Same 36px pill as the
+// static header so nothing shifts when a node gains or loses its switcher.
+function AccountHeaderTrigger({ collapsed, account, open, onToggle }) {
+  return (
+    <button type="button" onClick={onToggle}
+      aria-haspopup="tree" aria-expanded={open}
+      data-tip={collapsed && !open ? `${account.name} · ${account.typeLabel}` : undefined}
+      className="msp-acct-btn"
+      style={{ display: 'flex', alignItems: 'center', width: '100%', height: 36, padding: NEST, borderRadius: R_PILL, border: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+      <AccountHeaderInner collapsed={collapsed} account={account} chevron={open ? 'open' : true} />
+    </button>
+  )
+}
+
+// The account TREE navigator, rendered as a SECOND SIDEBAR COLUMN that opens to the
+// RIGHT of the rail — so the whole sidebar gets wider and the content slides over,
+// rather than the tree pushing PRODUCTS down inside the rail. Navy chrome, so it reads
+// as one surface with the rail. The outer width animates 0↔ACCT_TREE_W; the inner is a
+// fixed width so its content doesn't reflow mid-animation. Each account with
+// sub-accounts expands INDENTED IN PLACE here; picking a node switches scope to it in
+// one hop (onPick takes the full owner-children → node trail).
+const ACCT_TREE_W = 300
+function AccountTreeColumn({ open, owner, currentId, accounts, onPick, onClose }) {
   const [query, setQuery] = useState('')
-  const [mgmt, setMgmt] = useState('all')       // all | managed | unmanaged
+  const [mgmt, setMgmt] = useState('all')
+  const [expanded, setExpanded] = useState(() => new Set())
+  const searchRef = useRef(null)
+
+  // On open: reset filters, reveal the current account (expand its ancestors), focus the
+  // search box, and wire Escape to close. Keyed on `open` only — reopening re-seeds from
+  // the live scope.
+  useEffect(() => {
+    if (!open) return undefined
+    setQuery(''); setMgmt('all')
+    setExpanded(new Set(ancestorsOf(accounts, currentId) ?? []))
+    const t = setTimeout(() => searchRef.current?.focus(), 60)
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => { clearTimeout(t); window.removeEventListener('keydown', onKey) }
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const managedCount = accounts.filter((c) => !isEntityUnmanaged(c)).length
+  const unmanagedCount = accounts.length - managedCount
+  const q = query.trim().toLowerCase()
+  const filtering = !!q || mgmt !== 'all'
+  // While filtering, branches with a matching descendant auto-open so matches aren't buried;
+  // otherwise expansion is whatever the user toggled (seeded with the current node's ancestors).
+  const autoOpen = filtering ? collectAutoOpen(accounts, q, mgmt, new Set()) : null
+  const isNodeOpen = (id) => (filtering ? autoOpen.has(id) || expanded.has(id) : expanded.has(id))
+  const toggleNode = (id) => setExpanded((prev) => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+  const visibleRoots = accounts.filter((c) => !filtering || subtreeMatches(c, q, mgmt))
+  const pickNode = (trail) => { if (trail.at(-1).id !== currentId) onPick(trail); else onClose() }
+  const chips = [
+    { id: 'all', label: 'All', count: accounts.length },
+    { id: 'managed', label: 'Managed', count: managedCount },
+    { id: 'unmanaged', label: 'Unmanaged', count: unmanagedCount },
+  ]
+
+  return (
+    <div className="msp-tree-col" aria-hidden={!open || undefined}
+      style={{ width: open ? ACCT_TREE_W : 0, flexShrink: 0, overflow: 'hidden', transition: `width 240ms ${OB_EASE}` }}>
+      <div className="msp-tree-col-inner" style={{ width: ACCT_TREE_W }}>
+        {owner && (
+          <div className="msp-tree-col-owner">
+            <img src={owner.tile} alt="" style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }} />
+            <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.7px', textTransform: 'uppercase', color: C.inkDim, lineHeight: 1.5 }}>Accounts under</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.white, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{owner.name}</span>
+            </span>
+          </div>
+        )}
+        <div style={{ padding: 8, borderBottom: '1px solid var(--vds-midnight-1000)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: '0 8px', borderRadius: 6, background: 'var(--vds-midnight-1000)', border: '1px solid var(--vds-midnight-800)' }}>
+            <Search size={15} style={{ color: C.icon, flexShrink: 0 }} />
+            <input ref={searchRef} type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search accounts" aria-label="Search accounts"
+              className="msp-acct-field"
+              style={{ flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: C.white, fontSize: 13, fontFamily: 'inherit' }} />
+            {query && (
+              <button type="button" onClick={() => { setQuery(''); searchRef.current?.focus() }} aria-label="Clear search"
+                style={{ display: 'flex', border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: C.icon }}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+            {chips.map((chip) => {
+              const sel = mgmt === chip.id
+              return (
+                <button key={chip.id} type="button" onClick={() => setMgmt(chip.id)}
+                  className={['msp-acct-chip', sel && 'msp-acct-chip--sel'].filter(Boolean).join(' ')}
+                  aria-pressed={sel}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 24, padding: '0 8px', borderRadius: 6, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                  {chip.label}
+                  <span style={{ fontSize: 10, opacity: 0.8 }}>{chip.count}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div className="ob-scroll-dark msp-tree-col-list">
+          {visibleRoots.length === 0 ? (
+            <p style={{ margin: 0, padding: '14px 10px', fontSize: 12, color: C.inkDim, textAlign: 'center' }}>No matches</p>
+          ) : (
+            visibleRoots.map((root) => (
+              <AccountTreeRow key={root.id} node={root} depth={0} trail={[]}
+                currentId={currentId} onPick={pickNode} q={q} mgmt={mgmt}
+                isOpen={isNodeOpen} onToggle={toggleNode} />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Interactive account header for the Full Portal focus mode: a compact popover with a
+// FLAT sibling list. (The rail uses AccountHeaderTrigger + AccountTreeColumn instead.)
+function AccountSwitcher({ collapsed, account, owner, currentId, children, onPick }) {
+  const [open, setOpen] = useState(false)
+  const [rect, setRect] = useState(null)
+  const [query, setQuery] = useState('')
+  const [mgmt, setMgmt] = useState('all')
   const btnRef = useRef(null)
   const searchRef = useRef(null)
 
   const toggle = () => {
     if (open) { setOpen(false); return }
-    const r = btnRef.current?.getBoundingClientRect()
-    if (r) setRect(r)
+    const r = btnRef.current?.getBoundingClientRect(); if (r) setRect(r)
     setQuery(''); setMgmt('all'); setOpen(true)
   }
-  // Focus the search box once the popover mounts.
   useEffect(() => { if (open) searchRef.current?.focus() }, [open])
-  // Escape closes.
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
@@ -341,43 +549,75 @@ function AccountSwitcher({ collapsed, account, owner, currentId, children, onPic
   const managedCount = children.filter((c) => !isEntityUnmanaged(c)).length
   const unmanagedCount = children.length - managedCount
   const q = query.trim().toLowerCase()
-  const filtered = children.filter((c) => {
-    if (mgmt === 'managed' && isEntityUnmanaged(c)) return false
-    if (mgmt === 'unmanaged' && !isEntityUnmanaged(c)) return false
-    if (q && !c.name.toLowerCase().includes(q)) return false
-    return true
-  })
+  const filtered = children.filter((c) => treeNodeMatches(c, q, mgmt))
 
-  // Popover geometry. 'right' (nav default): flies off the nav's right edge, top-aligned to
-  // the trigger. 'below' (the Full Portal header): drops straight down under the trigger,
-  // left-aligned but clamped so it can't run off the right edge.
+  // Drops straight down under the trigger, clamped so it can't run off the right edge.
   const POP_W = 264
   const pos = rect
-    ? (placement === 'below'
-        ? { left: Math.min(rect.left, window.innerWidth - POP_W - 12), top: rect.bottom + 8 }
-        : { left: rect.right + 10, top: rect.top })
+    ? { left: Math.min(rect.left, window.innerWidth - POP_W - 12), top: rect.bottom + 8 }
     : { left: 0, top: 0 }
-
   const chips = [
     { id: 'all', label: 'All', count: children.length },
     { id: 'managed', label: 'Managed', count: managedCount },
     { id: 'unmanaged', label: 'Unmanaged', count: unmanagedCount },
   ]
 
+  const panelHeader = (
+    <>
+      {owner && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--vds-midnight-1000)' }}>
+          <img src={owner.tile} alt="" style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }} />
+          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.7px', textTransform: 'uppercase', color: C.inkDim, lineHeight: 1.5 }}>Accounts under</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.white, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{owner.name}</span>
+          </span>
+        </div>
+      )}
+      <div style={{ padding: 8, borderBottom: '1px solid var(--vds-midnight-1000)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: '0 8px', borderRadius: 6, background: 'var(--vds-midnight-1000)', border: '1px solid var(--vds-midnight-800)' }}>
+          <Search size={15} style={{ color: C.icon, flexShrink: 0 }} />
+          <input ref={searchRef} type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search accounts" aria-label="Search accounts"
+            className="msp-acct-field"
+            style={{ flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: C.white, fontSize: 13, fontFamily: 'inherit' }} />
+          {query && (
+            <button type="button" onClick={() => { setQuery(''); searchRef.current?.focus() }} aria-label="Clear search"
+              style={{ display: 'flex', border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: C.icon }}>
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+          {chips.map((chip) => {
+            const sel = mgmt === chip.id
+            return (
+              <button key={chip.id} type="button" onClick={() => setMgmt(chip.id)}
+                className={['msp-acct-chip', sel && 'msp-acct-chip--sel'].filter(Boolean).join(' ')}
+                aria-pressed={sel}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 24, padding: '0 8px', borderRadius: 6, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                {chip.label}
+                <span style={{ fontSize: 10, opacity: 0.8 }}>{chip.count}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </>
+  )
+
+  const trigger = (
+    <button ref={btnRef} type="button" onClick={toggle}
+      aria-haspopup="menu" aria-expanded={open}
+      data-tip={collapsed && !open ? `${account.name} · ${account.typeLabel}` : undefined}
+      className="msp-acct-btn"
+      style={{ display: 'flex', alignItems: 'center', width: '100%', height: 36, padding: NEST, borderRadius: R_PILL, border: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+      <AccountHeaderInner collapsed={collapsed} account={account} chevron={open ? 'open' : true} />
+    </button>
+  )
+
   return (
     <>
-      <button ref={btnRef} type="button" onClick={toggle}
-        aria-haspopup="menu" aria-expanded={open}
-        data-tip={collapsed && !open ? `${account.name} · ${account.typeLabel}` : undefined}
-        className="msp-acct-btn"
-        // Same 36px pill geometry as the static header so nothing shifts when a node gains
-        // or loses its switcher. gap 0 + animated margins keep the collapsed pill centered.
-        // Background is set in shell.css (resting card fill + hover), NOT inline — an inline
-        // background would override the :hover rule.
-        style={{ display: 'flex', alignItems: 'center', width: '100%', height: 36, padding: NEST, borderRadius: R_PILL, border: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-        <AccountHeaderInner collapsed={collapsed} account={account} chevron={open ? 'open' : true} />
-      </button>
-
+      {trigger}
       {open && (
         <>
           {/* click-scrim closes the popover (same pattern as the product switcher) */}
@@ -389,49 +629,8 @@ function AccountSwitcher({ collapsed, account, owner, currentId, children, onPic
             borderRadius: 12, boxShadow: 'var(--vds-shadow-lg)', overflow: 'hidden',
             fontFamily: 'var(--vds-font-sans)',
           }}>
-            {/* owner header — names the parent whose accounts this list is, so it's obvious
-                you're switching among siblings (not drilling deeper). */}
-            {owner && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--vds-midnight-1000)' }}>
-                <img src={owner.tile} alt="" style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }} />
-                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.7px', textTransform: 'uppercase', color: C.inkDim, lineHeight: 1.5 }}>Accounts under</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.white, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{owner.name}</span>
-                </span>
-              </div>
-            )}
-            {/* search */}
-            <div style={{ padding: 8, borderBottom: '1px solid var(--vds-midnight-1000)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 32, padding: '0 8px', borderRadius: 6, background: 'var(--vds-midnight-1000)', border: '1px solid var(--vds-midnight-800)' }}>
-                <Search size={15} style={{ color: C.icon, flexShrink: 0 }} />
-                <input ref={searchRef} type="text" value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search accounts" aria-label="Search accounts"
-                  className="msp-acct-field"
-                  style={{ flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: C.white, fontSize: 13, fontFamily: 'inherit' }} />
-                {query && (
-                  <button type="button" onClick={() => { setQuery(''); searchRef.current?.focus() }} aria-label="Clear search"
-                    style={{ display: 'flex', border: 0, background: 'transparent', padding: 0, cursor: 'pointer', color: C.icon }}>
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-              {/* managed / unmanaged filter chips */}
-              <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-                {chips.map((chip) => {
-                  const sel = mgmt === chip.id
-                  return (
-                    <button key={chip.id} type="button" onClick={() => setMgmt(chip.id)}
-                      className={['msp-acct-chip', sel && 'msp-acct-chip--sel'].filter(Boolean).join(' ')}
-                      aria-pressed={sel}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 24, padding: '0 8px', borderRadius: 6, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap' }}>
-                      {chip.label}
-                      <span style={{ fontSize: 10, opacity: 0.8 }}>{chip.count}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            {/* children list */}
+            {panelHeader}
+            {/* children list — the Full Portal header keeps a flat sibling list (not a tree). */}
             <div className="ob-scroll-dark" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 5 }}>
               {filtered.length === 0 ? (
                 <p style={{ margin: 0, padding: '14px 10px', fontSize: 12, color: C.inkDim, textAlign: 'center' }}>No matches</p>
@@ -440,7 +639,7 @@ function AccountSwitcher({ collapsed, account, owner, currentId, children, onPic
                 const isCur = child.id === currentId
                 return (
                   <button key={child.id} type="button" role="menuitemradio" aria-checked={isCur}
-                    onClick={() => { setOpen(false); if (!isCur) onPick(child) }}
+                    onClick={() => { setOpen(false); if (!isCur) onPick([child]) }}
                     className={['msp-acct-item', isCur && 'msp-acct-item--cur'].filter(Boolean).join(' ')}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 6, border: 0, borderRadius: 8, background: 'transparent', cursor: isCur ? 'default' : 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
                     <img src={cfg?.tile ?? distributorTile} alt="" style={{ width: 28, height: 28, borderRadius: 6, flexShrink: 0 }} />
@@ -536,6 +735,7 @@ function ShellNav({
   collapsed, page, openIds, onToggleProduct, onSelectItem, onOpenPortal, onToggleCollapse, dark, onToggleDark,
   path, onBack, parentName, subscribed, loading, unmanaged, showAccount = true, showPartners = true, showOverview = false,
   switcherChildren = [], switcherOwner, currentId, onPickChild,
+  acctTreeOpen = false, onToggleAcctTree,
 }) {
   const px = NAV_PAD_X
   // Subscribed products keep their order at the top; unsubscribed sink to the bottom
@@ -597,12 +797,11 @@ function ShellNav({
             </div>
           )}
           <div style={{ padding: `0 ${NEST}px` }}>
-            {/* More than one peer in this list → interactive sibling switcher; otherwise
-                (a lone child, or the end-customer lens) → the static header. */}
+            {/* More than one peer → the trigger that opens the account tree column (to the
+                right); otherwise (a lone child, or the end-customer lens) → static header. */}
             {switcherChildren.length > 1 && onPickChild ? (
-              <AccountSwitcher collapsed={collapsed} account={accountFor(path)}
-                owner={switcherOwner} currentId={currentId}
-                children={switcherChildren} onPick={onPickChild} />
+              <AccountHeaderTrigger collapsed={collapsed} account={accountFor(path)}
+                open={acctTreeOpen} onToggle={onToggleAcctTree} />
             ) : (
               <AccountHeader collapsed={collapsed} account={accountFor(path)} />
             )}
@@ -1468,9 +1667,18 @@ function ShellInner() {
       ? { name: listOwnerEntity.name, tile: SCOPE_TYPE_CONFIG[listOwnerEntity.type]?.tile ?? distributorTile }
       : { name: LOGGED_IN_RESELLER.name, tile: distributorTile }
   const currentId = path.at(-1)?.id ?? null
-  // Switch to a peer: replace the current leaf with the picked sibling (drills in from root,
-  // where there is no leaf to replace). Lands on that node's home page.
-  const switchTo = (child) => { navigate([...path.slice(0, -1), child]); setPage(landingFor(child)) }
+  // Switch scope to any node in the account tree. `trail` runs from a top-level account
+  // (a child of the list owner = path[-2]) down to the picked node, so a nested account
+  // navigates in one hop. The current leaf is dropped and replaced by the trail (at root
+  // there's no leaf, so the trail becomes the whole path). Lands on the node's home page.
+  const switchTo = (trail) => { navigate([...path.slice(0, -1), ...trail]); setPage(landingFor(trail.at(-1))) }
+
+  // The account tree column (opens to the right of the rail). Lifted here so it can render
+  // as a sibling of the nav — that's what lets the sidebar widen and push the content over,
+  // instead of the tree pushing products down. Any scope change closes it (picking a node
+  // navigates, which fires this).
+  const [acctTreeOpen, setAcctTreeOpen] = useState(false)
+  useEffect(() => { setAcctTreeOpen(false) }, [path])
 
   useEffect(() => { document.documentElement.classList.toggle('dark', dark) }, [dark])
 
@@ -1602,6 +1810,16 @@ function ShellInner() {
           showOverview={isCustomer}
           switcherChildren={switcherChildren} switcherOwner={switcherOwner}
           currentId={currentId} onPickChild={switchTo}
+          acctTreeOpen={acctTreeOpen} onToggleAcctTree={() => setAcctTreeOpen((o) => !o)}
+        />
+
+        {/* Account tree — a second sidebar column that opens to the RIGHT of the rail, so the
+            sidebar widens and the content slides over (rather than the tree pushing products
+            down). Sibling of the nav so it participates in the same flex row layout. */}
+        <AccountTreeColumn
+          open={acctTreeOpen && !isCustomer && switcherChildren.length > 1}
+          owner={switcherOwner} currentId={currentId} accounts={switcherChildren}
+          onPick={switchTo} onClose={() => setAcctTreeOpen(false)}
         />
 
         {/* content column (Figma 73:1278): an 8px navy frame, the white entity bar with
@@ -1661,7 +1879,7 @@ function ShellInner() {
         <div aria-hidden style={{
           position: 'absolute', top: 0, bottom: 0, left: collapsed ? SYM_W_COLLAPSED : SYM_W_EXPANDED,
           width: 2, transform: 'translateX(-100%)', background: 'var(--nav-accent)', pointerEvents: 'none', zIndex: 44,
-          opacity: edge.on ? 1 : 0, transition: `opacity 130ms ease, left 220ms ${OB_EASE}`,
+          opacity: edge.on && !acctTreeOpen ? 1 : 0, transition: `opacity 130ms ease, left 220ms ${OB_EASE}`,
         }} />
 
         {/* Edge collapse handle — a circular chevron straddling the nav/content seam. It
@@ -1677,7 +1895,7 @@ function ShellInner() {
             display: 'grid', placeItems: 'center', padding: 0, cursor: 'pointer', zIndex: 45,
             background: 'var(--nav-accent)', border: 0, color: 'var(--vds-white)',
             boxShadow: '0 0 0 2px var(--vds-white), 0 4px 10px rgba(0,0,0,0.30)',
-            opacity: edge.on ? 1 : 0, pointerEvents: edge.on ? 'auto' : 'none',
+            opacity: edge.on && !acctTreeOpen ? 1 : 0, pointerEvents: edge.on && !acctTreeOpen ? 'auto' : 'none',
             transition: `opacity 130ms ease, left 220ms ${OB_EASE}`,
           }}>
           {collapsed ? <ArrowRight size={15} strokeWidth={2.5} /> : <ArrowLeft size={15} strokeWidth={2.5} />}
