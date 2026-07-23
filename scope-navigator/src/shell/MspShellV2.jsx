@@ -5,7 +5,7 @@ import {
   FileText, ShieldCheck, Monitor, Bell, UserCog, User, Key, ArrowUpRight,
   PanelLeftClose, PanelLeftOpen, LayoutDashboard, Moon, Sun,
   Boxes, Store, Zap, ChevronLeft, ChevronRight, ChevronDown, Check, Search, X,
-  ArrowLeft, ArrowRight, Users, ShieldAlert, AlertTriangle, Rocket, UserCheck, Plus,
+  ArrowLeft, ArrowRight, Users, ShieldAlert, AlertTriangle, Rocket, UserCheck,
 } from '@icons'
 import { Button } from '../vds/components/Button/Button.jsx'
 import { MetricCard } from '../vds/components/index.js'
@@ -52,11 +52,13 @@ const C = {
   content: 'var(--shell-canvas)',
   card: 'var(--vds-surface)',
   line: 'var(--vds-line)',
-  // Full-portal (focus mode) — a LIGHT product nav that flips with the theme.
-  portalBg: 'var(--vds-surface)',
-  portalInk: 'var(--vds-ink-muted)',   // row labels
-  portalIcon: 'var(--vds-ink-subtle)', // resting row icons — a step dimmer than labels (mirrors the dark rail)
-  portalEyebrow: 'var(--vds-ink-subtle)',
+  // Full-portal (focus mode) product nav. Colors read the --por-* CSS vars set on .por-nav
+  // so the whole nav can flip LIGHT (reseller) ↔ NAVY (.por-nav--navy, end-customer) by class
+  // alone. Fallbacks = the light defaults, so nothing breaks if the class is absent.
+  portalBg: 'var(--por-bg, var(--vds-surface))',
+  portalInk: 'var(--por-ink, var(--vds-ink-muted))',   // row labels
+  portalIcon: 'var(--por-icon, var(--vds-ink-subtle))', // resting row icons — a step dimmer than labels
+  portalEyebrow: 'var(--por-eyebrow, var(--vds-ink-subtle))',
 }
 
 const NAV_PAD_X = 16
@@ -89,7 +91,7 @@ const LOGO_INSET = NAV_PAD_X + NEST   // 18
 // one constant left-pad in both rail states, and the letters simply fade away to its right.
 // The same pad feeds the Full Portal header too, so the mark holds its x across that swap.
 const LOGO_COL = NAV_PAD_X + NEST * 2 + 16     // 36 — the tile / icon column center
-const LOGO_MARK_W = (20 * 47) / 40             // 23.5 — VIPRE mark at BrandLogo's 20px height
+const LOGO_MARK_W = (17 * 47) / 40             // VIPRE mark at BrandLogo's 17px height (kept in sync with LOGO_H)
 const LOGO_PAD_L = LOGO_COL - LOGO_MARK_W / 2  // 24.25 — centers the mark on that column
 const PRODUCT_CARD = { background: 'var(--vds-midnight-1000)', borderRadius: R_CARD, padding: NEST, display: 'flex', flexDirection: 'column', gap: 2 }
 // Full-portal nav geometry — CLONED from the dark rail so the two navs read as one family:
@@ -402,6 +404,39 @@ function AccountTreeRow({ node, depth, trail, currentId, onPick, q, mgmt, isOpen
   )
 }
 
+// The tree body: the roots + all expansion state. Shared by BOTH scope navigators — the
+// rail's tree column and the Full Portal header's dropdown — so the two stay identical in
+// behaviour (expand/collapse, search auto-expand, current-node reveal) and only differ in
+// the container they sit in. Bump `resetKey` (each opens with its own `open` flag) to
+// re-seed expansion from the live scope.
+function AccountTree({ accounts, currentId, onPick, q, mgmt, resetKey }) {
+  const [expanded, setExpanded] = useState(() => new Set(ancestorsOf(accounts, currentId) ?? []))
+  // Re-seed on (re)open so the current account is revealed wherever scope has moved to.
+  useEffect(() => {
+    setExpanded(new Set(ancestorsOf(accounts, currentId) ?? []))
+  }, [resetKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filtering = !!q || mgmt !== 'all'
+  // While filtering, branches with a matching descendant auto-open so matches aren't buried.
+  const autoOpen = filtering ? collectAutoOpen(accounts, q, mgmt, new Set()) : null
+  const isNodeOpen = (id) => (filtering ? autoOpen.has(id) || expanded.has(id) : expanded.has(id))
+  const toggleNode = (id) => setExpanded((prev) => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+  const visibleRoots = accounts.filter((c) => !filtering || subtreeMatches(c, q, mgmt))
+
+  if (!visibleRoots.length) {
+    return <p style={{ margin: 0, padding: '14px 10px', fontSize: 12, color: C.inkDim, textAlign: 'center' }}>No matches</p>
+  }
+  return visibleRoots.map((root) => (
+    <AccountTreeRow key={root.id} node={root} depth={0} trail={[]}
+      currentId={currentId} onPick={onPick} q={q} mgmt={mgmt}
+      isOpen={isNodeOpen} onToggle={toggleNode} />
+  ))
+}
+
 // The account-header trigger in the rail: toggles the account TREE COLUMN (which opens
 // to the RIGHT, widening the sidebar — see AccountTreeColumn). Same 36px pill as the
 // static header so nothing shifts when a node gains or loses its switcher.
@@ -428,16 +463,13 @@ const ACCT_TREE_W = 300
 function AccountTreeColumn({ open, owner, currentId, accounts, onPick, onClose }) {
   const [query, setQuery] = useState('')
   const [mgmt, setMgmt] = useState('all')
-  const [expanded, setExpanded] = useState(() => new Set())
   const searchRef = useRef(null)
 
-  // On open: reset filters, reveal the current account (expand its ancestors), focus the
-  // search box, and wire Escape to close. Keyed on `open` only — reopening re-seeds from
-  // the live scope.
+  // On open: reset filters, focus the search box, and wire Escape to close. (Expansion
+  // re-seeds itself inside AccountTree, keyed on the same `open` flag.)
   useEffect(() => {
     if (!open) return undefined
     setQuery(''); setMgmt('all')
-    setExpanded(new Set(ancestorsOf(accounts, currentId) ?? []))
     const t = setTimeout(() => searchRef.current?.focus(), 60)
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -447,17 +479,6 @@ function AccountTreeColumn({ open, owner, currentId, accounts, onPick, onClose }
   const managedCount = accounts.filter((c) => !isEntityUnmanaged(c)).length
   const unmanagedCount = accounts.length - managedCount
   const q = query.trim().toLowerCase()
-  const filtering = !!q || mgmt !== 'all'
-  // While filtering, branches with a matching descendant auto-open so matches aren't buried;
-  // otherwise expansion is whatever the user toggled (seeded with the current node's ancestors).
-  const autoOpen = filtering ? collectAutoOpen(accounts, q, mgmt, new Set()) : null
-  const isNodeOpen = (id) => (filtering ? autoOpen.has(id) || expanded.has(id) : expanded.has(id))
-  const toggleNode = (id) => setExpanded((prev) => {
-    const next = new Set(prev)
-    next.has(id) ? next.delete(id) : next.add(id)
-    return next
-  })
-  const visibleRoots = accounts.filter((c) => !filtering || subtreeMatches(c, q, mgmt))
   const pickNode = (trail) => { if (trail.at(-1).id !== currentId) onPick(trail); else onClose() }
   const chips = [
     { id: 'all', label: 'All', count: accounts.length },
@@ -508,15 +529,8 @@ function AccountTreeColumn({ open, owner, currentId, accounts, onPick, onClose }
           </div>
         </div>
         <div className="ob-scroll-dark msp-tree-col-list">
-          {visibleRoots.length === 0 ? (
-            <p style={{ margin: 0, padding: '14px 10px', fontSize: 12, color: C.inkDim, textAlign: 'center' }}>No matches</p>
-          ) : (
-            visibleRoots.map((root) => (
-              <AccountTreeRow key={root.id} node={root} depth={0} trail={[]}
-                currentId={currentId} onPick={pickNode} q={q} mgmt={mgmt}
-                isOpen={isNodeOpen} onToggle={toggleNode} />
-            ))
-          )}
+          <AccountTree accounts={accounts} currentId={currentId} onPick={pickNode}
+            q={q} mgmt={mgmt} resetKey={open} />
         </div>
       </div>
     </div>
@@ -549,10 +563,13 @@ function AccountSwitcher({ collapsed, account, owner, currentId, children, onPic
   const managedCount = children.filter((c) => !isEntityUnmanaged(c)).length
   const unmanagedCount = children.length - managedCount
   const q = query.trim().toLowerCase()
-  const filtered = children.filter((c) => treeNodeMatches(c, q, mgmt))
+  // Pick a node anywhere in the tree — onPick takes the full trail, so a nested account
+  // navigates in one hop, same as the rail's tree column.
+  const pickNode = (trail) => { setOpen(false); if (trail.at(-1).id !== currentId) onPick(trail) }
 
   // Drops straight down under the trigger, clamped so it can't run off the right edge.
-  const POP_W = 264
+  // A touch wider than a flat list so nested rows have room to indent.
+  const POP_W = 300
   const pos = rect
     ? { left: Math.min(rect.left, window.innerWidth - POP_W - 12), top: rect.bottom + 8 }
     : { left: 0, top: 0 }
@@ -630,34 +647,11 @@ function AccountSwitcher({ collapsed, account, owner, currentId, children, onPic
             fontFamily: 'var(--vds-font-sans)',
           }}>
             {panelHeader}
-            {/* children list — the Full Portal header keeps a flat sibling list (not a tree). */}
+            {/* The scope TREE — same component (and behaviour) as the rail's tree column, just
+                hosted in this dropdown instead of a sidebar column. */}
             <div className="ob-scroll-dark" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 5 }}>
-              {filtered.length === 0 ? (
-                <p style={{ margin: 0, padding: '14px 10px', fontSize: 12, color: C.inkDim, textAlign: 'center' }}>No matches</p>
-              ) : filtered.map((child) => {
-                const cfg = SCOPE_TYPE_CONFIG[child.type]
-                const isCur = child.id === currentId
-                return (
-                  <button key={child.id} type="button" role="menuitemradio" aria-checked={isCur}
-                    onClick={() => { setOpen(false); if (!isCur) onPick([child]) }}
-                    className={['msp-acct-item', isCur && 'msp-acct-item--cur'].filter(Boolean).join(' ')}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 6, border: 0, borderRadius: 8, background: 'transparent', cursor: isCur ? 'default' : 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-                    <img src={cfg?.tile ?? distributorTile} alt="" style={{ width: 28, height: 28, borderRadius: 6, flexShrink: 0 }} />
-                    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                      <span style={{ fontSize: 13, fontWeight: isCur ? 600 : 500, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{child.name}</span>
-                      <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: '0.4px', color: C.inkDim }}>{isCur ? `${cfg?.label ?? 'Account'} · current` : (cfg?.label ?? 'Account')}</span>
-                    </span>
-                    {isCur && (
-                      <span aria-hidden style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18,
-                        borderRadius: 999, background: C.selected, flexShrink: 0,
-                      }}>
-                        <Check size={12} style={{ color: C.white }} />
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
+              <AccountTree accounts={children} currentId={currentId} onPick={pickNode}
+                q={q} mgmt={mgmt} resetKey={open} />
             </div>
           </div>
         </>
@@ -680,16 +674,18 @@ function ProductSkeleton({ collapsed, labelWidth = 80 }) {
 
 function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selected }) {
   const locked = product.locked
-  const action = locked ? undefined : (onToggle || onOpen)
+  // Locked products stay clickable when a handler is supplied — they open the product's
+  // marketing page instead of product content (v1/Symphony pass nothing → inert as before).
+  const action = locked ? onOpen : (onToggle || onOpen)
   const Tag = action ? 'button' : 'div'
-  const fullTitle = locked ? `${product.label} — not subscribed` : onToggle ? `${open ? 'Collapse' : 'Expand'} ${product.label}` : `Open ${product.label}`
+  const fullTitle = locked ? (onOpen ? `Learn about ${product.label}` : `${product.label} — not subscribed`) : onToggle ? `${open ? 'Collapse' : 'Expand'} ${product.label}` : `Open ${product.label}`
   // Collapsed rail tooltip shows just the product (plus its locked state); the verbose
   // expand/collapse hint stays as a native title in the expanded nav.
-  const tipText = locked ? `${product.label} — not subscribed` : product.label
+  const tipText = locked ? `${product.label} — ${onOpen ? 'learn more' : 'not subscribed'}` : product.label
   return (
     <Tag
       {...(action ? { type: 'button', onClick: action } : {})}
-      className={['ob-phead', bare && 'ob-phead--bare', bare && selected && 'ob-phead--sel'].filter(Boolean).join(' ')}
+      className={['ob-phead', bare && 'ob-phead--bare', selected && 'ob-phead--sel'].filter(Boolean).join(' ')}
       aria-expanded={onToggle ? open : undefined}
       aria-current={bare && selected ? 'page' : undefined}
       title={collapsed ? undefined : fullTitle}
@@ -703,7 +699,7 @@ function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selec
           {product.Tile
             ? <product.Tile selected={bare && selected} />
             : product.glyph
-            ? <ProductTile glyph={product.glyph} muted={locked} />
+            ? <ProductTile glyph={product.glyph} muted={locked && !selected} />
             : <img src={product.tileAsset} alt="" style={{ width: 32, height: 32, display: 'block' }} />}
           {locked && (
             /* Corner badge (replaces the lock badge) — the product isn't subscribed; the
@@ -715,7 +711,7 @@ function ProductHeader({ product, collapsed, open, onToggle, onOpen, bare, selec
           )}
         </span>
         {/* Label fades + shrinks (not instant-removed) so nothing jumps on collapse/expand. */}
-        <span style={{ fontSize: 14, fontWeight: 600, color: locked ? C.ink : C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 8, transition: labelFade(collapsed) }}>{product.label}</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: locked && !selected ? C.ink : C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: collapsed ? 0 : 160, opacity: collapsed ? 0 : 1, marginLeft: collapsed ? 0 : 8, transition: labelFade(collapsed) }}>{product.label}</span>
       </span>
       {!locked && onToggle && (
         /* Chevron shrinks/fades in step with the label so the pill never pops on collapse. */
@@ -866,9 +862,12 @@ function ShellNav({
               const locked = !subscribed.has(p.id)
               const prod = { ...p, locked }
               if (locked) {
+                // Still clickable — opens the product's marketing wireframe page.
                 return (
                   <div key={p.id} style={PRODUCT_CARD}>
-                    <ProductHeader product={prod} collapsed={collapsed} />
+                    <ProductHeader product={prod} collapsed={collapsed}
+                      selected={page === `mkt-${p.id}`}
+                      onOpen={() => onSelectItem(`mkt-${p.id}`)} />
                   </div>
                 )
               }
@@ -1013,6 +1012,163 @@ function ContentCard({ page, path }) {
   )
 }
 
+/* ---- Marketing wireframe for unsubscribed products (page id `mkt-<pid>`) ----
+   Clicking a locked product in the nav lands here: a rough block-level wireframe of
+   what that product's marketing page would look like — the upsell pitch for a product
+   this scope doesn't own. Blocks only, deliberately lo-fi. */
+const MKT_TAGLINES = {
+  ies: 'Email security that stops phishing before the inbox.',
+  safesend: 'Catch misdirected email and data leaks before they send.',
+  edr: 'Endpoint detection & response for every device you manage.',
+  sat: 'Security awareness training your users will actually finish.',
+  archive: 'Compliant email archiving with instant search.',
+}
+
+// Grey placeholder bar (fake text line).
+function WireLine({ w = '100%', h = 10, tone = 'var(--vds-line)' }) {
+  return <span style={{ display: 'block', width: w, height: h, borderRadius: 999, background: tone, flexShrink: 0 }} />
+}
+// Image placeholder — dashed box with the classic wireframe X.
+function WireImg({ h = 160, style }) {
+  return (
+    <div style={{ position: 'relative', height: h, borderRadius: 8, border: '1.5px dashed var(--vds-line)', overflow: 'hidden', flexShrink: 0, ...style }}>
+      <svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100" style={{ position: 'absolute', inset: 0, display: 'block' }}>
+        <line x1="0" y1="0" x2="100" y2="100" stroke="var(--vds-line)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        <line x1="100" y1="0" x2="0" y2="100" stroke="var(--vds-line)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+      </svg>
+    </div>
+  )
+}
+// Fake CTA button block.
+function WireBtn({ solid, w = 132 }) {
+  return solid
+    ? <span style={{ display: 'block', width: w, height: 36, borderRadius: 8, background: 'var(--nav-accent)', flexShrink: 0 }} />
+    : <span style={{ display: 'block', width: w, height: 36, borderRadius: 8, border: '1.5px solid var(--vds-line)', boxSizing: 'border-box', flexShrink: 0 }} />
+}
+// A labeled wireframe section — dashed frame with a small annotation chip in the corner.
+function WireSection({ label, children, style }) {
+  return (
+    <section style={{ position: 'relative', border: '1.5px dashed var(--vds-line)', borderRadius: 12, padding: 28, paddingTop: 36, ...style }}>
+      <span style={{ position: 'absolute', top: -9, left: 16, padding: '2px 8px', borderRadius: 999, background: 'var(--vds-surface)', border: '1px solid var(--vds-line)', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: 'var(--vds-ink-subtle)', textTransform: 'uppercase' }}>{label}</span>
+      {children}
+    </section>
+  )
+}
+
+function MarketingPage({ pid, path }) {
+  const product = PRODUCTS.find((p) => p.id === pid)
+  if (!product) return null
+  const tagline = MKT_TAGLINES[pid] ?? 'A product from the Vipre suite.'
+  const crumbs = path != null ? [path.at(-1)?.name ?? 'All Customers', product.label] : null
+  const center = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }
+  return (
+    <div style={{ flex: 1, minWidth: 0, background: C.content, padding: 32, display: 'flex', flexDirection: 'column', gap: 24, overflow: 'hidden' }}>
+      {crumbs && (
+        <>
+          <Breadcrumb items={crumbs} />
+          <div style={{ height: 1, width: '100%', background: 'var(--vds-line)', flexShrink: 0 }} />
+        </>
+      )}
+      {/* Page header — product identity + the "you don't have this" state + real CTA. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        <span style={{ width: 32, height: 32, flexShrink: 0 }}><ProductTile glyph={product.glyph} /></span>
+        <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--vds-ink)' }}>{product.label}</span>
+        <span style={{ padding: '3px 10px', borderRadius: 999, background: 'var(--vds-line)', fontSize: 11, fontWeight: 600, color: 'var(--vds-ink-muted)' }}>Not in your plan</span>
+        <Button size="sm" style={{ marginLeft: 'auto', flexShrink: 0 }}>Contact sales</Button>
+      </div>
+      {/* The marketing site, framed as a fake browser window so it reads as "this is
+          vipre.com", not another portal page. */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: C.card, borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid var(--vds-line)', flexShrink: 0 }}>
+          {[0, 1, 2].map((i) => <span key={i} style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--vds-line)' }} />)}
+          <span style={{ marginLeft: 6, padding: '4px 14px', borderRadius: 999, background: C.content, fontSize: 11, color: 'var(--vds-ink-subtle)' }}>
+            vipre.com/products/{pid}
+          </span>
+        </div>
+        <div className="shell-customers" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '40px 32px' }}>
+          <div style={{ maxWidth: 860, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
+
+            <WireSection label="Hero">
+              <div style={{ ...center, textAlign: 'center' }}>
+                <span style={{ padding: '3px 12px', borderRadius: 999, border: '1px solid var(--vds-line)', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', color: 'var(--vds-ink-subtle)' }}>VIPRE {product.label.toUpperCase()}</span>
+                <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.2, fontWeight: 600, color: 'var(--vds-ink)', maxWidth: 560 }}>{tagline}</h1>
+                <div style={{ ...center, gap: 8, width: '100%' }}>
+                  <WireLine w="52%" /><WireLine w="40%" />
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                  <WireBtn solid /><WireBtn />
+                </div>
+                <WireImg h={220} style={{ width: '100%', marginTop: 16 }} />
+              </div>
+            </WireSection>
+
+            <WireSection label="Logos">
+              <div style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {[72, 96, 80, 64, 88].map((w, i) => <WireLine key={i} w={w} h={20} />)}
+              </div>
+            </WireSection>
+
+            <WireSection label="Features">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+                {product.items.map((it) => (
+                  <div key={it.id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <span style={{ width: 36, height: 36, borderRadius: 8, border: '1.5px dashed var(--vds-line)', display: 'grid', placeItems: 'center', color: 'var(--vds-ink-subtle)' }}>
+                      <it.icon size={18} />
+                    </span>
+                    <WireLine w="60%" h={12} tone="var(--vds-ink-subtle)" />
+                    <WireLine /><WireLine w="80%" />
+                  </div>
+                ))}
+              </div>
+            </WireSection>
+
+            <WireSection label="Detail">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, alignItems: 'center' }}>
+                <WireImg h={150} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <WireLine w="55%" h={14} tone="var(--vds-ink-subtle)" />
+                  <WireLine /><WireLine /><WireLine w="70%" />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, alignItems: 'center', marginTop: 28 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <WireLine w="55%" h={14} tone="var(--vds-ink-subtle)" />
+                  <WireLine /><WireLine /><WireLine w="70%" />
+                </div>
+                <WireImg h={150} />
+              </div>
+            </WireSection>
+
+            <WireSection label="Testimonial">
+              <div style={{ ...center }}>
+                <WireLine w="70%" /><WireLine w="58%" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                  <span style={{ width: 32, height: 32, borderRadius: 999, background: 'var(--vds-line)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <WireLine w={96} h={8} /><WireLine w={64} h={8} />
+                  </div>
+                </div>
+              </div>
+            </WireSection>
+
+            <WireSection label="CTA" style={{ background: 'var(--vds-midnight-950)', border: 0 }}>
+              <div style={{ ...center }}>
+                <span style={{ fontSize: 20, fontWeight: 600, color: 'var(--vds-white)' }}>Add {product.label} to your stack</span>
+                <WireLine w="42%" tone="var(--vds-midnight-700)" />
+                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                  <span style={{ display: 'block', width: 132, height: 36, borderRadius: 8, background: 'var(--vds-white)' }} />
+                  <span style={{ display: 'block', width: 132, height: 36, borderRadius: 8, border: '1.5px solid var(--vds-midnight-700)', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+            </WireSection>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function labelOf(id) {
   if (id === 'dashboard') return 'Dashboard'
   if (id === 'customers') return 'Customers'
@@ -1118,22 +1274,22 @@ function PortalEyebrow({ collapsed, children }) {
 
 /* Inset hairline — the light-nav twin of the dark rail's MenuDivider (var(--vds-line)). */
 function PortalDivider() {
-  return <div style={{ height: 1, margin: '0 12px', background: 'var(--vds-line)', flexShrink: 0 }} />
+  return <div style={{ height: 1, margin: '0 12px', background: 'var(--por-line, var(--vds-line))', flexShrink: 0 }} />
 }
 
 /* The full-portal left nav (light): exit-to-shell, a WORKING-IN customer banner (the
    reference point), a product switcher, and the product's deep sections. */
-function WorkspaceNav({ product, page, collapsed, scope, products, showScope = true, onExit, onSelectPage, onSwitchProduct, onToggleCollapse, dark, onToggleDark, style }) {
+function WorkspaceNav({ product, page, collapsed, scope, showScope = true, navy = false, onExit, onSelectPage, onToggleCollapse, dark, onToggleDark, style }) {
   const def = portalDef(product)
-  const ProductGlyph = (PRODUCTS.find((p) => p.id === product) || {}).icon || Laptop
-  const [switcherOpen, setSwitcherOpen] = useState(false)
+  const prod = PRODUCTS.find((p) => p.id === product)
+  const ProductGlyph = prod?.icon || Laptop
   return (
-    <div className="por-nav" style={{
+    <div className={navy ? 'por-nav por-nav--navy' : 'por-nav'} style={{
       width: collapsed ? POR_W_COLLAPSED : POR_W_EXPANDED, flexShrink: 0, background: C.portalBg,
       display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'visible',
       transition: `width 220ms ${OB_EASE}`, ...style,
     }}>
-      <div className="ob-scroll-light" style={{ padding: 0, overflowY: 'auto', overflowX: 'visible', display: 'flex', flexDirection: 'column' }}>
+      <div className={navy ? 'ob-scroll-dark' : 'ob-scroll-light'} style={{ padding: 0, overflowY: 'auto', overflowX: 'visible', display: 'flex', flexDirection: 'column' }}>
         {/* Exit-to-shell + product switcher — the nav's chrome, sitting on the same 36px
             icon column as every row (section pad 16 + inset 2 + row pad 10 + half a 16px icon). */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: `10px ${POR_PAD}px` }}>
@@ -1141,41 +1297,23 @@ function WorkspaceNav({ product, page, collapsed, scope, products, showScope = t
             <PortalRow collapsed={collapsed} label="Symphony" onClick={onExit}
               ariaLabel="Symphony" icon={<ChevronLeft size={16} />} />
           </div>
-          <div style={{ padding: `0 ${NEST}px`, position: 'relative' }}>
-            <button type="button" className="obrow obrow--light ob-switcher"
-              onClick={() => setSwitcherOpen((o) => !o)}
-              aria-label="Switch product" aria-expanded={switcherOpen}
-              style={{
-                display: 'flex', alignItems: 'center', width: '100%', borderRadius: R_PILL, border: 0,
-                padding: '6px 10px', background: 'transparent', cursor: 'pointer', color: C.portalInk,
-                fontFamily: 'inherit', textAlign: 'left',
-              }}>
-              <span style={{ width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <ProductGlyph size={16} style={{ color: C.portalIcon }} />
+          {/* Product identity — STATIC. You enter the Full Portal for a specific product, so
+              this names where you are; switching products from here has been removed. Same
+              row geometry as before so nothing shifts. */}
+          <div style={{ padding: `0 ${NEST}px` }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', width: '100%', borderRadius: R_PILL,
+              padding: '6px 10px', color: C.portalInk, fontFamily: 'inherit', textAlign: 'left',
+            }}>
+              {/* The product's gradient tile — the SAME logo the Symphony (MSP) rail shows,
+                  instead of a flat line icon. Falls back to the line icon if a product has no glyph. */}
+              <span style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {prod?.glyph
+                  ? <ProductTile glyph={prod.glyph} size={24} />
+                  : <ProductGlyph size={16} style={{ color: C.portalIcon }} />}
               </span>
-              {!collapsed && <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--vds-ink)' }}>{def.label}</span>}
-              {!collapsed && <ChevronDown size={14} style={{ opacity: 0.55, flexShrink: 0, transform: switcherOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms ease' }} />}
-            </button>
-            {switcherOpen && (
-              <>
-                <div onClick={() => setSwitcherOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
-                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 17, zIndex: 31, minWidth: 174, background: C.portalBg, borderRadius: 10, border: `1px solid ${C.line}`, boxShadow: 'var(--vds-shadow-lg)', padding: 5 }}>
-                  {products.map((p) => {
-                    const G = p.icon
-                    const cur = p.id === product
-                    return (
-                      <button key={p.id} type="button" onClick={() => { setSwitcherOpen(false); if (!cur) onSwitchProduct(p.id) }}
-                        className="ob-switch-item"
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', border: 0, borderRadius: 6, background: cur ? 'color-mix(in srgb, var(--nav-accent) 12%, transparent)' : 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: cur ? 'var(--vds-ink)' : C.portalInk, textAlign: 'left' }}>
-                        <G size={16} style={{ flexShrink: 0, color: cur ? C.selected : C.portalInk }} />
-                        <span style={{ flex: 1, fontWeight: cur ? 500 : 400 }}>{p.label}</span>
-                        {cur && <Check size={15} style={{ color: C.selected }} />}
-                      </button>
-                    )
-                  })}
-                </div>
-              </>
-            )}
+              {!collapsed && <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--por-title, var(--vds-ink))' }}>{def.label}</span>}
+            </div>
           </div>
         </div>
 
@@ -1214,12 +1352,12 @@ function WorkspaceNav({ product, page, collapsed, scope, products, showScope = t
 
 /* The focus-mode portal: the product's deep nav + content, scoped to the current
    customer (shown in the nav banner AND the content reference header). */
-function PortalView({ product, page, collapsed, scope, products, showScope = true, onExit, onSelectPage, onSwitchProduct, onToggleCollapse, dark, onToggleDark }) {
+function PortalView({ product, page, collapsed, scope, showScope = true, navy = false, onExit, onSelectPage, onToggleCollapse, dark, onToggleDark }) {
   return (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', background: C.topbar, padding: 8 }}>
       <WorkspaceNav
-        product={product} page={page} collapsed={collapsed} scope={scope} products={products} showScope={showScope}
-        onExit={onExit} onSelectPage={onSelectPage} onSwitchProduct={onSwitchProduct}
+        product={product} page={page} collapsed={collapsed} scope={scope} showScope={showScope} navy={navy}
+        onExit={onExit} onSelectPage={onSelectPage}
         onToggleCollapse={onToggleCollapse} dark={dark} onToggleDark={onToggleDark}
         style={{ borderRadius: '16px 0 0 16px' }}
       />
@@ -1424,10 +1562,20 @@ function useDashboardData() {
       return { icon: t.icon, tone: t.tone, when: t.when, text: t.text(e.name, rng(seed + e.id + 'a')()) }
     })
 
+    // A scope with no customers has nothing to derive telemetry FROM — so blank the seeded
+    // series rather than showing invented adoption bars / alert trends. Each card then reads
+    // this and explains the empty state instead of drawing an empty chart.
+    const isEmpty = customers === 0
+
     return {
       scopeId: seed,
       scopeLabel: currentEntity ? currentEntity.name : 'All accounts',
-      customers, seats, alerts, adoption, adoptionAvg, alertTrend, needsAttention, recentActivity,
+      isEmpty,
+      customers, seats, alerts,
+      adoption: isEmpty ? [] : adoption,
+      adoptionAvg: isEmpty ? 0 : adoptionAvg,
+      alertTrend: isEmpty ? [] : alertTrend,
+      needsAttention, recentActivity,
     }
   }, [currentEntity])
 }
@@ -1453,8 +1601,33 @@ function DashHead({ title, sub }) {
   )
 }
 
+// The empty-state body inside a dashboard card: a soft icon, a short title, and a line of
+// what the section WILL show once there's data — so an empty card reads as intentional and
+// calm, not broken. Fills the card so it sits centered (see .dash-empty in shell.css).
+function DashEmpty({ icon: Icon, title, children }) {
+  return (
+    <div className="dash-empty">
+      {Icon && (
+        <span className="dash-empty__icon" aria-hidden>
+          <Icon size={20} strokeWidth={1.75} />
+        </span>
+      )}
+      <span className="dash-empty__title">{title}</span>
+      <span className="dash-empty__desc">{children}</span>
+    </div>
+  )
+}
+
 // Row 1 — customers/items that need action, worst first, with a reserved severity chip.
 function NeedsAttentionCard({ items }) {
+  if (!items.length) {
+    return (
+      <div data-reveal style={DASH_CARD}>
+        <DashHead title="Needs attention" />
+        <DashEmpty icon={ShieldCheck} title="All clear">Once you add customers, anything that needs attention — alerts, at-risk accounts — surfaces here.</DashEmpty>
+      </div>
+    )
+  }
   return (
     <div data-reveal style={DASH_CARD}>
       <DashHead title="Needs attention" sub={`${items.length} items`} />
@@ -1480,6 +1653,14 @@ function NeedsAttentionCard({ items }) {
 
 // Row 2 — single-hue magnitude bars (one metric across products → one colour).
 function PackageAdoptionCard({ adoption, adoptionAvg }) {
+  if (!adoption.length) {
+    return (
+      <div data-reveal style={DASH_CARD}>
+        <DashHead title="Package adoption" />
+        <DashEmpty icon={Boxes} title="No packages yet">Product adoption appears here once your customers have active packages.</DashEmpty>
+      </div>
+    )
+  }
   return (
     <div data-reveal style={DASH_CARD}>
       <DashHead title="Package adoption" sub={`${adoptionAvg}% avg across products`} />
@@ -1501,6 +1682,14 @@ function PackageAdoptionCard({ adoption, adoptionAvg }) {
 // Row 3 — a 14-day alert trend (single series bars, hover = native tooltip) beside a
 // recent-activity feed.
 function AlertTrendCard({ trend }) {
+  if (!trend.length) {
+    return (
+      <div data-reveal style={{ ...DASH_CARD, flex: 2, minWidth: 0 }}>
+        <DashHead title="Alerts — last 14 days" />
+        <DashEmpty icon={ShieldAlert} title="No alerts">The 14-day alert trend appears here once customers are onboarded.</DashEmpty>
+      </div>
+    )
+  }
   const max = Math.max(...trend)
   const total = trend.reduce((a, b) => a + b, 0)
   return (
@@ -1517,6 +1706,14 @@ function AlertTrendCard({ trend }) {
   )
 }
 function RecentActivityCard({ items }) {
+  if (!items.length) {
+    return (
+      <div data-reveal style={{ ...DASH_CARD, flex: 3, minWidth: 0 }}>
+        <DashHead title="Recent activity" />
+        <DashEmpty icon={Rocket} title="Nothing here yet">Provisioning, alerts, and account changes across your customers will show up here.</DashEmpty>
+      </div>
+    )
+  }
   return (
     <div data-reveal style={{ ...DASH_CARD, flex: 3, minWidth: 0 }}>
       <DashHead title="Recent activity" />
@@ -1588,10 +1785,12 @@ function DashboardBody() {
       {/* 4 KPI columns — design-system MetricCard (minimal: header + hero value + delta).
           Auto-fit grid: 4-across on wide, 2×2 on tablet, single column on phone. */}
       <div className="msp-dash-kpis">
-        <MetricCard data-reveal className="flex-1 min-w-0" icon={Store} iconTone="primary" title="Customers" period={d.scopeLabel} value={d.customers} delta="+6" deltaCaption="vs last month" />
-        <MetricCard data-reveal className="flex-1 min-w-0" icon={Users} iconTone="azure" title="Seats" period="Licensed" value={d.seats} delta="+3%" deltaCaption="vs last month" />
-        <MetricCard data-reveal className="flex-1 min-w-0" icon={ShieldAlert} iconTone="danger" title="Active Alerts" period="Live" value={d.alerts} delta="-8" invertDelta deltaCaption="vs yesterday" />
-        <MetricCard data-reveal className="flex-1 min-w-0" icon={Boxes} iconTone="emerald" title="Package Adoption" period="Across products" value={d.adoptionAvg} suffix="%" delta="+4%" deltaCaption="vs last quarter" />
+        {/* Deltas are period-over-period; a just-added distributor has no prior period, so
+            drop them when the scope is empty rather than implying "+6 vs last month" on a 0. */}
+        <MetricCard data-reveal className="flex-1 min-w-0" icon={Store} iconTone="primary" title="Customers" period={d.scopeLabel} value={d.customers} delta={d.isEmpty ? undefined : '+6'} deltaCaption={d.isEmpty ? undefined : 'vs last month'} />
+        <MetricCard data-reveal className="flex-1 min-w-0" icon={Users} iconTone="azure" title="Seats" period="Licensed" value={d.seats} delta={d.isEmpty ? undefined : '+3%'} deltaCaption={d.isEmpty ? undefined : 'vs last month'} />
+        <MetricCard data-reveal className="flex-1 min-w-0" icon={ShieldAlert} iconTone="danger" title="Active Alerts" period="Live" value={d.alerts} delta={d.isEmpty ? undefined : '-8'} invertDelta deltaCaption={d.isEmpty ? undefined : 'vs yesterday'} />
+        <MetricCard data-reveal className="flex-1 min-w-0" icon={Boxes} iconTone="emerald" title="Package Adoption" period="Across products" value={d.adoptionAvg} suffix="%" delta={d.isEmpty ? undefined : '+4%'} deltaCaption={d.isEmpty ? undefined : 'vs last quarter'} />
       </div>
       <NeedsAttentionCard items={d.needsAttention} />
       <PackageAdoptionCard adoption={d.adoption} adoptionAvg={d.adoptionAvg} />
@@ -1688,6 +1887,15 @@ function ShellInner() {
   useEffect(() => {
     const owner = productOfPage(page)
     if (owner && (leafUnmanaged || !subscriptionFor(leafId).has(owner))) setPage(isCustomer ? 'products-overview' : isCustomerNode ? firstProductPageFor(leafId, leafUnmanaged) : 'dashboard')
+    // Inverse case: sitting on a marketing page for a product this scope DOES own —
+    // swap to the real product content (its first sub-page).
+    if (page.startsWith('mkt-')) {
+      const pid = page.slice(4)
+      if (!leafUnmanaged && subscriptionFor(leafId).has(pid)) {
+        const p = PRODUCTS.find((prod) => prod.id === pid)
+        if (p?.items?.[0]) setPage(p.items[0].id)
+      }
+    }
   }, [leafId, page, leafUnmanaged, isCustomerNode])
 
   // Simulated "loading this customer's subscriptions": on a scope change, show the nav
@@ -1709,10 +1917,68 @@ function ShellInner() {
   const [portalPage, setPortalPage] = useState(null)
   const [portalCollapsed, setPortalCollapsed] = useState(false)
   const openPortalFor = (pid) => { setOpenPortal(pid); setPortalPage(portalDef(pid).defaultPage) }
+  // The portal layer stays mounted through its slide-OUT so Symphony and the portal can
+  // move together (a real push, not a cut). lastPortal keeps the product to render while
+  // openPortal is already null mid-exit.
+  const [portalMounted, setPortalMounted] = useState(false)
+  const lastPortalRef = useRef(openPortal)
+  useEffect(() => { if (openPortal) lastPortalRef.current = openPortal }, [openPortal])
+
+  /* ── Symphony ⇄ Full Portal push, driven by ONE GSAP timeline ─────────────────
+     Both layers are tweened together so they stay frame-locked — the portal slides in from
+     the right while Symphony eases back and dims behind it. Only transform + opacity are
+     animated (both compositor properties, promoted to their own GPU layer via force3D); the
+     earlier CSS version also animated `filter: brightness`, which repaints the entire subtree
+     every frame and is what made it stutter. The exit tween owns the unmount, so the portal
+     is never pulled out from under a running animation. */
+  const symLayerRef = useRef(null)
+  const porLayerRef = useRef(null)
+  const swapTl = useRef(null)
+  const swapFirst = useRef(true)
+  const prevOpenRef = useRef(!!openPortal)
+  useLayoutEffect(() => {
+    const isOpen = !!openPortal
+    // The portal node has to exist before it can be tweened — mount, then animate next pass.
+    if (isOpen && !portalMounted) { setPortalMounted(true); return undefined }
+
+    const sym = symLayerRef.current
+    const por = porLayerRef.current
+    if (!sym) return undefined
+
+    const SYM_X = -22, SYM_O = 0.5   // how far Symphony recedes + how far it dims
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+    // First paint (and reduced motion): snap to the resting state, never animate.
+    if (swapFirst.current || reduce) {
+      swapFirst.current = false
+      prevOpenRef.current = isOpen
+      gsap.set(sym, { xPercent: isOpen ? SYM_X : 0, opacity: isOpen ? SYM_O : 1 })
+      if (por) gsap.set(por, { xPercent: isOpen ? 0 : 100 })
+      if (!isOpen && portalMounted) setPortalMounted(false)
+      return undefined
+    }
+    // Settled — nothing to play (e.g. the re-render right after an unmount).
+    if (isOpen === prevOpenRef.current) return undefined
+    prevOpenRef.current = isOpen
+
+    swapTl.current?.kill()
+    const tl = gsap.timeline({ defaults: { force3D: true, overwrite: 'auto' } })
+    swapTl.current = tl
+    if (isOpen) {
+      // Enter: the product takes over. Slight overlap in easing keeps the two layers glued.
+      tl.fromTo(por, { xPercent: 100 }, { xPercent: 0, duration: 0.62, ease: 'expo.out' }, 0)
+        .to(sym, { xPercent: SYM_X, opacity: SYM_O, duration: 0.62, ease: 'expo.out' }, 0)
+    } else {
+      // Exit: the portal slides off and Symphony rises back to the front.
+      tl.to(por, { xPercent: 100, duration: 0.52, ease: 'power3.inOut' }, 0)
+        .to(sym, { xPercent: 0, opacity: 1, duration: 0.52, ease: 'power3.inOut' }, 0)
+        .add(() => setPortalMounted(false))
+    }
+    return undefined
+  }, [openPortal, portalMounted])
   const scope = isCustomer
     ? { key: CUSTOMER_TENANT.id, name: CUSTOMER_TENANT.name, tile: null, icon: Boxes, depth: 0 }
     : toScope(path)
-  const portalProducts = PRODUCTS.filter((p) => subscribed.has(p.id))
 
   // Flip the demo lens: reset scope + any open drawers/portal, and land on the lens's
   // home page (reseller → Dashboard; end customer → products Overview).
@@ -1772,19 +2038,12 @@ function ShellInner() {
             leave a portal, replaying the CSS fade/scale-in — so the swap glides instead of cutting.
             The conditional below already remounts its subtree on toggle; this just adds the
             page-level motion on top. */}
-        <div key={openPortal ? `portal-${openPortal}` : 'msp'} className="msp-page-swap"
-          style={{ flex: 1, minWidth: 0, display: 'flex' }}>
-        {openPortal ? (
-          <PortalView
-            product={openPortal} page={portalPage} collapsed={portalCollapsed}
-            scope={scope} products={portalProducts} showScope={!isCustomer}
-            onExit={() => { setOpenPortal(null); if (isCustomer) setPage('products-overview') }}
-            onSelectPage={setPortalPage}
-            onSwitchProduct={openPortalFor}
-            onToggleCollapse={() => setPortalCollapsed((c) => !c)}
-            dark={dark} onToggleDark={() => setDark((d) => !d)}
-          />
-        ) : (
+        {/* Two-layer stage: Symphony always mounted underneath; the Full Portal slides in
+            over it from the right while Symphony recedes + dims (an iOS-style push). Both
+            move together, so entering/leaving reads as one coordinated transition. */}
+        <div className="msp-swap-stage" style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex', overflow: 'hidden' }}>
+        <div ref={symLayerRef} className="msp-swap-sym"
+          style={{ position: 'absolute', inset: 0, display: 'flex', pointerEvents: openPortal ? 'none' : 'auto' }}>
         <div ref={rowRef} onMouseMove={onRowMove} onMouseLeave={onRowLeave}
           style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex' }}>
         <ShellNav
@@ -1845,9 +2104,9 @@ function ShellInner() {
                     <TitleIcon icon={iconOf('customers')} />
                     <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--vds-ink)' }}>Customers</span>
                     {/* Adds under the logged-into node — the same entity the list below shows children of. */}
-                    <Button size="sm" leading={<Plus size={16} />} style={{ marginLeft: 'auto', flexShrink: 0 }}
+                    <Button size="sm" style={{ marginLeft: 'auto', flexShrink: 0 }}
                       onClick={() => openModal('addCustomer', path.at(-1) ?? null)}>
-                      Add customer
+                      Add
                     </Button>
                   </div>
                   {/* Always the browsable descendants list of the logged-into node (path leaf) —
@@ -1865,6 +2124,8 @@ function ShellInner() {
                     />
                   </div>
                 </div>
+              ) : page.startsWith('mkt-') ? (
+                <MarketingPage pid={page.slice(4)} path={isCustomer ? undefined : path} />
               ) : (
                 <ContentCard page={page} path={isCustomer ? undefined : path} />
               )}
@@ -1901,6 +2162,22 @@ function ShellInner() {
           {collapsed ? <ArrowRight size={15} strokeWidth={2.5} /> : <ArrowLeft size={15} strokeWidth={2.5} />}
         </button>
         </div>
+        </div>
+
+        {/* Portal layer — mounts on open, slides in from the right over Symphony, and stays
+            through its slide-out so both screens move together. */}
+        {portalMounted && (
+          <div ref={porLayerRef} className="msp-swap-por"
+            style={{ position: 'absolute', inset: 0, display: 'flex' }}>
+            <PortalView
+              product={openPortal || lastPortalRef.current} page={portalPage} collapsed={portalCollapsed}
+              scope={scope} showScope={!isCustomer} navy={isCustomer}
+              onExit={() => { setOpenPortal(null); if (isCustomer) setPage('products-overview') }}
+              onSelectPage={setPortalPage}
+              onToggleCollapse={() => setPortalCollapsed((c) => !c)}
+              dark={dark} onToggleDark={() => setDark((d) => !d)}
+            />
+          </div>
         )}
         </div>
       </div>

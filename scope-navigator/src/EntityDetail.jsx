@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  ChevronRight, ChevronDown, Monitor, Key, ShieldCheck, Clock, Globe,
+  ChevronRight, ChevronLeft, ChevronDown, Monitor, Key, ShieldCheck, Clock, Globe,
   Shield, Mail, Send, Bug, ScanSearch, CheckCircle, AlertTriangle,
   Trash2, Paperclip, UserCheck, Plus, Copy, Search, X, Cloud,
   Fingerprint, Check, TrendingUp, TrendingDown, AlertCircle, Settings,
-  Activity, Target, Zap, BarChart3, Info, MapPin, Phone, User, Languages, ArrowLeft, ArrowUpRight, EyeOff, CaptionsOff, Loader2, Package
+  Activity, Target, Zap, BarChart3, Info, MapPin, Phone, User, Users, Languages, ArrowLeft, ArrowUpRight, EyeOff, CaptionsOff, Loader2, Package
 } from '@icons';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, ResponsiveContainer,
@@ -759,7 +759,7 @@ function ComplianceDonut({ score }) {
 
 // ── Children list panel view ──
 // How many list rows to mount per lazy-load page.
-const LIST_PAGE_SIZE = 40;
+const LIST_PAGE_SIZE = 12;
 
 // ── Placeholder MSP columns ──────────────────────────────────────────────────
 // The list currently shows only name + status. An MSP would want at-a-glance
@@ -770,57 +770,49 @@ const LIST_PAGE_SIZE = 40;
 //   • Endpoints    — protected devices
 //   • Open alerts  — unresolved security signals (the one that drives action)
 //   • Plan         — subscription tier
-const MSP_PLANS = ['Essentials', 'Advanced', 'Complete'];
+const MSP_BILLING = ['Annual', 'Monthly', 'Prepaid', 'NFR'];
+const MSP_INVOICE = ['Paid', 'Due', 'Overdue'];
 function mspMetaFor(entity) {
   const h = Math.abs(hash(entity.id || entity.name || ''));
   return {
-    seats: 20 + (h % 480),
-    endpoints: 12 + ((h >> 3) % 340),
-    alerts: (h >> 6) % 6,
-    plan: MSP_PLANS[(h >> 9) % MSP_PLANS.length],
+    packages: 1 + (h % 6),
+    seats: 20 + ((h >> 3) % 480),
+    billing: MSP_BILLING[(h >> 6) % MSP_BILLING.length],
+    invoice: MSP_INVOICE[(h >> 9) % MSP_INVOICE.length],
   };
 }
-const MSP_PLAN_STYLE = {
-  Essentials: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
-  Advanced: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300',
-  Complete: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
+// Invoice reads as a status: paid = calm, due = attention, overdue = alarm.
+const MSP_INVOICE_STYLE = {
+  Paid: 'text-emerald-600 dark:text-emerald-400',
+  Due: 'text-amber-600 dark:text-amber-400',
+  Overdue: 'text-rose-600 dark:text-rose-400',
 };
-// Column geometry — shared by the header and the cells so they line up exactly.
-// Numeric lanes are right-aligned (digits line up by place value); the plan lane is
-// left-aligned. gap-8 gives the columns real breathing room.
-const META_NUM = 'w-16 text-right text-xs font-medium tabular-nums';
-const META_GROUP = 'hidden lg:flex items-center gap-8 flex-shrink-0';
-// One numeric cell — right-aligned, no icon.
-function MetaCell({ value, tone = 'text-zinc-600 dark:text-zinc-300' }) {
-  return <span className={`${META_NUM} ${tone}`}>{value}</span>;
-}
+// Column geometry — shared verbatim by the header and the cells so they line up. The four
+// columns sit in an even 4-track grid that takes a real share of the row's width (flex-1),
+// so they spread across the desktop instead of bunching against the right edge.
+const META_COLUMNS = ['Packages', 'Seats', 'Billing', 'Invoice'];
+const META_GRID = 'hidden lg:grid grid-cols-4 gap-6 items-center flex-1 min-w-0';
+const META_HEAD = 'text-left text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500';
 function MspMetaCells({ meta }) {
   return (
-    <div className={META_GROUP}>
-      <MetaCell value={meta.seats} />
-      <MetaCell value={meta.endpoints} />
-      <MetaCell
-        value={meta.alerts}
-        tone={meta.alerts > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-300 dark:text-zinc-600'}
-      />
+    <div className={META_GRID}>
+      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-200 tabular-nums">{meta.packages}</span>
+      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-200 tabular-nums">{meta.seats}</span>
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">{meta.billing}</span>
+      <span className={`text-xs font-medium ${MSP_INVOICE_STYLE[meta.invoice]}`}>{meta.invoice}</span>
     </div>
   );
 }
-// Column headers — titles LEFT-aligned; lane widths match the cells exactly. Labels are
-// placeholder ("Lorem") until the columns are defined. The trailing spacers reserve the
-// unmanaged-icon / status-dot / chevron lanes so the header sits squarely over the columns.
-const META_HEAD = 'text-left text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500';
+// Column headers — same left edge + grid as the cells. The leading spacer covers the icon;
+// the trailing spacer reserves the indicators + Login lane so labels stay over their columns.
 function MspMetaHeader() {
   return (
     <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-zinc-50/70 dark:bg-zinc-900/40 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0">
       <div className="w-7 flex-shrink-0" aria-hidden />
-      <div className={`flex-1 min-w-0 ${META_HEAD}`}>Lorem</div>
-      <div className="flex items-center gap-8">
-        <span className={`w-16 ${META_HEAD}`}>Lorem</span>
-        <span className={`w-16 ${META_HEAD}`}>Lorem</span>
-        <span className={`w-16 ${META_HEAD}`}>Lorem</span>
+      <div className={`flex-1 min-w-0 ${META_HEAD}`}>Account</div>
+      <div className={META_GRID}>
+        {META_COLUMNS.map(c => <span key={c} className={META_HEAD}>{c}</span>)}
       </div>
-      {/* Reserves the indicators + Login lane so the number labels stay over their columns. */}
       <span className="w-32 flex-shrink-0" aria-hidden />
     </div>
   );
@@ -830,14 +822,13 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
   const [search, setSearch] = useState('');
   // Managed / Unmanaged audience filter (opt-in via showManagementFilter).
   const [mgmtFilter, setMgmtFilter] = useState('all');
-  // Reset the audience filter whenever the drilled-in type changes.
-  useEffect(() => { setMgmtFilter('all'); }, [filter]);
-  // Progressive (lazy) rendering: only mount the first `visibleCount` rows and
-  // grow as the user scrolls near the bottom. Keeps long lists (e.g. 2.9k
-  // customers) cheap to render. Short lists render fully on the first page.
-  const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const loadingRef = useRef(false);
+  // Level filter — distributor / reseller / customer. Dynamic: only the levels actually
+  // present under this entity get a chip (see availableTypes below).
+  const [typeFilter, setTypeFilter] = useState('all');
+  // Reset both filters whenever the drilled-in type / entity changes.
+  useEffect(() => { setMgmtFilter('all'); setTypeFilter('all'); }, [filter]);
+  // Paginated rendering: show one page of rows at a time with a pager at the bottom.
+  const [page, setPage] = useState(0);
   // labelOverrides lets a caller relabel an entity type for this view only
   // (e.g. the Customer Management B tab shows "partner" entities as "Reseller")
   // without mutating the shared typeConfig used everywhere else.
@@ -873,38 +864,26 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
     ? scopedChildren.filter(c => mgmtFilter === 'unmanaged' ? isEntityUnmanaged(c) : !isEntityUnmanaged(c))
     : scopedChildren;
 
-  const filtered = search
-    ? audienceFiltered.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+  // Which levels actually exist under this entity — drives the (dynamic) level filter.
+  const availableTypes = entityTypeOrder.filter(t => scopedChildren.some(c => c.type === t));
+  const typeFilteredList = typeFilter !== 'all' && availableTypes.includes(typeFilter)
+    ? audienceFiltered.filter(c => c.type === typeFilter)
     : audienceFiltered;
 
-  // Reset the lazy-load window when the result set changes (filter / search /
-  // audience). Depends on length + filter so a new query starts from the top.
-  useEffect(() => {
-    setVisibleCount(LIST_PAGE_SIZE);
-    setLoadingMore(false);
-    loadingRef.current = false;
-  }, [filter, search, mgmtFilter, filtered.length]);
+  const filtered = search
+    ? typeFilteredList.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+    : typeFilteredList;
 
-  const visible = filtered.slice(0, visibleCount);
-  const hasMore = visibleCount < filtered.length;
-  function handleListScroll(e) {
-    if (!hasMore || loadingRef.current) return;
-    const el = e.currentTarget;
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 280) {
-      // Brief, visible "loading" beat so the lazy-load is obvious when demoing.
-      loadingRef.current = true;
-      setLoadingMore(true);
-      setTimeout(() => {
-        setVisibleCount(c => Math.min(c + LIST_PAGE_SIZE, filtered.length));
-        setLoadingMore(false);
-        loadingRef.current = false;
-      }, 600);
-    }
-  }
+  // Jump back to the first page whenever the result set changes (filter / search / audience).
+  useEffect(() => { setPage(0); }, [filter, search, mgmtFilter, typeFilter]);
 
-  // Group by type in entityTypeOrder. Headers count the full filtered set;
-  // rows render only the loaded (visible) slice.
-  const groupTypes = entityTypeOrder.filter(t => visible.some(c => c.type === t));
+  // ── Pagination ──
+  const pageCount = Math.max(1, Math.ceil(filtered.length / LIST_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1); // clamp if the list shrank under us
+  const pageStart = safePage * LIST_PAGE_SIZE;
+  const visible = filtered.slice(pageStart, pageStart + LIST_PAGE_SIZE);
+  const rangeStart = filtered.length ? pageStart + 1 : 0;
+  const rangeEnd = Math.min(pageStart + LIST_PAGE_SIZE, filtered.length);
 
   const searchPlaceholder = filter ? `Search ${labelFor(filter).toLowerCase()}s` : 'Search entities…';
   const audienceSegments = [
@@ -912,9 +891,22 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
     { key: 'managed', label: 'Managed', count: managedCount },
     { key: 'unmanaged', label: 'Unmanaged', count: unmanagedCount },
   ];
+  // Level filter chips — an "All", then one per level actually present (pluralized label).
+  const typeSegments = [
+    { key: 'all', label: 'All', count: scopedChildren.length },
+    ...availableTypes.map(t => ({ key: t, label: `${labelFor(t)}s`, count: scopedChildren.filter(c => c.type === t).length })),
+  ];
+  // Only offer the level filter when there's more than one level to choose between, and not
+  // when the view is already pinned to a single type (the drill-in `filter`).
+  const showTypeFilter = !filter && availableTypes.length > 1;
 
   const getChildCountLabel = (child) => {
-    if (!child.children?.length) return null;
+    // Aggregators (distributor / partner) always carry a count — even 0 — so the column is
+    // consistent (a just-added distributor reads "0 children", not a blank). Customers are
+    // leaves and never show one.
+    if (!child.children?.length) {
+      return (child.type === 'distributor' || child.type === 'partner') ? '0 children' : null;
+    }
     const typeCounts = {};
     for (const gc of child.children) typeCounts[gc.type] = (typeCounts[gc.type] || 0) + 1;
     const types = entityTypeOrder.filter(t => typeCounts[t]);
@@ -957,15 +949,34 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
         </div>
       )}
 
-      {/* Audience filter — All / Managed / Unmanaged */}
-      {showManagementFilter && (
-        <div className="px-4 pt-3 pb-2 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0">
-          <div className="flex items-center gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800">
+      {/* Toolbar — filters + search on ONE row on desktop (uses the width), stacking on
+          narrow screens. Level filter is dynamic (only levels that exist get a chip). */}
+      <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 flex flex-col lg:flex-row lg:items-center gap-2">
+        {showTypeFilter && (
+          <div className="flex items-center gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 lg:flex-shrink-0">
+            {typeSegments.map(seg => (
+              <button
+                key={seg.key}
+                onClick={() => setTypeFilter(seg.key)}
+                className={`flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+                  typeFilter === seg.key
+                    ? 'bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                }`}
+              >
+                {seg.label}
+                <span className={`tabular-nums ${typeFilter === seg.key ? 'text-zinc-400 dark:text-zinc-500' : 'text-zinc-400 dark:text-zinc-600'}`}>{seg.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {showManagementFilter && (
+          <div className="flex items-center gap-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 lg:flex-shrink-0">
             {audienceSegments.map(seg => (
               <button
                 key={seg.key}
                 onClick={() => setMgmtFilter(seg.key)}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                className={`flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
                   mgmtFilter === seg.key
                     ? 'bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 shadow-sm'
                     : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
@@ -976,13 +987,9 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
               </button>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Search input */}
-      <div className="px-4 py-2 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0">
-        {/* // TODO: add 150ms debounce in production */}
-        <div className="relative">
+        )}
+        {/* Search grows to fill the remaining desktop width. */}
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
           <input
             type="text"
@@ -1001,22 +1008,15 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
           scrollbar (see shell.css) so it sits in its own lane beside the rows instead of an
           overlay bar painting over each row's full-width bottom border — which otherwise reads
           as a separate scrollbar on every row/group. */}
-      <div className="entity-list-scroll flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" onScroll={handleListScroll}>
+      <div className="entity-list-scroll flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
         {filtered.length === 0 ? (
           <div className="flex items-center justify-center h-24">
             <span className="text-sm text-zinc-400 dark:text-zinc-500">No matching children</span>
           </div>
         ) : (
-          groupTypes.map(type => {
-            const groupChildren = visible.filter(c => c.type === type);
-            const groupTotal = filtered.filter(c => c.type === type).length;
-            const typeLabel = labelFor(type);
-            return (
-              <div key={type}>
-                <div className="sticky top-0 px-4 py-2 bg-white dark:bg-zinc-950 border-b border-zinc-100 dark:border-zinc-800 z-10">
-                  <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">{typeLabel}s ({groupTotal})</span>
-                </div>
-                {groupChildren.map(child => {
+          /* Flat list — distributors, resellers, and customers are NOT grouped by type;
+             each row carries its own type badge, so headers aren't needed. */
+          visible.map(child => {
                   const { Icon: ChildIcon, color: childColor, bg: childBg } = typeConfig[child.type];
                   const childLabel = labelFor(child.type);
                   const childCountLabel = getChildCountLabel(child);
@@ -1132,39 +1132,38 @@ export function ChildrenListView({ entity, filter, onBack, onDrillDown, onOpen, 
                       )}
                     </div>
                   );
-                })}
-              </div>
-            );
           })
         )}
-        {loadingMore && (
-          <>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={`skel-${i}`} className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 animate-pulse">
-                <div className="w-7 h-7 rounded-lg bg-zinc-200 dark:bg-zinc-800 flex-shrink-0" />
-                <div className="flex-1 min-w-0 space-y-1.5">
-                  <div className="h-3 rounded bg-zinc-200 dark:bg-zinc-800" style={{ width: `${55 - i * 10}%` }} />
-                  <div className="h-2 rounded bg-zinc-100 dark:bg-zinc-800/70 w-1/4" />
-                </div>
-                <div className="w-2.5 h-2.5 rounded-full bg-zinc-200 dark:bg-zinc-800 flex-shrink-0" />
-              </div>
-            ))}
-            <div className="px-4 py-3 flex items-center justify-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Loading more…
-            </div>
-          </>
-        )}
-        {!loadingMore && hasMore && (
-          <button
-            onClick={() => setVisibleCount(c => Math.min(c + LIST_PAGE_SIZE, filtered.length))}
-            className="w-full px-4 py-3 flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors border-t border-zinc-100 dark:border-zinc-800"
-          >
-            <ChevronDown className="w-3.5 h-3.5" />
-            Showing {visible.length.toLocaleString()} of {filtered.length.toLocaleString()} — scroll for more
-          </button>
-        )}
       </div>
+
+      {/* Pager — pinned to the bottom of the list. Left-aligned so it clears the demo FAB
+          that floats over the bottom-right corner. */}
+      {filtered.length > 0 && (
+        <div className="flex items-center gap-4 px-4 py-2.5 border-t border-zinc-100 dark:border-zinc-800 flex-shrink-0">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+            {rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {filtered.length.toLocaleString()}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+              className="inline-flex items-center gap-1 pl-2 pr-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              Prev
+            </button>
+            <span className="px-2 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">Page {safePage + 1} of {pageCount}</span>
+            <button
+              onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))}
+              disabled={safePage >= pageCount - 1}
+              className="inline-flex items-center gap-1 pl-2.5 pr-2 py-1.5 rounded-md text-xs font-medium text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            >
+              Next
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1681,6 +1680,9 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onOpenEnti
   const isUnmanaged = isEntityUnmanaged(entity);
   const isUnmanagedPartner = isUnmanaged && entity.type === 'partner';
   const isUnmanagedDistributor = isUnmanaged && entity.type === 'distributor';
+  // A managed distributor / partner with NO children yet — its telemetry is a rollup of
+  // customers it doesn't have. Show one empty state instead of seeded package/ops/analytics.
+  const emptyAggregator = !isUnmanaged && (entity.type === 'distributor' || entity.type === 'partner') && !hasChildren;
   const adoption = biz.productAdoption || {};
 
   // Direct child-type counts for the Descendants cards. The synthetic root
@@ -1749,7 +1751,7 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onOpenEnti
           SCROLLABLE CONTENT
           ══════════════════════════════════════════════════════════════ */}
       <div ref={scrollRef} className="flex-1 overflow-y-scroll overscroll-contain px-6 pt-5 pb-6" style={{ scrollbarGutter: 'stable' }}>
-        <div className="space-y-6">
+        <div className={emptyAggregator ? 'flex flex-col min-h-full' : 'space-y-6'}>
 
           {/* ── Entity contact info ── */}
           {!hideContactInfo && entity.address && (
@@ -1805,18 +1807,12 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onOpenEnti
               ══════════════════════════════════════════════════════════ */}
           {entity.type !== 'customer' && (
             <>
+              {/* Business Health header — future state only. The plain "Overview · Last 30 days"
+                  strip + timeframe selector were removed for all entities (not needed now). */}
+              {showFuture && (
               <div className={hideContactInfo ? '' : 'border-t border-zinc-200 dark:border-zinc-800 pt-5'}>
-                <div className={`flex items-center justify-between ${showFuture ? 'mb-4' : 'mb-0'}`}>
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{showFuture ? 'Business Health' : 'Overview'}</h3>
-                    <span className="text-xs text-zinc-300 dark:text-zinc-600">&middot;</span>
-                    <span className="text-xs text-zinc-400 dark:text-zinc-500">Last {periodText}</span>
-                  </div>
-                  <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-lg p-0.5">
-                    {['7D', '14D', '30D', '90D'].map(opt => (
-                      <button key={opt} onClick={() => setPeriod(opt)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${period === opt ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'}`}>{opt}</button>
-                    ))}
-                  </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Business Health</h3>
                 </div>
 
                 {/* ── Attention row: future state ── */}
@@ -1859,6 +1855,7 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onOpenEnti
                   </div>
                 )}
               </div>
+              )}
 
               {childTypeEntries.length > 0 && (
                 <div className="space-y-2">
@@ -1936,18 +1933,32 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onOpenEnti
                 <CustomerGrowthSection entityId={entity.id} period={period} hasChildren={hasChildren} />
               )}
 
-              {/* ── Package Adoption ── */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Package Adoption</span>
-                  {!hideAddProduct && (
-                    <button onClick={() => onAddProduct ? onAddProduct(entity) : setShowAddProduct(true)} className="text-xs text-azure-600 dark:text-azure-400 hover:underline cursor-pointer inline-flex items-center gap-1">
-                      <Plus className="w-3 h-3" />Add
-                    </button>
-                  )}
+              {/* ── Package Adoption (or the empty-scope notice) ── */}
+              {emptyAggregator ? (
+                // Centered in the available space — best practice for an empty state, so it
+                // reads as intentional rather than a top-pinned label with a blank page below.
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-8 min-h-[380px]">
+                  <div className="w-14 h-14 rounded-full bg-azure-50 dark:bg-azure-950/40 flex items-center justify-center">
+                    <Users className="w-6 h-6 text-azure-500 dark:text-azure-400" strokeWidth={1.75} />
+                  </div>
+                  <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100">No customers yet</div>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed">
+                    {entity.name} was just added and hasn&rsquo;t onboarded any customers. Package adoption, operations health, and analytics appear here once its first customer is added.
+                  </p>
                 </div>
-                <PackageAdoptionTable entityId={entity.id} entityType={entity.type} onPackageClick={onPackageClick} />
-              </div>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Package Adoption</span>
+                    {!hideAddProduct && (
+                      <button onClick={() => onAddProduct ? onAddProduct(entity) : setShowAddProduct(true)} className="text-xs text-azure-600 dark:text-azure-400 hover:underline cursor-pointer inline-flex items-center gap-1">
+                        <Plus className="w-3 h-3" />Add
+                      </button>
+                    )}
+                  </div>
+                  <PackageAdoptionTable entityId={entity.id} entityType={entity.type} onPackageClick={onPackageClick} />
+                </div>
+              )}
             </>
           )}
 
@@ -1997,9 +2008,10 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onOpenEnti
           )}
 
           {/* ══════════════════════════════════════════════════════════
-              SECTION 2: OPERATIONS HEALTH (hidden for unmanaged customers)
+              SECTION 2: OPERATIONS HEALTH (hidden for unmanaged customers,
+              and for a managed aggregator that has no customers yet)
               ══════════════════════════════════════════════════════════ */}
-          {!isUnmanaged && (
+          {!isUnmanaged && !emptyAggregator && (
           <>
           <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Operations Health</h3>
@@ -2134,22 +2146,6 @@ export default function EntityDetail({ entity, siblings, onDrillDown, onOpenEnti
           </>
           )}
 
-          {/* Leaf details */}
-          {isLeaf && (
-            <div>
-              <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Details</span>
-              <div className="mt-2 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400 dark:text-zinc-500">Entity ID</span>
-                  <CopyableUUID id={entity.id} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400 dark:text-zinc-500">Type</span>
-                  <span className="text-[13px] text-zinc-700 dark:text-zinc-300">{label}</span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

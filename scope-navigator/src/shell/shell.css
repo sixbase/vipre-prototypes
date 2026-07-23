@@ -18,6 +18,29 @@
    hairline. Fills are ink-alpha so they still read if the portal flips to dark.
    Scoped to .por-nav so the v1 / Symphony light navs (two-layer .obrow-pill) are
    untouched — those keep the rules above. Single-layer here: the row IS the pill. */
+/* --por-* colour vars — the nav's palette in one place. Default = LIGHT (reseller).
+   .por-nav--navy repoints them to the midnight ramp for the END-CUSTOMER view, so the
+   whole nav flips to the same navy as the MSP / Symphony sidebar by class alone. */
+.por-nav {
+  --por-bg: var(--vds-surface);
+  --por-ink: var(--vds-ink-muted);
+  --por-icon: var(--vds-ink-subtle);
+  --por-eyebrow: var(--vds-ink-subtle);
+  --por-title: var(--vds-ink);
+  --por-line: var(--vds-line);
+}
+.por-nav--navy {
+  --por-bg: var(--vds-midnight-950);
+  --por-ink: var(--vds-midnight-200);
+  --por-icon: var(--vds-midnight-400);
+  --por-eyebrow: var(--vds-midnight-400);
+  --por-title: var(--vds-white);
+  --por-line: var(--vds-midnight-1000);
+}
+/* On navy, hover/press are white-alpha (ink-alpha would vanish on the dark ground). */
+.por-nav--navy .obrow--light:not(.obrow--sel):hover { background-color: color-mix(in srgb, var(--vds-white) 8%, transparent) !important; }
+.por-nav--navy .obrow--light:not(.obrow--sel):active { background-color: color-mix(in srgb, var(--vds-white) 14%, transparent) !important; }
+
 .por-nav .obrow--light { transition: background-color 280ms ease; }
 .por-nav .obrow--light:not(.obrow--sel):hover { background-color: color-mix(in srgb, var(--vds-ink) 6%, transparent); transition-duration: 50ms; }
 .por-nav .obrow--light:active { transition-duration: 0ms; }
@@ -31,9 +54,6 @@
 }
 .por-nav .obrow--light.obrow--sel:hover { background-color: color-mix(in srgb, var(--nav-accent), #000 10%); }
 .por-nav .obrow--light.obrow--sel:active { background-color: color-mix(in srgb, var(--nav-accent), #000 18%); }
-/* The product switcher shares the row motion; a touch stronger when open. */
-.por-nav .ob-switcher:hover,
-.por-nav .ob-switcher[aria-expanded="true"] { background-color: color-mix(in srgb, var(--vds-ink) 8%, transparent); transition-duration: 50ms; }
 /* Keyboard focus: the standard light focus ring, hugging the pill radius. */
 .por-nav button:focus-visible { outline: var(--vds-control-ring-w, 2px) solid var(--vds-focus-ring); outline-offset: -2px; }
 @media (prefers-reduced-motion: reduce) { .por-nav .obrow--light { transition: none; } }
@@ -200,15 +220,6 @@ button.ob-phead:hover .ob-chevc { color: var(--vds-white); }
 
 /* Reseller-theme dropdown rows (dark navy popover). */
 .ob-brand-item:hover { background: var(--vds-midnight-800) !important; }
-
-/* Product switcher reads as a dropdown control: a clearer hover than the nav rows,
-   and it stays lit while the menu is open. (Same specificity as the generic
-   obrow--light hover above, so it wins on source order.) */
-.obrow--light.ob-switcher:hover .obrow-pill,
-.obrow--light.ob-switcher[aria-expanded="true"] .obrow-pill { background: color-mix(in srgb, var(--vds-ink) 10%, transparent); }
-
-/* Product-switcher dropdown items (light surface). */
-.ob-switch-item:hover { background: color-mix(in srgb, var(--vds-ink) 7%, transparent) !important; }
 
 /* The Customers page (DashboardPageB) self-frames with rounded-2xl (16px); match it
    to the shell's other content cards (8px). Unlayered, so it wins over the utility. */
@@ -534,15 +545,68 @@ html.dark .shell-root { --shell-canvas: var(--vds-midnight-1000, #07101f); }
    the incoming view fades and settles up from a whisper of scale, so entering/leaving a
    portal glides rather than cuts. CSS (not GSAP) so a dropped frame can't strand a blank
    page mid-transition. */
-.msp-page-swap { animation: msp-page-in 380ms cubic-bezier(0.2, 0, 0, 1); transform-origin: 50% 42%; }
-@keyframes msp-page-in {
-  from { opacity: 0; transform: scale(0.986) translateY(8px); }
-  to   { opacity: 1; transform: none; }
+/* Directional swap so entering vs leaving the Full Portal reads clearly:
+   ENTER = dive INTO the product's focus mode — the view grows up from smaller, rises, and
+   resolves out of soft-focus (a "coming into focus" cue). EXIT = pull back OUT to Symphony —
+   it eases down from a hair overscaled. The direction is known from whether a portal is open. */
+/* Coordinated push between Symphony and the Full Portal — BOTH layers move together, so the
+   context switch is unmistakable (iOS-style push):
+   ENTER: the portal slides in from the right OVER Symphony, while Symphony recedes to the left
+   and dims — you feel the product taking over. EXIT: the portal slides back off to the right and
+   Symphony rises back to the front. The portal carries a soft leading-edge shadow so it reads as
+   one surface sliding over another. One shared curve + duration keeps the two layers locked. */
+/* GSAP owns transform + opacity on both layers (see the swap timeline in MspShellV2), so
+   there are deliberately NO CSS transitions here — a transition racing the tween is exactly
+   what made this stutter. CSS only supplies the static paint: stacking, the portal's leading
+   shadow, and the compositor hints. `filter` is intentionally NOT used (it repaints the whole
+   subtree every frame); the recede reads through transform + opacity alone. */
+.msp-swap-stage { isolation: isolate; }
+.msp-swap-sym { will-change: transform, opacity; backface-visibility: hidden; }
+.msp-swap-por {
+  z-index: 2;
+  box-shadow: -28px 0 48px -14px rgba(0, 0, 0, 0.32);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .msp-demo-fab, .msp-persona-thumb, .msp-fab-btn { transition: none; }
-  .msp-demo-fab, .msp-fab-item, .msp-fab-icon, .msp-page-swap,
+  .msp-demo-fab, .msp-fab-item, .msp-fab-icon,
   .brand-menu--anim, .brand-menu--anim [role="menuitemradio"] { animation: none; }
   .msp-demo-fab:hover { transform: none; }
+}
+
+/* ---- Dashboard empty states (calm, centered placeholders) --------------------- */
+.dash-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  min-height: 132px;
+  padding: 8px 12px 4px;
+}
+/* A soft tinted disc — the accent at low strength, so it reads as brand-quiet, not grey. */
+.dash-empty__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  color: var(--nav-accent);
+  background: color-mix(in srgb, var(--nav-accent) 9%, transparent);
+}
+.dash-empty__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--vds-ink);
+}
+.dash-empty__desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--vds-ink-subtle);
+  max-width: 34ch;
 }
