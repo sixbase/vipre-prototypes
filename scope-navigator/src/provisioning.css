@@ -174,3 +174,198 @@
 .prov-center { display: flex; flex-direction: column; align-items: center; }
 .prov-optional { margin-left: var(--vds-space-2); }
 .prov-eyebrow-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--vds-space-2); }
+
+/* ---- Add Customer: stepper + relationship radios ------------------------------ */
+
+/* Soft scroll fade — masks whichever edge still has more to scroll (vars set in JS by
+   bindScrollFade). A collapsed 0-height region on a fully-scrolled edge means the fade
+   only appears when there's genuinely more content that way. Replaces hard edges AND
+   divider lines as the "there's more" cue. */
+.prov-scrollfade {
+  --fade-size: 1.5rem;
+  -webkit-mask-image: linear-gradient(to bottom,
+    transparent 0, #000 calc(var(--fade-top, 0) * var(--fade-size)),
+    #000 calc(100% - var(--fade-bottom, 0) * var(--fade-size)), transparent 100%);
+  mask-image: linear-gradient(to bottom,
+    transparent 0, #000 calc(var(--fade-top, 0) * var(--fade-size)),
+    #000 calc(100% - var(--fade-bottom, 0) * var(--fade-size)), transparent 100%);
+}
+
+/* No divider lines in this modal — separation comes from space (and the scroll fade). */
+.prov-modal .vds-modal__footer { border-top: 0; }
+
+/* The stepper sits above the form, set off by space alone (no rule line). */
+.prov-stepper { margin-bottom: var(--vds-space-6); }
+
+/* --- Stepper appearance (scoped to this modal — the DS component is untouched) ---
+   The DS default stretches labels inline across the full width. Here we want the
+   tidier reference look: each step is a circle with its label BENEATH it, the steps
+   sit close together at the left, joined by a short connector centered on the dots. */
+.prov-stepper .vds-stepper { justify-content: flex-start; gap: 0; }
+.prov-stepper .vds-stepper__step { flex: 0 0 auto; }
+/* circle stacked over label */
+.prov-stepper .vds-stepper__content {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--vds-space-2);
+  text-align: center;
+}
+.prov-stepper .vds-stepper__text { padding-top: 0; align-items: center; }
+/* short connector, held at the circle's vertical center (the DS margin already
+   centers it; we only shorten and fix its length so the two dots sit close). */
+.prov-stepper .vds-stepper__step:not(:first-child)::before {
+  flex: 0 0 var(--vds-space-16, 4rem);
+  min-width: var(--vds-space-16, 4rem);
+  align-self: flex-start;
+}
+/* the label under the current step gets the accent, matching the filled dot */
+.prov-stepper .vds-stepper__step--current .vds-stepper__label { color: var(--vds-primary); }
+
+/* --- Relationship choices as selectable CARDS ---------------------------------
+   Management = 2 columns, Billing Type = 2×2. Each option is a bordered tile you click
+   anywhere on; picked = accent border only (no fill), matching the package cards. */
+.prov-choose { display: flex; flex-direction: column; gap: var(--vds-space-2); }
+.prov-choose__label {
+  font-size: 0.8125rem; font-weight: var(--vds-weight-medium); color: var(--vds-ink);
+}
+.prov-choose__grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--vds-space-2);
+}
+/* 2×2 is just the 2-col grid with four items — kept as a name for intent + tuning. */
+.prov-choose__grid--2x2 { grid-auto-rows: 1fr; }
+
+.prov-choice {
+  position: relative;
+  display: flex; align-items: flex-start; gap: var(--vds-space-2-5);
+  padding: var(--vds-space-3) var(--vds-space-4);
+  border: 1px solid var(--vds-line);
+  border-radius: var(--vds-radius-lg);
+  background: var(--vds-surface);
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.prov-choice:hover { border-color: var(--vds-line-strong); }
+.prov-choice--on {
+  border-color: var(--vds-primary);
+  box-shadow: inset 0 0 0 1px var(--vds-primary);
+}
+/* Native radio drives state + a11y but is invisible; the dot below is the visual. */
+.prov-choice__input {
+  position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none;
+}
+/* Focus ring on the card when the hidden input is focused by keyboard. */
+.prov-choice:has(.prov-choice__input:focus-visible) {
+  outline: var(--vds-control-ring-w) solid var(--vds-focus-ring); outline-offset: 2px;
+}
+/* The radio dot — a ring that fills with the accent when picked. */
+.prov-choice__dot {
+  flex-shrink: 0; margin-top: 0.15em;
+  width: 1rem; height: 1rem; border-radius: var(--vds-radius-full);
+  border: 1.5px solid var(--vds-line-strong);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.prov-choice--on .prov-choice__dot {
+  border-color: var(--vds-primary);
+  /* inner filled disc via an inset ring, so no extra element is needed */
+  box-shadow: inset 0 0 0 3px var(--vds-primary);
+}
+.prov-choice__icon { flex-shrink: 0; display: inline-flex; margin-top: 0.05em; }
+.prov-choice__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.prov-choice__title { font-weight: var(--vds-weight-medium); color: var(--vds-ink); }
+
+/* ---- Add Customer step 2: entitle packages ----------------------------------- */
+
+.prov-pkg { display: flex; flex-direction: column; gap: var(--vds-space-4); }
+
+/* Instruction + the reseller's remaining sell-quota on one line. */
+.prov-pkg__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--vds-space-4); flex-wrap: wrap; }
+.prov-pkg__quota { white-space: nowrap; }
+.prov-pkg__quota strong { color: var(--vds-ink); font-weight: var(--vds-weight-semibold); }
+
+.prov-pkg__clear {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: transparent; padding: 0; cursor: pointer;
+  color: var(--vds-ink-subtle);
+}
+.prov-pkg__clear:hover { color: var(--vds-ink); }
+
+/* The scrolling list — never capped; it scrolls within the modal body. The negative
+   inset lets a selected card's ring breathe without the scrollbar clipping it. */
+.prov-pkg__list {
+  display: flex; flex-direction: column; gap: var(--vds-space-2-5);
+  max-height: 22rem; overflow-y: auto;
+  margin: 0 calc(-1 * var(--vds-space-1)); padding: var(--vds-space-1);
+}
+.prov-pkg__empty { padding: var(--vds-space-6); text-align: center; }
+
+/* One package card. Selected = a crisp accent BORDER (no fill), so the text on it
+   stays at full contrast — a fill tint was dimming the labels. The inset ring thickens
+   the edge to ~2px without nudging layout (a real 2px border would shift by 1px). */
+.prov-pkg-card {
+  /* the checkbox column width — sub-text aligns to the name, not the checkbox */
+  --prov-pkg-indent: calc(var(--vds-space-5) + var(--vds-space-2));
+  display: flex; flex-direction: column; gap: var(--vds-space-2);
+  padding: var(--vds-space-4);
+  border: 1px solid var(--vds-line);
+  border-radius: var(--vds-radius-lg);
+  background: var(--vds-surface);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.prov-pkg-card:not(.prov-pkg-card--on):not(.prov-pkg-card--off):hover { border-color: var(--vds-line-strong); }
+.prov-pkg-card--on {
+  border-color: var(--vds-primary);
+  box-shadow: inset 0 0 0 1px var(--vds-primary);
+}
+/* Unentitled package: legible but clearly not sellable. */
+.prov-pkg-card--off { background: var(--vds-canvas); border-style: dashed; }
+.prov-pkg-card--off .vds-heading { color: var(--vds-ink-subtle); }
+
+/* Header row: the select checkbox (name as its label) + the billing dropdown, pushed apart. */
+.prov-pkg-card__top { display: flex; align-items: center; justify-content: space-between; gap: var(--vds-space-3); }
+.prov-pkg-card__billing { flex-shrink: 0; }
+
+/* Feature blurb + composite / unavailable notes sit under the header, aligned past the
+   checkbox column so they read as the name's detail, not a new column. */
+.prov-pkg-card__sub {
+  margin-left: var(--prov-pkg-indent);
+  font-size: 0.8125rem; line-height: var(--vds-leading-snug); color: var(--vds-ink-muted);
+}
+.prov-pkg-card__note {
+  display: inline-flex; align-items: center; gap: var(--vds-space-1-5);
+  margin-left: var(--prov-pkg-indent);
+  font-size: 0.75rem; line-height: var(--vds-leading-snug); color: var(--vds-ink-subtle);
+}
+.prov-pkg-card__note svg { flex-shrink: 0; color: var(--vds-ink-subtle); }
+
+/* Est. seats + trial hint on one meta line, with a touch more air above it. */
+.prov-pkg-card__meta {
+  display: flex; align-items: center; gap: var(--vds-space-5); flex-wrap: wrap;
+  margin-left: var(--prov-pkg-indent); margin-top: var(--vds-space-1);
+}
+.prov-seats { display: inline-flex; align-items: center; gap: var(--vds-space-2); }
+.prov-seats__input { width: 5.5rem; }
+.prov-pkg-card__trial {
+  display: inline-flex; align-items: center; gap: var(--vds-space-1-5);
+  /* on-warning-soft = the readable warning-text step (amber-600 light / -400 dark),
+     not the lighter --vds-warning FILL tone, which is hard to read as text on the
+     pale selected-card background. */
+  font-size: 0.75rem; line-height: var(--vds-leading-snug); font-weight: var(--vds-weight-medium);
+  color: var(--vds-on-warning-soft);
+}
+.prov-pkg-card__trial svg { flex-shrink: 0; }
+
+/* Running tally — set off by space, not a rule line. */
+.prov-pkg__summary {
+  margin-top: var(--vds-space-1);
+  font-size: 0.75rem; line-height: var(--vds-leading-snug); color: var(--vds-ink-muted);
+}
+
+/* --- Step transition ----------------------------------------------------------
+   The stepper stays put; only the step body slides + fades in. Forward = in from the
+   right, Back = in from the left. Keyed remount per step replays it each change. */
+.prov-modal .vds-modal__body { overflow-x: hidden; }  /* clip the slide, no h-scrollbar */
+.prov-step { animation: prov-step-in var(--vds-dur-slow, 240ms) var(--vds-ease-out, cubic-bezier(0.2, 0, 0, 1)) both; }
+.prov-step[data-dir="back"] { animation-name: prov-step-in-back; }
+@keyframes prov-step-in      { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes prov-step-in-back { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .prov-step { animation: none; } }

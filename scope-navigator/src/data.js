@@ -662,6 +662,11 @@ function generateData() {
     roots.push(makeEntity({ type: 'customer', managementMode: mode, name: nextCustomerName() }));
   }
 
+  // A brand-new distributor with NO customers yet — demoes the empty state (a distributor
+  // just added under the signed-in reseller that hasn't onboarded any accounts). Prepended
+  // so it sits at the top of the accounts list. Isolated: nothing else references it.
+  roots.unshift(makeEntity({ type: 'distributor', name: 'Vantage Distribution', children: [] }));
+
   validateHierarchy(roots);
   return roots;
 }

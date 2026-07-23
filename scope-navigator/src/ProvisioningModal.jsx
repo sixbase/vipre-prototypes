@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   X, CheckCircle, ChevronRight, Check, Shield, ShieldCheck, Mail,
-  Send, ArrowLeft, Cloud, Globe, Lock, Users, Bug
+  Send, ArrowLeft, Cloud, Globe, Lock, Users, Bug, Search, Info, AlertTriangle, CaptionsOff
 } from '@icons';
 import {
-  Button, Checkbox, Field, Heading, Input, Modal, Select, Text,
+  Button, Checkbox, Field, Heading, Input, Modal, Select, Stepper, Text,
 } from './vds/components/index.js';
 import { typeConfig } from './config';
 import './provisioning.css';
@@ -277,28 +277,281 @@ function TypeSelectionStep({ availableTypes, onSelect, onClose }) {
 
 // ── Flow 1: Add Customer ───────────────────────────────────────────────────────
 
+// Step 1 (Details) gates the Next button. Management/billing/timezone/language all ship
+// with a default selected, so they're never "missing" — only the typed fields are required.
 const CUSTOMER_REQUIRED = [
-  'subscriptionType', 'customerName', 'companyName', 'address',
-  'city', 'stateProvince', 'zip', 'country',
-  'contactName', 'email', 'phone',
+  'companyName', 'address', 'city', 'stateProvince', 'zip', 'country',
+  'firstName', 'lastName', 'email', 'phone',
 ];
 
-function AddCustomerFlow({ onClose, onSuccess, onSwitchToProduct }) {
+const CUSTOMER_STEPS = [
+  { id: 'details', label: 'Details' },
+  { id: 'products', label: 'Products' },
+];
+
+// NFR (not-for-resale) seats are allotted, so the option carries its remaining count.
+const NFR_AVAILABLE = 1;
+
+const BILLING_TYPES = ['Annual', 'Monthly', 'Prepaid', 'NFR'];
+
+// Step 2 "Entitle packages": the packages a new customer can be granted. Each carries the
+// bits the mockup shows — a feature blurb or composite note, whether it takes an est. seat
+// count, an optional trial-site allotment hint, and whether it's sellable at all.
+const CUST_PACKAGES = [
+  { key: 'edr', name: 'Endpoint EDR', features: 'Web Access Control · Patch Mgmt · Vulnerability Manager · Device Isolation', seats: true },
+  { key: 'esc', name: 'Endpoint ESC', seats: true, trialHint: '9 of 10 trial sites remaining' },
+  { key: 'ies', name: 'Email Security (IES)' },
+  { key: 'tep', name: 'Total Email Protection', features: 'IES + SafeSend + Archive', note: 'Composite — usage reported per product' },
+  { key: 'sat', name: 'SAT', seats: true },
+  { key: 'archive', name: 'Archive', unavailable: "Not in Jade Operations Group's entitlements" },
+];
+const CUST_BILLING_MODES = ['Billed', 'Trial'];
+// The reseller's own entitlement ceiling — how many of their allotted packages remain to sell.
+const CUST_SELL_QUOTA = { available: 12, total: 19 };
+// Initial state mirrors the mockup: only ESC entitled, on a trial, 25 seats.
+const CUST_PKG_DEFAULTS = { selected: ['esc'], billing: { esc: 'Trial' }, seats: { esc: '25' } };
+
+// ── Scroll fade ──────────────────────────────────────────────────────────────
+// Instead of a hard clipped edge (or a divider line) where content scrolls, softly
+// fade whichever edge still has more to scroll. `bindScrollFade` masks the element and
+// toggles two vars the CSS reads (--fade-top / --fade-bottom); the mask region collapses
+// to 0 on an edge that's fully scrolled, so the fade only shows when it means something.
+function bindScrollFade(el) {
+  if (!el) return () => {};
+  el.classList.add('prov-scrollfade');
+  const update = () => {
+    el.style.setProperty('--fade-top', el.scrollTop > 1 ? '1' : '0');
+    el.style.setProperty('--fade-bottom', Math.ceil(el.scrollTop + el.clientHeight) < el.scrollHeight - 1 ? '1' : '0');
+  };
+  update();
+  el.addEventListener('scroll', update, { passive: true });
+  const ro = new ResizeObserver(update);
+  ro.observe(el);
+  return () => {
+    el.removeEventListener('scroll', update);
+    ro.disconnect();
+    el.classList.remove('prov-scrollfade');
+    el.style.removeProperty('--fade-top');
+    el.style.removeProperty('--fade-bottom');
+  };
+}
+
+// A callback ref: binds the fade when the scroll node mounts, cleans up when it unmounts.
+function useScrollFade() {
+  const cleanup = useRef(null);
+  return useCallback((node) => {
+    if (cleanup.current) { cleanup.current(); cleanup.current = null; }
+    if (node) cleanup.current = bindScrollFade(node);
+  }, []);
+}
+
+// The DS Modal owns its scrolling body, so we can't put a ref on it directly — this tiny
+// hidden anchor finds it (its own nearest .vds-modal__body ancestor) and fades it too.
+function ModalBodyScrollFade() {
+  const anchor = useRef(null);
+  useEffect(() => bindScrollFade(anchor.current?.closest('.vds-modal__body')), []);
+  return <span ref={anchor} aria-hidden style={{ display: 'none' }} />;
+}
+
+// One package row: select checkbox + billing-mode dropdown, with a feature blurb / composite
+// note, an est.-seats field, and a trial-site hint as the package calls for. An unentitled
+// package (Archive here) is shown but locked, with the reason inline.
+function PackageRow({ pkg, selected, billing, seats, onToggle, onBilling, onSeats }) {
+  const off = !!pkg.unavailable;
+  const showSeats = pkg.seats && !off;
+  const showTrial = billing === 'Trial' && pkg.trialHint && !off;
+  return (
+    <div className={['prov-pkg-card', selected && !off && 'prov-pkg-card--on', off && 'prov-pkg-card--off'].filter(Boolean).join(' ')}>
+      <div className="prov-pkg-card__top">
+        <Checkbox checked={selected && !off} disabled={off} onChange={() => onToggle(pkg.key)}>
+          <Heading level="subheading" as="span">{pkg.name}</Heading>
+        </Checkbox>
+        <div className="prov-pkg-card__billing">
+          {off ? (
+            <Text as="span" variant="detail" tone="subtle">Not available to sell</Text>
+          ) : (
+            <Select size="sm" value={billing} onChange={v => onBilling(pkg.key, v)} options={toOptions(CUST_BILLING_MODES)} aria-label={`Billing for ${pkg.name}`} />
+          )}
+        </div>
+      </div>
+      {pkg.features && <Text variant="detail" tone="muted" className="prov-pkg-card__sub">{pkg.features}</Text>}
+      {pkg.note && (
+        <span className="prov-pkg-card__note"><Info size={13} aria-hidden />{pkg.note}</span>
+      )}
+      {off && (
+        <span className="prov-pkg-card__note"><Info size={13} aria-hidden />{pkg.unavailable}</span>
+      )}
+      {(showSeats || showTrial) && (
+        <div className="prov-pkg-card__meta">
+          {showSeats && (
+            <label className="prov-seats">
+              <Text as="span" variant="detail" tone="muted">Est. seats</Text>
+              <Input size="sm" className="prov-seats__input" value={seats || ''} inputMode="numeric"
+                onChange={e => onSeats(pkg.key, e.target.value)} aria-label={`Estimated seats for ${pkg.name}`} />
+            </label>
+          )}
+          {showTrial && (
+            <span className="prov-pkg-card__trial"><AlertTriangle size={13} aria-hidden />{pkg.trialHint}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A selectable CARD radio — the whole tile is the control. Border-only when picked
+// (same restrained treatment as the package cards, so nothing dims the text). Real
+// native <input type="radio"> inside the <label>, so grouping + arrow-key nav + focus
+// come for free; the visible dot is decorative.
+function ChoiceCard({ name, value, checked, onChange, title, note, icon }) {
+  return (
+    <label className={['prov-choice', checked && 'prov-choice--on'].filter(Boolean).join(' ')}>
+      <input
+        type="radio" name={name} value={value} checked={checked}
+        onChange={() => onChange(value)} className="prov-choice__input"
+      />
+      <span className="prov-choice__dot" aria-hidden />
+      {icon && <span className="prov-choice__icon" aria-hidden>{icon}</span>}
+      <span className="prov-choice__text">
+        <Text as="span" className="prov-choice__title">{title}</Text>
+        {note && <Text as="span" variant="detail" tone="muted">{note}</Text>}
+      </span>
+    </label>
+  );
+}
+
+function AddCustomerFlow({ onClose, onSuccess, onSwitchToProduct, parentName }) {
+  // 1 = Details, 2 = Products, 3 = confirmation. The Stepper covers 1–2; the
+  // confirmation is the flow's outcome, not a step you fill in.
   const [step, setStep] = useState(1);
+  // Prototype: step 1 ships prefilled with a demo customer so you can jump straight to
+  // the packages step (and the summary line reads sensibly) without typing the whole form.
   const form = useForm({
-    subscriptionType: '', customerName: '', companyName: '',
-    address: '', address2: '', city: '', stateProvince: '', zip: '', country: '',
-    contactName: '', email: '', phone: '',
+    management: 'managed', billingType: 'Annual',
+    companyName: 'Vandelay Industries', address: '350 Fifth Avenue', address2: 'Suite 4200',
+    city: 'New York', stateProvince: 'NY', zip: '10118',
+    country: 'United States', timezone: 'America/New_York', language: 'English',
+    firstName: 'Art', lastName: 'Vandelay', email: 'art@vandelay.com', phone: '+1 (212) 555-0142',
   });
+  // Step 2 package selection.
+  const [pkgSel, setPkgSel] = useState(() => new Set(CUST_PKG_DEFAULTS.selected));
+  const [pkgBilling, setPkgBilling] = useState(CUST_PKG_DEFAULTS.billing);
+  const [pkgSeats, setPkgSeats] = useState(CUST_PKG_DEFAULTS.seats);
+  const [pkgFilter, setPkgFilter] = useState('');
+  const listFade = useScrollFade();
+  // Direction of the last step change, so the incoming step slides in the right way
+  // (forward = from the right, back = from the left).
+  const [dir, setDir] = useState('fwd');
+  const goStep = (n, d) => { setDir(d); setStep(n); };
 
-  const displayName = form.data.customerName || form.data.companyName || 'the customer';
+  const displayName = form.data.companyName || 'the customer';
   const formIsValid = form.isValid(CUSTOMER_REQUIRED);
+  // "Under <parent>" — names the account this customer is being created beneath.
+  const contextLine = parentName ? `Under ${parentName}` : undefined;
 
-  function handleSubmit() {
-    if (form.validate(CUSTOMER_REQUIRED)) setStep(2);
+  function goToProducts() {
+    if (form.validate(CUSTOMER_REQUIRED)) goStep(2, 'fwd');
   }
 
+  const billingFor = (k) => pkgBilling[k] || 'Billed';
+  const togglePkg = (k) => setPkgSel(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const setBilling = (k, v) => setPkgBilling(prev => ({ ...prev, [k]: v }));
+  const setSeats = (k, v) => setPkgSeats(prev => ({ ...prev, [k]: v.replace(/[^0-9]/g, '') }));
+  function resetPackages() {
+    setPkgSel(new Set(CUST_PKG_DEFAULTS.selected));
+    setPkgBilling(CUST_PKG_DEFAULTS.billing);
+    setPkgSeats(CUST_PKG_DEFAULTS.seats);
+    setPkgFilter('');
+  }
+
+  // The stepper doubles as back-navigation: a completed step is clickable.
+  const stepper = (
+    <div className="prov-stepper">
+      <Stepper
+        steps={CUSTOMER_STEPS}
+        current={step - 1}
+        onStepClick={(_s, i) => { if (i < step - 1) goStep(i + 1, 'back'); }}
+      />
+    </div>
+  );
+
+  // ── Step 2: entitle packages ──
   if (step === 2) {
+    const mgmtLabel = form.data.management === 'managed' ? 'Managed' : 'Unmanaged';
+    const summary = `${displayName} · ${mgmtLabel} · ${form.data.billingType}`;
+    const fq = pkgFilter.trim().toLowerCase();
+    const shownPkgs = CUST_PACKAGES.filter(p => !fq || p.name.toLowerCase().includes(fq));
+    const selArr = [...pkgSel];
+    const seatTotal = selArr.reduce((n, k) => n + (parseInt(pkgSeats[k], 10) || 0), 0);
+    const trialTotal = selArr.filter(k => billingFor(k) === 'Trial').length;
+    const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+    return (
+      <Modal
+        open
+        onClose={onClose}
+        className="prov-modal"
+        title="Add Customer"
+        description={summary}
+        footer={
+          <>
+            {/* Back is a nav action → pushed to the LEFT, away from the two commit actions;
+                all three are plain text now (the lone arrow read as odd). */}
+            <Button variant="ghost" tone="neutral" onClick={() => goStep(1, 'back')} style={{ marginRight: 'auto' }}>Back</Button>
+            <Button variant="ghost" tone="neutral" onClick={() => setStep(3)}>Skip</Button>
+            <Button onClick={() => setStep(3)}>Create Customer</Button>
+          </>
+        }
+      >
+        <ModalBodyScrollFade />
+        {stepper}
+        <div className="prov-pkg prov-step" key="step-products" data-dir={dir}>
+          <div className="prov-pkg__head">
+            <Text tone="muted">Select packages to provision.</Text>
+            {/* The reseller's remaining entitlement — how many packages they may still sell. */}
+            <Text as="span" variant="detail" tone="subtle" className="prov-pkg__quota">
+              You may sell <strong>{CUST_SELL_QUOTA.available}</strong> of {CUST_SELL_QUOTA.total}
+            </Text>
+          </div>
+
+          <Input
+            size="sm"
+            value={pkgFilter}
+            onChange={e => setPkgFilter(e.target.value)}
+            placeholder="Filter packages…"
+            aria-label="Filter packages"
+            leading={<Search size={16} aria-hidden />}
+            trailing={pkgFilter
+              ? <button type="button" className="prov-pkg__clear" aria-label="Clear filter" onClick={() => setPkgFilter('')}><X size={14} /></button>
+              : undefined}
+          />
+
+          <div className="prov-pkg__list" ref={listFade}>
+            {shownPkgs.length === 0 ? (
+              <Text tone="subtle" className="prov-pkg__empty">No packages match.</Text>
+            ) : shownPkgs.map(p => (
+              <PackageRow
+                key={p.key}
+                pkg={p}
+                selected={pkgSel.has(p.key)}
+                billing={billingFor(p.key)}
+                seats={pkgSeats[p.key]}
+                onToggle={togglePkg}
+                onBilling={setBilling}
+                onSeats={setSeats}
+              />
+            ))}
+          </div>
+
+          {/* Live tally of what's being provisioned. */}
+          <div className="prov-pkg__summary">
+            Selected: {plural(selArr.length, 'package')} · {seatTotal} est. seats · {plural(trialTotal, 'trial site')}
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  if (step === 3) {
     return (
       <ConfirmationHub
         title="Customer Added"
@@ -313,6 +566,7 @@ function AddCustomerFlow({ onClose, onSuccess, onSwitchToProduct }) {
             label: 'Add Another Customer',
             onClick: () => {
               form.reset();
+              resetPackages();
               setStep(1);
             },
           },
@@ -333,35 +587,50 @@ function AddCustomerFlow({ onClose, onSuccess, onSwitchToProduct }) {
       open
       onClose={onClose}
       title="Add Customer"
+      className="prov-modal"
+      description={contextLine}
       footer={
         <>
-          <Button variant="ghost" tone="neutral" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!formIsValid}>Create Customer</Button>
+          <Button variant="ghost" tone="neutral" onClick={onClose} style={{ marginRight: 'auto' }}>Cancel</Button>
+          <Button onClick={goToProducts} disabled={!formIsValid}>Next: Products</Button>
         </>
       }
     >
-      <div className="prov-stack">
-        {/* Subscription type + customer name — top row */}
-        <div className="prov-grid2">
-          <Field label="Subscription Type" error={form.touched.subscriptionType && form.errors.subscriptionType}>
-            <Select
-              value={form.data.subscriptionType}
-              onChange={v => form.pick('subscriptionType', v)}
-              placeholder="Select type"
-              options={toOptions(['Annual', 'Monthly', 'Prepaid', 'NFR'])}
-            />
-          </Field>
-          <Field label="Customer Name" error={form.touched.customerName && form.errors.customerName}>
-            <Input
-              value={form.data.customerName}
-              onChange={e => form.set('customerName', e.target.value)}
-              onBlur={() => form.blur('customerName')}
-              placeholder="Display name"
-            />
-          </Field>
+      <ModalBodyScrollFade />
+      {stepper}
+      <div className="prov-stack prov-step" key="step-details" data-dir={dir}>
+        {/* ── Relationship: how this customer is managed + how they're billed ── */}
+        <Heading level="subheading" as="h3">Relationship</Heading>
+
+        {/* Management — two side-by-side cards, each with its data-access explainer. */}
+        <div className="prov-choose">
+          <span className="prov-choose__label">Management</span>
+          <div className="prov-choose__grid" role="radiogroup" aria-label="Management">
+            {/* Icons match the managed/unmanaged glyphs in the customer-page table. */}
+            <ChoiceCard name="management" value="managed" title="Managed"
+              note="You see operational and security data"
+              icon={<ShieldCheck size={18} style={{ color: 'var(--vds-success)' }} />}
+              checked={form.data.management === 'managed'} onChange={v => form.pick('management', v)} />
+            <ChoiceCard name="management" value="unmanaged" title="Unmanaged"
+              note="You see business data only"
+              icon={<CaptionsOff size={18} style={{ color: 'var(--vds-ink-subtle)' }} />}
+              checked={form.data.management === 'unmanaged'} onChange={v => form.pick('management', v)} />
+          </div>
         </div>
 
-        <Heading level="subheading" as="h3" style={{ marginTop: 8 }}>Company Information</Heading>
+        {/* Billing Type — a 2×2 grid of compact cards; NFR shows what's left to allot. */}
+        <div className="prov-choose">
+          <span className="prov-choose__label">Billing Type</span>
+          <div className="prov-choose__grid prov-choose__grid--2x2" role="radiogroup" aria-label="Billing type">
+            {BILLING_TYPES.map(t => (
+              <ChoiceCard key={t} name="billingType" value={t} title={t}
+                note={t === 'NFR' ? `${NFR_AVAILABLE} available` : undefined}
+                checked={form.data.billingType === t} onChange={v => form.pick('billingType', v)} />
+            ))}
+          </div>
+        </div>
+
+        <Heading level="subheading" as="h3" style={{ marginTop: 8 }}>Company</Heading>
 
         <Field label="Company Name" error={form.touched.companyName && form.errors.companyName}>
           <Input value={form.data.companyName} onChange={e => form.set('companyName', e.target.value)} onBlur={() => form.blur('companyName')} placeholder="Legal company name" />
@@ -388,12 +657,25 @@ function AddCustomerFlow({ onClose, onSuccess, onSwitchToProduct }) {
             <Select value={form.data.country} onChange={v => form.pick('country', v)} placeholder="Select country" options={toOptions(COUNTRIES)} />
           </Field>
         </div>
+        <div className="prov-grid2">
+          <Field label="Timezone">
+            <Select value={form.data.timezone} onChange={v => form.pick('timezone', v)} options={toOptions(TIMEZONES)} />
+          </Field>
+          <Field label="Language">
+            <Select value={form.data.language} onChange={v => form.pick('language', v)} options={toOptions(LANGUAGES)} />
+          </Field>
+        </div>
 
-        <Heading level="subheading" as="h3" style={{ marginTop: 8 }}>Primary Contact Information</Heading>
+        <Heading level="subheading" as="h3" style={{ marginTop: 8 }}>Primary Contact</Heading>
 
-        <Field label="Contact Name" error={form.touched.contactName && form.errors.contactName}>
-          <Input value={form.data.contactName} onChange={e => form.set('contactName', e.target.value)} onBlur={() => form.blur('contactName')} placeholder="Full name" />
-        </Field>
+        <div className="prov-grid2">
+          <Field label="First Name" error={form.touched.firstName && form.errors.firstName}>
+            <Input value={form.data.firstName} onChange={e => form.set('firstName', e.target.value)} onBlur={() => form.blur('firstName')} placeholder="First name" />
+          </Field>
+          <Field label="Last Name" error={form.touched.lastName && form.errors.lastName}>
+            <Input value={form.data.lastName} onChange={e => form.set('lastName', e.target.value)} onBlur={() => form.blur('lastName')} placeholder="Last name" />
+          </Field>
+        </div>
         <div className="prov-grid2">
           <Field label="Email" error={form.touched.email && form.errors.email}>
             <Input type="email" value={form.data.email} onChange={e => form.set('email', e.target.value)} onBlur={() => form.blur('email')} placeholder="contact@company.com" />
@@ -903,6 +1185,7 @@ export function ProvisioningModal({ type: initialType, contextEntity, availableT
         onClose={onClose}
         onSuccess={onSuccess}
         onSwitchToProduct={switchToProduct}
+        parentName={contextEntity?.name}
       />
     );
   }

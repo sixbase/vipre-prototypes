@@ -112,7 +112,7 @@ export function useBrand() {
         box's width tween on one curve so they land together. Resellers fade + collapse the
         name beside a fixed mark. v1 shells (?view=msp / ?view=shell) pass no `collapsed`, so
         they keep the old static lockup untouched. ---- */
-const LOGO_H = 20
+const LOGO_H = 17
 const VIPRE_WORD_W = (LOGO_H * 220) / 40 // wordmark viewBox aspect at LOGO_H tall
 const VIPRE_MARK_W = (LOGO_H * 47) / 40  // mark viewBox aspect — the collapsed width
 
